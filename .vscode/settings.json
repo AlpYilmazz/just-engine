@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "iterator": "c",
+        "xhash": "c",
+        "xtree": "c",
+        "stdlib.h": "c",
+        "chrono": "c",
+        "xiosbase": "c",
+        "asset.h": "c",
+        "vector": "c",
+        "xstring": "c",
+        "justengine.h": "c",
+        "raylib.h": "c"
+    }
+}
