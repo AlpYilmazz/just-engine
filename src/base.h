@@ -13,6 +13,7 @@ typedef     long long               int64;
 typedef     float                   float32;
 typedef     double                  float64;
 
+typedef     unsigned char           byte;
 // typedef     uint8                   bool;
 
 #define MAX(a, b) ((a >= b) ? a : b)

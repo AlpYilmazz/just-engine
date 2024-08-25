@@ -44,7 +44,7 @@ TextureHandle just_engine_asyncio_file_load_image(
 ) {
     TextureHandle handle = just_engine_texture_assets_reserve_texture_slot(texture_assets);
 
-    int path_len =
+    uint32 path_len =
         strlen(server->asset_folder)    // "assets"
         + 1                             // '/'
         + strlen(filepath)              // "image.png"

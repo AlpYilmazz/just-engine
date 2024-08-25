@@ -10,6 +10,7 @@
         "vector": "c",
         "xstring": "c",
         "justengine.h": "c",
-        "raylib.h": "c"
+        "raylib.h": "c",
+        "events.h": "c"
     }
 }

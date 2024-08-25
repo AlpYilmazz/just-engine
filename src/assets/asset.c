@@ -3,17 +3,18 @@
 
 #include "raylib.h"
 
+#include "base.h"
 #include "asset.h"
 
 const AssetHandle PRIMARY_ASSET_HANDLE = {0};
 const TextureHandle PRIMARY_TEXTURE_HANDLE = {0};
-const unsigned char DEFAULT_IMAGE_DATA[4] = {255, 0, 255, 255};
+const uint8 DEFAULT_IMAGE_DATA[4] = {255, 0, 255, 255};
 
 AssetHandle primary_handle() {
     return PRIMARY_ASSET_HANDLE;
 }
 
-AssetHandle new_handle(int id) {
+AssetHandle new_handle(uint32 id) {
     return (AssetHandle) { id };
 }
 
@@ -21,7 +22,7 @@ TextureHandle primary_texture_handle() {
     return PRIMARY_TEXTURE_HANDLE;
 }
 
-TextureHandle new_texture_handle(int id) {
+TextureHandle new_texture_handle(uint32 id) {
     return (TextureHandle) { id };
 }
 
@@ -70,7 +71,7 @@ TextureHandle just_engine_texture_assets_reserve_texture_slot(TextureAssets* ass
         assets->slots[assets->next_slot_available_bump] = true;
         return new_texture_handle(assets->next_slot_available_bump++);
     }
-    for (int i = 0; i < TEXTURE_SLOTS; i++) {
+    for (uint32 i = 0; i < TEXTURE_SLOTS; i++) {
         if (!assets->slots[i]) {
             assets->slots[i] = true;
             return new_texture_handle(i);

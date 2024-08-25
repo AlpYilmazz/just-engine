@@ -62,29 +62,61 @@
 
 #include "justengine.h"
 
-const unsigned char __DEFAULT_IMAGE_DATA[4] = {255, 0, 255, 255};
-
 int main() {
 
-    Events_TextureAssetEvent events = {0};
-    printf("Count: %d\n", just_engine_events_texture_asset_event_this_frame_buffer_count(&events));
-
-    TextureAssets texture_assets = {0};
-
-    TextureHandle handle = just_engine_texture_assets_reserve_texture_slot(&texture_assets);
-    Image image = {
-        .data = (void*)&__DEFAULT_IMAGE_DATA,
-        .width = 1,
-        .height = 1,
-        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
-        .mipmaps = 1
+    Ray2 ray = {
+        .position = {0, 0},
+        .direction = {1, 0},
     };
-    just_engine_texture_assets_put_image(&texture_assets, handle, image);
 
-    Image* image_get = just_engine_texture_assets_get_image_unchecked(&texture_assets, handle);
-    printf("Image: %d %d\n", image_get->width, image_get->height);
+    #define CIRCLE_TEST_CASES 9
+    CircleCollider circle_cases[CIRCLE_TEST_CASES] = {
+        {
+            .center = {-5, 1},
+            .radius = 2,
+        },
+        {
+            .center = {-5, 1},
+            .radius = 7,
+        },
+        {
+            .center = {-5, 1},
+            .radius = 100,
+        },
 
-    just_engine_texture_assets_unload_image(&texture_assets, handle);
+        {
+            .center = {5, 3},
+            .radius = 2,
+        },
+        {
+            .center = {5, 3},
+            .radius = 4,
+        },
+        {
+            .center = {5, 3},
+            .radius = 100,
+        },
+
+        {
+            .center = {15, 1},
+            .radius = 2,
+        },
+        {
+            .center = {15, 1},
+            .radius = 7,
+        },
+        {
+            .center = {15, 1},
+            .radius = 100,
+        },
+    };
+
+    for (int i = 0; i < CIRCLE_TEST_CASES; i++) {
+        CircleCollider circle = circle_cases[i];
+        bool rayhit = just_engine_check_rayhit_circle(ray, circle, 10);
+        printf("%d - Circle: {%d, %d} (%d)    ->    Rayhit: %s\n"
+            , i, (int)circle.center.x, (int)circle.center.y, (int)circle.radius, rayhit ? "true" : "false");
+    }
 
     return 0;
 }

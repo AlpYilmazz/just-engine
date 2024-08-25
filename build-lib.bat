@@ -20,6 +20,7 @@ set COMPILE=^
     %SRC_DIR%/events/events.c^
     %SRC_DIR%/assets/asset.c^
     %SRC_DIR%/assets/assetserver.c^
+    %SRC_DIR%/physics/collision.c^
     %SRC_DIR%/lib.c
 
 mkdir %LIB_DIR%

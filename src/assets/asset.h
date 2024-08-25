@@ -1,24 +1,24 @@
 #pragma once
 
-#include <stdbool.h>
-
 #include "raylib.h"
+
+#include "base.h"
 
 #define TEXTURE_SLOTS 100
 
 typedef struct {
-    int id;
+    uint32 id;
 } AssetHandle;
 
 AssetHandle primary_handle();
-AssetHandle new_handle(int id);
+AssetHandle new_handle(uint32 id);
 
 typedef struct {
-    int id;
+    uint32 id;
 } TextureHandle;
 
 TextureHandle primary_texture_handle();
-TextureHandle new_texture_handle(int id);
+TextureHandle new_texture_handle(uint32 id);
 
 typedef struct {
     bool exists;
@@ -31,7 +31,7 @@ typedef struct {
 } TextureResponse;
 
 typedef struct {
-    int next_slot_available_bump;
+    uint32 next_slot_available_bump;
     bool slots[TEXTURE_SLOTS];
     bool image_ready[TEXTURE_SLOTS];
     bool texture_ready[TEXTURE_SLOTS];
