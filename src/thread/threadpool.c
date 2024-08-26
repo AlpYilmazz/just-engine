@@ -3,16 +3,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "task.h"
+
 // DO NOT INCLUDE
 // ThreadPool is opeque
-// #include "asyncio.h"
-
-typedef void TaskArgVoid;
-
-typedef struct {
-    void (*handler)(TaskArgVoid*);
-    TaskArgVoid* arg;
-} Task;
+// #include "threadpool.h"
 
 typedef struct {
     unsigned int capacity;

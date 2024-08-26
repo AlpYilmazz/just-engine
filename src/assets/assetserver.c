@@ -4,7 +4,7 @@
 
 #include "raylib.h"
 
-#include "threadpool/threadpool.h"
+#include "thread/threadpool.h"
 
 #include "asset.h"
 

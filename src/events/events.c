@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "base.h"
+#include "thread/threadsync.h"
 #include "assets/asset.h"
 
 #include "events.h"
@@ -57,38 +58,51 @@ void event_buffer_texture_asset_event_clear(EventBuffer_TextureAssetEvent* buffe
 
 // TextureAssetEvents
 
-uint32 just_engine_events_texture_asset_event_this_frame_buffer_count(Events_TextureAssetEvent* events) {
-    return events->event_buffers[events->this_frame_ind].count;
-}
-
 void just_engine_events_texture_asset_event_send_single(Events_TextureAssetEvent* events, TextureAssetEvent event) {
-    event_buffer_texture_asset_event_push_back(&events->event_buffers[events->this_frame_ind], event);
+    srw_lock_acquire_exclusive(events->rw_lock);
+        event_buffer_texture_asset_event_push_back(&events->event_buffers[events->this_frame_ind], event);
+    srw_lock_release_exclusive(events->rw_lock);
 }
 
 void just_engine_events_texture_asset_event_send_batch(Events_TextureAssetEvent* events, TextureAssetEvent* event_list, uint32 count) {
-    event_buffer_texture_asset_event_push_back_batch(&events->event_buffers[events->this_frame_ind], event_list, count);
+    srw_lock_acquire_exclusive(events->rw_lock);
+        event_buffer_texture_asset_event_push_back_batch(&events->event_buffers[events->this_frame_ind], event_list, count);
+    srw_lock_release_exclusive(events->rw_lock);
 }
 
 void just_engine_events_texture_asset_event_swap_buffers(Events_TextureAssetEvent* events) {
-    events->this_frame_ind = !events->this_frame_ind;
-    event_buffer_texture_asset_event_clear(&events->event_buffers[events->this_frame_ind]);
+    srw_lock_acquire_exclusive(events->rw_lock);
+        events->this_frame_ind = !events->this_frame_ind;
+        event_buffer_texture_asset_event_clear(&events->event_buffers[events->this_frame_ind]);
+    srw_lock_release_exclusive(events->rw_lock);
 }
 
 // TextureAssetEventsIter
 
-EventsIter_TextureAssetEvent just_engine_events_iter_texture_asset_events_new(Events_TextureAssetEvent* events, uint32 offset) {
+EventsIter_TextureAssetEvent just_engine_events_iter_texture_asset_events_begin_iter(Events_TextureAssetEvent* events, uint32 offset) {
+    srw_lock_acquire_shared(events->rw_lock);
     return (EventsIter_TextureAssetEvent) {
         .index = offset,
         .events = events,
     };
 }
 
-EventsIter_TextureAssetEvent just_engine_events_iter_texture_asset_events_new_from_start(Events_TextureAssetEvent* events) {
-    return just_engine_events_iter_texture_asset_events_new(events, 0);
+EventsIter_TextureAssetEvent just_engine_events_iter_texture_asset_events_begin_iter_all(Events_TextureAssetEvent* events) {
+    return just_engine_events_iter_texture_asset_events_begin_iter(events, 0);
+}
+
+/**
+ * 
+ * @return offset for next frame
+ */
+uint32 just_engine_events_iter_texture_asset_events_end_iter(EventsIter_TextureAssetEvent* iter) {
+    uint32 count = iter->events->event_buffers[iter->events->this_frame_ind].count;
+    srw_lock_release_shared(iter->events->rw_lock);
+    return count;
 }
 
 bool just_engine_events_iter_texture_asset_events_has_next(EventsIter_TextureAssetEvent* iter) {
-    return iter->index < iter->events->event_buffers[0].count + iter->events->event_buffers[1].count;
+        return iter->index < iter->events->event_buffers[0].count + iter->events->event_buffers[1].count;
 }
 
 TextureAssetEvent just_engine_events_iter_texture_asset_events_read_next(EventsIter_TextureAssetEvent* iter) {
@@ -129,24 +143,24 @@ TextureAssetEvent just_engine_events_iter_texture_asset_events_consume_next(Even
 
 static uint32 LOCAL_offset = 0;
 void test_read_events_system(Events_TextureAssetEvent* RES_texture_asset_events) {
-    EventsIter_TextureAssetEvent events_iter = just_engine_events_iter_texture_asset_events_new(RES_texture_asset_events, LOCAL_offset);
+    EventsIter_TextureAssetEvent events_iter = just_engine_events_iter_texture_asset_events_begin_iter(RES_texture_asset_events, LOCAL_offset);
     while (just_engine_events_iter_texture_asset_events_has_next(&events_iter)) {
         TextureAssetEvent event = just_engine_events_iter_texture_asset_events_read_next(&events_iter);
         printf("Event:\n -- Handle: %d\n -- Type: %s\n -- Consumed: %d"
                         , event.handle.id, event.type, event.consumed);
     }
-    LOCAL_offset = just_engine_texture_asset_events_this_frame_buffer_count(RES_texture_asset_events);
+    LOCAL_offset = just_engine_events_iter_texture_asset_events_end_iter(&events_iter);
 }
 
 static uint32 LOCAL_offset_2 = 0;
 void test_consume_events_system(Events_TextureAssetEvent* RES_texture_asset_events) {
-    EventsIter_TextureAssetEvent events_iter = just_engine_events_iter_texture_asset_events_new(RES_texture_asset_events, LOCAL_offset_2);
+    EventsIter_TextureAssetEvent events_iter = just_engine_events_iter_texture_asset_events_begin_iter(RES_texture_asset_events, LOCAL_offset_2);
     while (just_engine_events_iter_texture_asset_events_has_next(&events_iter)) {
         TextureAssetEvent event = just_engine_events_iter_texture_asset_events_consume_next(&events_iter);
         printf("Event:\n -- Handle: %d\n -- Type: %s\n -- Consumed: %d"
                         , event.handle.id, event.type, event.consumed);
     }
-    LOCAL_offset_2 = just_engine_texture_asset_events_this_frame_buffer_count(RES_texture_asset_events);
+    LOCAL_offset_2 = just_engine_events_iter_texture_asset_events_end_iter(&events_iter);
 }
 
 void test_write_events_system(Events_TextureAssetEvent* RES_texture_asset_events) {

@@ -35,6 +35,7 @@ typedef struct {
     bool slots[TEXTURE_SLOTS];
     bool image_ready[TEXTURE_SLOTS];
     bool texture_ready[TEXTURE_SLOTS];
+    bool image_changed[TEXTURE_SLOTS];
     Image images[TEXTURE_SLOTS];
     Texture textures[TEXTURE_SLOTS];
 } TextureAssets;

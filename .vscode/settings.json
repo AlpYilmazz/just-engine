@@ -11,6 +11,10 @@
         "xstring": "c",
         "justengine.h": "c",
         "raylib.h": "c",
-        "events.h": "c"
+        "events.h": "c",
+        "format": "c",
+        "xutility": "c",
+        "system_error": "c",
+        "threadsync.h": "c"
     }
 }

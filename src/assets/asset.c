@@ -132,6 +132,19 @@ Image* just_engine_texture_assets_get_image_unchecked(TextureAssets* assets, Tex
     return &assets->images[handle.id];
 }
 
+ImageResponse just_engine_texture_assets_get_image_mut(TextureAssets* assets, TextureHandle handle) {
+    if (assets->image_ready[handle.id]) {
+        assets->image_changed[handle.id] = true;
+        return valid_image_response(&assets->images[handle.id]);
+    }
+    return null_image_response();
+}
+
+Image* just_engine_texture_assets_get_image_unchecked_mut(TextureAssets* assets, TextureHandle handle) {
+    assets->image_changed[handle.id] = true;
+    return &assets->images[handle.id];
+}
+
 // -- GET IMAGE -- END --
 
 // -- GET TEXTURE

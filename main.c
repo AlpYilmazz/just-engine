@@ -62,8 +62,7 @@
 
 #include "justengine.h"
 
-int main() {
-
+void test_rayhit() {
     Ray2 ray = {
         .position = {0, 0},
         .direction = {1, 0},
@@ -116,6 +115,109 @@ int main() {
         bool rayhit = just_engine_check_rayhit_circle(ray, circle, 10);
         printf("%d - Circle: {%d, %d} (%d)    ->    Rayhit: %s\n"
             , i, (int)circle.center.x, (int)circle.center.y, (int)circle.radius, rayhit ? "true" : "false");
+    }
+}
+
+int main() {
+
+    InitWindow(1000, 1000, "Test");
+    SetTargetFPS(60);
+
+    Camera2D camera = {0};
+    camera.zoom = 1.0;
+    camera.offset = (Vector2) {
+        .x = 1000 / 2.0,
+        .y = 1000 / 2.0,
+    };
+
+    Texture fire_texture = LoadTexture("test-assets\\fire.png");
+    Vector2 position = { 300, 300 };
+    Vector2 size = { 490 * 0.1, 970 * 0.1 };
+    Vector2 origin = {
+        .x = size.x * 0.5, // size.x * 0.5,
+        .y = size.y, // size.y * 0.5,
+    };
+    float32 rotation = 0.0;
+
+    while (!WindowShouldClose()) {
+
+        float32 delta_time = GetFrameTime();
+
+        if (!IsKeyDown(KEY_SPACE)) {
+            rotation += 20.0 * delta_time;
+            rotation -= (rotation > 360.0) ? 360.0 : 0.0;
+        }
+
+        if (IsKeyPressed(KEY_ENTER)) {
+            rotation = 0.0;
+        }
+
+        BeginDrawing();
+        ClearBackground(WHITE);
+            BeginMode2D(camera);
+
+                DrawTexturePro(
+                    fire_texture,
+                    (Rectangle) {0, 0, fire_texture.width, fire_texture.height},
+                    (Rectangle) {
+                        .x = position.x,
+                        .y = position.y,
+                        .width = size.x,
+                        .height = size.y,
+                    },
+                    origin,
+                    rotation,
+                    WHITE
+                );
+
+                DrawTexturePro(
+                    fire_texture,
+                    (Rectangle) {0, 0, -fire_texture.width, fire_texture.height},
+                    (Rectangle) {
+                        .x = -position.x,
+                        .y = position.y,
+                        .width = size.x,
+                        .height = size.y,
+                    },
+                    (Vector2) {0, 0},
+                    0,
+                    WHITE
+                );
+
+                DrawTexturePro(
+                    fire_texture,
+                    (Rectangle) {0, 0, fire_texture.width, -fire_texture.height},
+                    (Rectangle) {
+                        .x = position.x,
+                        .y = -position.y,
+                        .width = size.x,
+                        .height = size.y,
+                    },
+                    (Vector2) {0, 0},
+                    0,
+                    WHITE
+                );
+
+                DrawTexturePro(
+                    fire_texture,
+                    (Rectangle) {0, 0, -fire_texture.width, -fire_texture.height},
+                    (Rectangle) {
+                        .x = -position.x,
+                        .y = -position.y,
+                        .width = size.x,
+                        .height = size.y,
+                    },
+                    (Vector2) {0, 0},
+                    0,
+                    WHITE
+                );
+
+                DrawCircleV(position, 10, LIME); // tex origin
+                DrawCircle(0, 0, 10, RED); // origin
+
+            EndMode2D();
+        EndDrawing();
+
     }
 
     return 0;
