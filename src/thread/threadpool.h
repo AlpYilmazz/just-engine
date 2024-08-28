@@ -1,11 +1,6 @@
 #pragma once
 
-typedef void TaskArgVoid;
-
-typedef struct {
-    void (*handler)(TaskArgVoid*);
-    TaskArgVoid* arg;
-} Task;
+#include "task.h"
 
 typedef enum {
     // NO_SHUTDOWN = 0

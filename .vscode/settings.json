@@ -15,6 +15,23 @@
         "format": "c",
         "xutility": "c",
         "system_error": "c",
-        "threadsync.h": "c"
+        "threadsync.h": "c",
+        "array": "c",
+        "forward_list": "c",
+        "initializer_list": "c",
+        "list": "c",
+        "bit": "c",
+        "charconv": "c",
+        "compare": "c",
+        "cstddef": "c",
+        "limits": "c",
+        "memory": "c",
+        "mutex": "c",
+        "sstream": "c",
+        "type_traits": "c",
+        "xlocale": "c",
+        "xlocbuf": "c",
+        "xlocmon": "c",
+        "xloctime": "c"
     }
 }
