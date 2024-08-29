@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <assert.h>
 
 #include "raylib.h"
@@ -61,7 +62,6 @@ void SYSTEM_check_mutated_images(
 }
 
 // --------------------------------------------------
-static uint32 LOCAL_image_loaded_events_offset = 0;
 /**
  * EXTRACT_RENDER
  */
@@ -69,9 +69,14 @@ void SYSTEM_load_textures_for_loaded_or_changed_images(
     TextureAssets* RES_texture_assets,
     Events_TextureAssetEvent* RES_texture_asset_events
 ) {
+    static uint32 LOCAL_image_loaded_events_offset = 0;
+
+    printf("LOCAL_image_loaded_events_offset: %d\n", LOCAL_image_loaded_events_offset);
     EventsIter_TextureAssetEvent events_iter = just_engine_events_iter_texture_asset_events_begin_iter(RES_texture_asset_events, LOCAL_image_loaded_events_offset);
+    printf("1\n");
 
     while (just_engine_events_iter_texture_asset_events_has_next(&events_iter)) {
+        printf("__iter\n");
         TextureAssetEvent event = just_engine_events_iter_texture_asset_events_read_next(&events_iter);
         switch (event.type) {
         case AssetEvent_Changed:
@@ -81,8 +86,11 @@ void SYSTEM_load_textures_for_loaded_or_changed_images(
             just_engine_texture_assets_load_texture_uncheched(RES_texture_assets, event.handle);
         }
     }
+    printf("2\n");
 
     LOCAL_image_loaded_events_offset = just_engine_events_iter_texture_asset_events_end_iter(&events_iter);
+    
+    printf("3\n");
 }
 
 /**
@@ -147,7 +155,7 @@ typedef struct {
     TextureHandle texture;
     Color tint;
     Rectangle source;
-    SpriteTransform transform;
+    // SpriteTransform transform;
     uint32 z_index;
     // -- render end
     bool visible;
@@ -157,8 +165,72 @@ typedef struct {
 typedef struct {
     uint32 count;
     uint32 capacity;
+    uint32 free_count;
+    bool* slots;
+    SpriteTransform* transforms;
     Sprite* sprites;
-} SpriteList;
+} SpriteStore;
+
+typedef struct {
+    uint32 id;
+} EntityId;
+
+EntityId new_entity_id(uint32 id) {
+    return (EntityId) { id };
+}
+
+EntityId spawn_sprite(
+    SpriteStore* sprite_store,
+    SpriteTransform transform,
+    Sprite sprite
+) {
+    uint32 entity_id;
+
+    #define INITIAL_CAPACITY 100
+    #define GROWTH_FACTOR 2
+
+    if (sprite_store->capacity == 0) {
+        sprite_store->capacity = INITIAL_CAPACITY;
+
+        sprite_store->slots = malloc(sprite_store->capacity * sizeof(bool));
+        sprite_store->transforms = malloc(sprite_store->capacity * sizeof(SpriteTransform));
+        sprite_store->sprites = malloc(sprite_store->capacity * sizeof(Sprite));
+    }
+    else if (sprite_store->count == sprite_store->capacity) {
+        if (sprite_store->free_count > 0) {
+            for (uint32 i = 0; i < sprite_store->count; i++) {
+                if (!sprite_store->slots[i]) {
+                    sprite_store->free_count--;
+                    entity_id = i;
+                    goto SET_ENTITY_AND_RETURN;
+                }
+            }
+        }
+
+        sprite_store->capacity = GROWTH_FACTOR * sprite_store->capacity;
+
+        sprite_store->slots = realloc(sprite_store->slots, sprite_store->capacity * sizeof(bool));
+        sprite_store->transforms = realloc(sprite_store->transforms, sprite_store->capacity * sizeof(SpriteTransform));
+        sprite_store->sprites = realloc(sprite_store->sprites, sprite_store->capacity * sizeof(Sprite));
+    }
+
+    entity_id = sprite_store->count;
+    sprite_store->count++;
+
+    #undef INITIAL_CAPACITY
+    #undef GROWTH_FACTOR
+
+    SET_ENTITY_AND_RETURN:
+    sprite_store->slots[entity_id] = true;
+    sprite_store->sprites[entity_id] = sprite;
+    sprite_store->transforms[entity_id] = transform;
+    return new_entity_id(entity_id);
+}
+
+void despawn_sprite(SpriteStore* sprite_store, EntityId entity) {
+    sprite_store->slots[entity.id] = false;
+    sprite_store->free_count++;
+}
 
 Vector2 calculate_relative_origin_from_anchor(Anchor anchor, Vector2 size) {
     switch (anchor.type) {
@@ -221,25 +293,25 @@ Vector2 calculate_relative_origin_from_anchor(Anchor anchor, Vector2 size) {
     return (Vector2) {0};
 }
 
-void queue_sprite_for_render(SpriteList* sprite_list, Sprite sprite) {
-    #define INITIAL_CAPACITY 32
-    #define GROWTH_FACTOR 2
+// void queue_sprite_for_render(SpriteStore* sprite_list, Sprite sprite) {
+//     #define INITIAL_CAPACITY 32
+//     #define GROWTH_FACTOR 2
 
-    if (sprite_list->capacity == 0) {
-        sprite_list->capacity = INITIAL_CAPACITY;
-        sprite_list->sprites = malloc(sprite_list->capacity * sizeof(*&sprite));
-    }
-    else if (sprite_list->count == sprite_list->capacity) {
-        sprite_list->capacity = GROWTH_FACTOR * sprite_list->capacity;
-        sprite_list->sprites = realloc(sprite_list->sprites, sprite_list->capacity * sizeof(*&sprite));
-    }
+//     if (sprite_list->capacity == 0) {
+//         sprite_list->capacity = INITIAL_CAPACITY;
+//         sprite_list->sprites = malloc(sprite_list->capacity * sizeof(*&sprite));
+//     }
+//     else if (sprite_list->count == sprite_list->capacity) {
+//         sprite_list->capacity = GROWTH_FACTOR * sprite_list->capacity;
+//         sprite_list->sprites = realloc(sprite_list->sprites, sprite_list->capacity * sizeof(*&sprite));
+//     }
 
-    sprite_list->sprites[sprite_list->count] = sprite;
-    sprite_list->count++;
+//     sprite_list->sprites[sprite_list->count] = sprite;
+//     sprite_list->count++;
 
-    #undef INITIAL_CAPACITY
-    #undef GROWTH_FACTOR
-}
+//     #undef INITIAL_CAPACITY
+//     #undef GROWTH_FACTOR
+// }
 
 void render_sprites_reserve_total(SortedRenderSprites* render_sprites, uint32 capacity) {
     if (render_sprites->capacity < capacity) {
@@ -271,29 +343,32 @@ void render_sprites_z_index_sort(SortedRenderSprites* render_sprites) {
     }
 }
 
-RenderSprite extract_render_sprite(Sprite* sprite) {
+RenderSprite extract_render_sprite(SpriteTransform* transform, Sprite* sprite) {
     return (RenderSprite) {
         .texture = sprite->texture,
         .tint = sprite->tint,
         .source = sprite->source,
-        .transform = sprite->transform,
+        .transform = *transform,
         .z_index = sprite->z_index,
     };
 }
 
 void SYSTEM_cull_and_sort_sprites(
-    SpriteList* sprite_list,
+    SpriteStore* sprite_store,
     SortedRenderSprites* render_sprites
 ) {
-    render_sprites_reserve_total(render_sprites, sprite_list->count);
+    render_sprites_reserve_total(render_sprites, sprite_store->count);
     
+    SpriteTransform* transform;
     Sprite* sprite;
-    for (uint32 i = 0; i < sprite_list->count; i++) {
-        sprite = &sprite_list->sprites[i];
+    for (uint32 i = 0; i < sprite_store->count; i++) {
+        transform = &sprite_store->transforms[i];
+        sprite = &sprite_store->sprites[i];
+
         if (sprite->visible && sprite->camera_visible) {
             render_sprites_push_back_unchecked(
                 render_sprites,
-                extract_render_sprite(sprite)
+                extract_render_sprite(transform, sprite)
             );
         }
     }

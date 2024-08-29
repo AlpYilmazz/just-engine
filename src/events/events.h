@@ -28,6 +28,7 @@ typedef struct {
     uint8 this_frame_ind;
 } Events_TextureAssetEvent;
 
+Events_TextureAssetEvent just_engine_events_texture_asset_event_create();
 void just_engine_events_texture_asset_event_send_single(Events_TextureAssetEvent* events, TextureAssetEvent event);
 void just_engine_events_texture_asset_event_send_batch(Events_TextureAssetEvent* events, TextureAssetEvent* event_list, uint32 count);
 void just_engine_events_texture_asset_event_swap_buffers(Events_TextureAssetEvent* events);

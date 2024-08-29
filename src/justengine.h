@@ -20,10 +20,23 @@ typedef     long long               int64;
 typedef     float                   float32;
 typedef     double                  float64;
 
+typedef     unsigned char           byte;
 // typedef     uint8                   bool;
+
+#define STRUCT_ZERO_INIT {0}
+#define LAZY_INIT {0}
+#define LATER_INIT {0}
+#define UNINIT {0}
 
 #define MAX(a, b) ((a >= b) ? a : b)
 #define MIN(a, b) ((a <= b) ? a : b)
+
+#define SIGNOF(a) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
+
+typedef struct {
+    uint32 width;
+    uint32 height;
+} ScreenSize;
 
 #endif // __HEADER_BASE
 
@@ -162,21 +175,6 @@ void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle
 
 #endif // __HEADER_ASSET_ASSET
 
-#define __HEADER_ASSET_ASSETSERVER
-#ifdef __HEADER_ASSET_ASSETSERVER
-
-typedef struct {
-    const char const* asset_folder;
-} FileAssetServer;
-
-TextureHandle just_engine_asyncio_file_load_image(
-    TextureAssets* texture_assets,
-    FileAssetServer* server,
-    const char* filepath
-);
-
-#endif // __HEADER_ASSET_ASSETSERVER
-
 #define __HEADER_EVENTS_EVENTS
 #ifdef __HEADER_EVENTS_EVENTS
 
@@ -204,6 +202,7 @@ typedef struct {
     uint8 this_frame_ind;
 } Events_TextureAssetEvent;
 
+Events_TextureAssetEvent just_engine_events_texture_asset_event_create();
 void just_engine_events_texture_asset_event_send_single(Events_TextureAssetEvent* events, TextureAssetEvent event);
 void just_engine_events_texture_asset_event_send_batch(Events_TextureAssetEvent* events, TextureAssetEvent* event_list, uint32 count);
 void just_engine_events_texture_asset_event_swap_buffers(Events_TextureAssetEvent* events);
@@ -225,6 +224,23 @@ TextureAssetEvent just_engine_events_iter_texture_asset_events_read_next(EventsI
 TextureAssetEvent just_engine_events_iter_texture_asset_events_consume_next(EventsIter_TextureAssetEvent* iter);
 
 #endif // __HEADER_EVENTS_EVENTS
+
+#define __HEADER_ASSET_ASSETSERVER
+#ifdef __HEADER_ASSET_ASSETSERVER
+
+typedef struct {
+    const char const* asset_folder;
+} FileAssetServer;
+
+TextureHandle just_engine_asyncio_file_load_image(
+    ThreadPool* RES_threadpool,
+    Events_TextureAssetEvent* RES_texture_assets_events,
+    TextureAssets* RES_texture_assets,
+    FileAssetServer* server,
+    const char* filepath
+);
+
+#endif // __HEADER_ASSET_ASSETSERVER
 
 #define __HEADER_PHYSICS_COLLISION
 #ifdef __HEADER_PHYSICS_COLLISION
@@ -278,3 +294,131 @@ Vector2 arrow_get_head(Arrow arrow);
 void arrow_draw(Arrow arrow, float32 thick, Color color);
 
 #endif // __HEADER_SHAPES_SHAPES
+
+#define __HEADER_LIB
+#ifdef __HEADER_LIB
+
+typedef enum {
+    Anchor_Top_Left, // DEFAULT
+    Anchor_Top_Right,
+    Anchor_Bottom_Left,
+    Anchor_Bottom_Right,
+
+    Anchor_Top_Mid,
+    Anchor_Bottom_Mid,
+    Anchor_Left_Mid,
+    Anchor_Right_Mid,
+
+    Anchor_Center,
+
+    Anchor_Custom_UV,       // uv coordinate: [0.0, 1.0]
+} AnchorType;
+
+typedef struct {
+    AnchorType type;
+    Vector2 origin;         // uv coordinate: [0.0, 1.0]
+} Anchor;
+
+typedef enum {
+    Rotation_CW = 1,
+    Rotation_CCW = -1,
+} RotationWay;
+
+typedef struct {
+    Anchor anchor;
+    Vector2 position;       // position of the anchor
+    Vector2 size;
+    float32 rotation;       // rotation around its anchor
+    RotationWay rway;
+} SpriteTransform;
+
+typedef struct {
+    TextureHandle texture;
+    Color tint;
+    Rectangle source;
+    SpriteTransform transform;
+    uint32 z_index;
+} RenderSprite;
+
+typedef struct {
+    uint32 count;
+    uint32 capacity;
+    RenderSprite* sprites;
+} SortedRenderSprites;
+
+typedef struct {
+    // -- render start
+    TextureHandle texture;
+    Color tint;
+    Rectangle source;
+    // SpriteTransform transform;
+    uint32 z_index;
+    // -- render end
+    bool visible;
+    bool camera_visible;
+} Sprite;
+
+typedef struct {
+    uint32 count;
+    uint32 capacity;
+    uint32 free_count;
+    bool* slots;
+    SpriteTransform* transforms;
+    Sprite* sprites;
+} SpriteStore;
+
+typedef struct {
+    uint32 id;
+} EntityId;
+
+EntityId new_entity_id(uint32 id);
+
+EntityId spawn_sprite(
+    SpriteStore* sprite_store,
+    SpriteTransform transform,
+    Sprite sprite
+);
+void despawn_sprite(SpriteStore* sprite_store, EntityId entity);
+
+Vector2 calculate_relative_origin_from_anchor(Anchor anchor, Vector2 size);
+
+void render_sprites_reserve_total(SortedRenderSprites* render_sprites, uint32 capacity);
+void render_sprites_push_back_unchecked(SortedRenderSprites* render_sprites, RenderSprite sprite);
+void render_sprites_z_index_sort(SortedRenderSprites* render_sprites);
+
+RenderSprite extract_render_sprite(SpriteTransform* transform, Sprite* sprite);
+
+void SYSTEM_cull_and_sort_sprites(
+    SpriteStore* sprite_store,
+    SortedRenderSprites* render_sprites
+);
+
+void RENDER_sorted_sprites(
+    TextureAssets* RES_texture_assets,
+    SortedRenderSprites* render_sprites
+);
+
+/**
+ * POST_UPDATE
+ */
+void SYSTEM_check_mutated_images(
+    TextureAssets* RES_texture_assets,
+    Events_TextureAssetEvent* RES_texture_asset_events
+);
+
+/**
+ * EXTRACT_RENDER
+ */
+void SYSTEM_load_textures_for_loaded_or_changed_images(
+    TextureAssets* RES_texture_assets,
+    Events_TextureAssetEvent* RES_texture_asset_events
+);
+
+/**
+ * FRAME_BOUNDARY
+ */
+void SYSTEM_swap_event_buffers(
+    Events_TextureAssetEvent* RES_texture_asset_events
+);
+
+#endif // __HEADER_LIB

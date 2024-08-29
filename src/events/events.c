@@ -58,6 +58,12 @@ void event_buffer_texture_asset_event_clear(EventBuffer_TextureAssetEvent* buffe
 
 // TextureAssetEvents
 
+Events_TextureAssetEvent just_engine_events_texture_asset_event_create() {
+    Events_TextureAssetEvent events = {0};
+    events.rw_lock = alloc_create_srw_lock();
+    return events;
+}
+
 void just_engine_events_texture_asset_event_send_single(Events_TextureAssetEvent* events, TextureAssetEvent event) {
     srw_lock_acquire_exclusive(events->rw_lock);
         event_buffer_texture_asset_event_push_back(&events->event_buffers[events->this_frame_ind], event);

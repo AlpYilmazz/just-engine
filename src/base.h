@@ -16,5 +16,17 @@ typedef     double                  float64;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
 
+#define STRUCT_ZERO_INIT {0}
+#define LAZY_INIT {0}
+#define LATER_INIT {0}
+#define UNINIT {0}
+
 #define MAX(a, b) ((a >= b) ? a : b)
 #define MIN(a, b) ((a <= b) ? a : b)
+
+#define SIGNOF(a) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
+
+typedef struct {
+    uint32 width;
+    uint32 height;
+} ScreenSize;
