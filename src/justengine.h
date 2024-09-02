@@ -509,6 +509,10 @@ void SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
     Events_TextureAssetEvent* RES_texture_asset_events
 );
 
+void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
+    TemporaryStorage* RES_temporary_storage
+);
+
 void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteStore* sprite_store,
     SortedRenderSprites* render_sprites

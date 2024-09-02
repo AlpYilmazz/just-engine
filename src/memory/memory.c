@@ -21,6 +21,10 @@ void free_bump_allocator(BumpAllocator* bump_allocator) {
     free(bump_allocator->base);
 }
 
+void reset_bump_allocator(BumpAllocator* bump_allocator) {
+    bump_allocator->cursor = bump_allocator->base;
+}
+
 void* bump_alloc(BumpAllocator* bump_allocator, uint32 size_in_bytes) {
     void* ptr = bump_allocator->cursor;
     bump_allocator->cursor += size_in_bytes;
