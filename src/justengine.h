@@ -33,12 +33,119 @@ typedef     unsigned char           byte;
 
 #define SIGNOF(a) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
 
+static const uint32 ALL_SET_32 = 0b11111111111111111111111111111111;
+
+#define RECTANGLE_NICHE ( \
+    (Rectangle) {   \
+        .x = *(float32*) &ALL_SET_32, \
+        .y = *(float32*) &ALL_SET_32, \
+        .width = *(float32*) &ALL_SET_32, \
+        .height = *(float32*) &ALL_SET_32, \
+    }   \
+)
+
+#define BYTEWISE_EQUALS(e1, e2, type)   \
+    ( bytewise_equals((byte*)e1, (byte*)e2, sizeof(type)) )
+
+static inline bool bytewise_equals(byte* e1, byte* e2, uint32 count) {
+    bool is_eq = 1;
+    for (uint32 i = 0; i < count; i++) {
+        is_eq &= (e1[i] == e2[2]);
+    }
+    return is_eq;
+}
+
+typedef enum {
+    Anchor_Top_Left = 0,    // DEFAULT
+    Anchor_Top_Right,
+    Anchor_Bottom_Left,
+    Anchor_Bottom_Right,
+
+    Anchor_Top_Mid,
+    Anchor_Bottom_Mid,
+    Anchor_Left_Mid,
+    Anchor_Right_Mid,
+
+    Anchor_Center,
+
+    // Anchor_Custom_UV,       // uv coordinate: [0.0, 1.0]
+} AnchorType;
+
+typedef struct {
+    Vector2 origin;         // uv coordinate: [0.0, 1.0]
+} Anchor;                   // {0} -> origin = {0, 0} -> Anchor_Top_Left
+
+static inline Anchor make_anchor(AnchorType type) {
+    switch (type) {
+    default:
+    case Anchor_Top_Left:
+        return (Anchor) { .origin = {0, 0} };
+    case Anchor_Top_Right:
+        return (Anchor) { .origin = {1, 0} };
+    case Anchor_Bottom_Left:
+        return (Anchor) { .origin = {0, 1} };
+    case Anchor_Bottom_Right:
+        return (Anchor) { .origin = {1, 1} };
+
+    case Anchor_Top_Mid:
+        return (Anchor) { .origin = {0.5, 0} };
+    case Anchor_Bottom_Mid:
+        return (Anchor) { .origin = {0.5, 1} };
+    case Anchor_Left_Mid:
+        return (Anchor) { .origin = {0, 0.5} };
+    case Anchor_Right_Mid:
+        return (Anchor) { .origin = {1, 0.5} };
+
+    case Anchor_Center:
+        return (Anchor) { .origin = {0.5, 0.5} };
+    }
+
+    // non-reachable, default in the switch
+    // TODO: maybe add assert
+    return (Anchor) {0};
+}
+
+static inline Anchor make_custom_anchor(Vector2 origin) {
+    return (Anchor) { .origin = origin };
+}
+
 typedef struct {
     uint32 width;
     uint32 height;
 } ScreenSize;
 
+typedef struct {
+    uint32 id;
+} ComponentId;
+
+static inline ComponentId new_component_id(uint32 id) {
+    return (ComponentId) { id };
+}
+
 #endif // __HEADER_BASE
+
+#define __HEADER_LOGGING
+#ifdef __HEADER_LOGGING
+
+typedef enum {
+    LOG_LEVEL_ALL = 0,
+    LOG_LEVEL_TRACE,
+    LOG_LEVEL_DEBUG,
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_WARN,
+    LOG_LEVEL_ERROR,
+    LOG_LEVEL_NONE,
+} LogLevel;
+
+void SET_LOG_LEVEL(LogLevel log_level);
+
+void JUST_LOG_TRACE(const char* format, ...);
+void JUST_LOG_DEBUG(const char* format, ...);
+void JUST_LOG_INFO(const char* format, ...);
+void JUST_LOG_WARN(const char* format, ...);
+void JUST_LOG_ERROR(const char* format, ...);
+
+#endif // __HEAEDER_LOGGING
 
 #define __HEADER_THREAD_TASK
 #ifdef __HEADER_THREAD_TASK
@@ -295,29 +402,8 @@ void arrow_draw(Arrow arrow, float32 thick, Color color);
 
 #endif // __HEADER_SHAPES_SHAPES
 
-#define __HEADER_LIB
-#ifdef __HEADER_LIB
-
-typedef enum {
-    Anchor_Top_Left, // DEFAULT
-    Anchor_Top_Right,
-    Anchor_Bottom_Left,
-    Anchor_Bottom_Right,
-
-    Anchor_Top_Mid,
-    Anchor_Bottom_Mid,
-    Anchor_Left_Mid,
-    Anchor_Right_Mid,
-
-    Anchor_Center,
-
-    Anchor_Custom_UV,       // uv coordinate: [0.0, 1.0]
-} AnchorType;
-
-typedef struct {
-    AnchorType type;
-    Vector2 origin;         // uv coordinate: [0.0, 1.0]
-} Anchor;
+#define __HEADER_RENDER2D_SPRITE
+#ifdef __HEADER_RENDER2D_SPRITE
 
 typedef enum {
     Rotation_CW = 1,
@@ -351,7 +437,6 @@ typedef struct {
     TextureHandle texture;
     Color tint;
     Rectangle source;
-    // SpriteTransform transform;
     uint32 z_index;
     // -- render end
     bool visible;
@@ -367,58 +452,51 @@ typedef struct {
     Sprite* sprites;
 } SpriteStore;
 
-typedef struct {
-    uint32 id;
-} EntityId;
+typedef ComponentId SpriteComponentId;
 
-EntityId new_entity_id(uint32 id);
-
-EntityId spawn_sprite(
+SpriteComponentId spawn_sprite(
     SpriteStore* sprite_store,
     SpriteTransform transform,
     Sprite sprite
 );
-void despawn_sprite(SpriteStore* sprite_store, EntityId entity);
+void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId id);
 
 Vector2 calculate_relative_origin_from_anchor(Anchor anchor, Vector2 size);
 
 void render_sprites_reserve_total(SortedRenderSprites* render_sprites, uint32 capacity);
 void render_sprites_push_back_unchecked(SortedRenderSprites* render_sprites, RenderSprite sprite);
-void render_sprites_z_index_sort(SortedRenderSprites* render_sprites);
 
+// TODO: impl n*logn sort and maybe use pointers to avoid many clones
+void render_sprites_z_index_sort(SortedRenderSprites* render_sprites);
 RenderSprite extract_render_sprite(SpriteTransform* transform, Sprite* sprite);
 
-void SYSTEM_cull_and_sort_sprites(
+#endif // __HEADER_RENDER2D_SPRITE
+
+#define __HEADER_LIB
+#ifdef __HEADER_LIB
+
+void SYSTEM_POST_UPDATE_check_mutated_images(
+    TextureAssets* RES_texture_assets,
+    Events_TextureAssetEvent* RES_texture_asset_events
+);
+
+void SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
+    TextureAssets* RES_texture_assets,
+    Events_TextureAssetEvent* RES_texture_asset_events
+);
+
+void SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
+    Events_TextureAssetEvent* RES_texture_asset_events
+);
+
+void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteStore* sprite_store,
     SortedRenderSprites* render_sprites
 );
 
-void RENDER_sorted_sprites(
+void SYSTEM_RENDER_sorted_sprites(
     TextureAssets* RES_texture_assets,
     SortedRenderSprites* render_sprites
-);
-
-/**
- * POST_UPDATE
- */
-void SYSTEM_check_mutated_images(
-    TextureAssets* RES_texture_assets,
-    Events_TextureAssetEvent* RES_texture_asset_events
-);
-
-/**
- * EXTRACT_RENDER
- */
-void SYSTEM_load_textures_for_loaded_or_changed_images(
-    TextureAssets* RES_texture_assets,
-    Events_TextureAssetEvent* RES_texture_asset_events
-);
-
-/**
- * FRAME_BOUNDARY
- */
-void SYSTEM_swap_event_buffers(
-    Events_TextureAssetEvent* RES_texture_asset_events
 );
 
 #endif // __HEADER_LIB

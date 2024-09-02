@@ -29,6 +29,10 @@ set COMPILE=^
     ^
     %SRC_DIR%/shapes/shapes.c^
     ^
+    %SRC_DIR%/render2d/sprite.c^
+    ^
+    %SRC_DIR%/logging.c^
+    ^
     %SRC_DIR%/lib.c
 
 mkdir %LIB_DIR%

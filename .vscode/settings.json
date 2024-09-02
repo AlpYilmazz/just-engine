@@ -32,6 +32,11 @@
         "xlocale": "c",
         "xlocbuf": "c",
         "xlocmon": "c",
-        "xloctime": "c"
+        "xloctime": "c",
+        "stdio.h": "c",
+        "locale": "c",
+        "thread": "c",
+        "xlocmes": "c",
+        "xlocnum": "c"
     }
 }
