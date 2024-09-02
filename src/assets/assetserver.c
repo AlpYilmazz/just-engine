@@ -4,9 +4,9 @@
 
 #include "raylib.h"
 
-#include "thread/threadpool.h"
-
 #include "asset.h"
+#include "thread/threadpool.h"
+#include "logging.h"
 
 #include "assetserver.h"
 
@@ -28,6 +28,11 @@ void asyncio_file_load_image_task(TaskArgVoid* arg) {
     AsyncioFileLoadImageTaskArg* this_arg = arg;
 
     Image image = LoadImage(this_arg->filepath);
+    if (image.data == NULL) {
+        JUST_LOG_ERROR("ERROR: [ASYNCIO][FILE][IMAGE] File could not be loaded: %s\n", this_arg->filepath);
+        goto CLEANUP;
+    }
+
     just_engine_texture_assets_put_image(
         this_arg->RES_texture_assets,
         this_arg->handle,
@@ -44,6 +49,7 @@ void asyncio_file_load_image_task(TaskArgVoid* arg) {
         event
     );
 
+    CLEANUP:
     free(this_arg->filepath);
     free(this_arg);
 }

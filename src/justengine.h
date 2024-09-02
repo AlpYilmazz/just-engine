@@ -147,6 +147,26 @@ void JUST_LOG_ERROR(const char* format, ...);
 
 #endif // __HEAEDER_LOGGING
 
+#define __HEADER_MEMORY_MEMORY
+#ifdef __HEADER_MEMORY_MEMORY
+
+#define BUMP_ALLOCATOR_DEFAULT_SIZE 10000
+
+typedef struct {
+    byte* base;
+    byte* cursor;
+    uint32 total_size_in_bytes;
+} BumpAllocator;
+
+typedef BumpAllocator TemporaryStorage;
+
+BumpAllocator make_bump_allocator_with_size(uint32 size_in_bytes);
+BumpAllocator make_bump_allocator();
+void free_bump_allocator(BumpAllocator* bump_allocator);
+void* bump_alloc(BumpAllocator* bump_allocator, uint32 size_in_bytes);
+
+#endif // __HEADER_MEMORY_MEMORY
+
 #define __HEADER_THREAD_TASK
 #ifdef __HEADER_THREAD_TASK
 
