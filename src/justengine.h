@@ -394,16 +394,21 @@ typedef struct {
     float32 y_bottom;
 } AABBCollider;
 
-// TODO: RectangleCollider: arbitrarily rotated rectangle
+// TODO: FreeRectangleCollider: arbitrarily rotated rectangle
 
 float32 just_engine_collider_dist_circle_circle(CircleCollider c1, CircleCollider c2);
 
 bool just_engine_check_collision_line_line(LineSegmentCollider l1, LineSegmentCollider l2);
+bool just_engine_check_collision_line_circle(LineSegmentCollider l1, CircleCollider c2);
+bool just_engine_check_collision_line_aabb(LineSegmentCollider l1, AABBCollider a2);
+
 bool just_engine_check_collision_circle_circle(CircleCollider c1, CircleCollider c2);
-bool just_engine_check_collision_aabb_aabb(AABBCollider r1, AABBCollider r2);
+bool just_engine_check_collision_circle_aabb(CircleCollider c1, AABBCollider a2);
+
+bool just_engine_check_collision_aabb_aabb(AABBCollider a1, AABBCollider a2);
 
 bool just_engine_check_rayhit_circle(Ray2 ray, CircleCollider c1, float32 max_dist);
-bool just_engine_check_rayhit_aabb(Ray2 ray, AABBCollider c1, float32 max_dist);
+bool just_engine_check_rayhit_aabb(Ray2 ray, AABBCollider a1, float32 max_dist);
 
 #endif // __HEADER_PHYSICS_COLLISION
 
