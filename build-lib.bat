@@ -33,6 +33,8 @@ set COMPILE=^
     ^
     %SRC_DIR%/logging.c^
     ^
+    %SRC_DIR%/memory/memory.c^
+    ^
     %SRC_DIR%/lib.c
 
 mkdir %LIB_DIR%

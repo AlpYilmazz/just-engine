@@ -163,6 +163,7 @@ typedef BumpAllocator TemporaryStorage;
 BumpAllocator make_bump_allocator_with_size(uint32 size_in_bytes);
 BumpAllocator make_bump_allocator();
 void free_bump_allocator(BumpAllocator* bump_allocator);
+void reset_bump_allocator(BumpAllocator* bump_allocator);
 void* bump_alloc(BumpAllocator* bump_allocator, uint32 size_in_bytes);
 
 #endif // __HEADER_MEMORY_MEMORY

@@ -33,30 +33,50 @@ bool just_engine_check_collision_line_aabb(LineSegmentCollider l1, AABBCollider 
     bool lstart_inside = just_engine_check_point_inside_aabb(a1, l1.start);
     bool lend_inside = just_engine_check_point_inside_aabb(a1, l1.end);
 
-    return lstart_inside || lend_inside;
+    if (lstart_inside || lend_inside) {
+        return true;
+    }
 
-    // LineSegmentCollider c1_top_side = {
-    //     .start = { c1.x_left, c1.y_top },
-    //     .end = { c1.x_right, c1.y_top },
-    // };
-    // LineSegmentCollider c1_bottom_side = {
-    //     .start = { c1.x_left, c1.y_bottom },
-    //     .end = { c1.x_right, c1.y_bottom },
-    // };
-    // LineSegmentCollider c1_left_side = {
-    //     .start = { c1.x_left, c1.y_top },
-    //     .end = { c1.x_left, c1.y_bottom },
-    // };
-    // LineSegmentCollider c1_rigth_side = {
-    //     .start = { c1.x_right, c1.y_top },
-    //     .end = { c1.x_right, c1.y_bottom },
-    // };
+    float32 l1_len = Vector2Distance(l1.start, l1.end);
+    Vector2 l1_dir = Vector2Normalize(Vector2Subtract(l1.end, l1.start));
+    
+    float32 l1_x_min = MIN(l1.start.x, l1.end.x);
+    float32 l1_x_max = MAX(l1.start.x, l1.end.x);
+    float32 l1_y_min = MIN(l1.start.y, l1.end.y);
+    float32 l1_y_max = MAX(l1.start.y, l1.end.y);
 
-    // return just_engine_check_collision_line_line(l1, c1_top_side)
-    //     || just_engine_check_collision_line_line(l1, c1_bottom_side)
-    //     || just_engine_check_collision_line_line(l1, c1_left_side)
-    //     || just_engine_check_collision_line_line(l1, c1_rigth_side)
-    //     || just_engine_check_line_inside_aabb(l1, c1);
+    // top line
+    float32 y_lines[2] = {a1.y_top, a1.y_bottom};
+    for (uint32 i = 0; i < 2; i++) {
+        float32 y_line = y_lines[i];
+
+        if (y_line < l1_y_min || l1_y_max < y_line) {
+            continue;
+        }
+
+        float32 t = (y_line - l1.start.y) / l1_dir.y;
+        float32 x = (l1_dir.x * t) + l1.start.x;
+        if (a1.x_left <= x && x <= a1.x_right) {
+            return true;
+        }
+    }
+
+    float32 x_lines[2] = {a1.x_left, a1.x_right};
+    for (uint32 i = 0; i < 2; i++) {
+        float32 x_line = x_lines[i];
+
+        if (x_line < l1_x_min || l1_x_max < x_line) {
+            continue;
+        }
+
+        float32 t = (x_line - l1.start.x) / l1_dir.x;
+        float32 y = (l1_dir.y * t) + l1.start.y;
+        if (a1.y_bottom <= y && y <= a1.y_top) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool just_engine_check_collision_circle_circle(CircleCollider c1, CircleCollider c2) {
@@ -66,11 +86,11 @@ bool just_engine_check_collision_circle_circle(CircleCollider c1, CircleCollider
 
 bool just_engine_check_collision_circle_aabb(CircleCollider c1, AABBCollider a2) {
     float32 aabb_x_bound = (a2.x_right - a2.x_left)/2.0;
-    float32 aabb_y_bound = (a2.y_top - a2.y_bottom)/2.0;
+    float32 aabb_y_bound = (a2.y_bottom - a2.y_top)/2.0;
 
     Vector2 aabb_center = {
         .x = a2.x_left + aabb_x_bound,
-        .y = a2.y_bottom + aabb_y_bound,
+        .y = a2.y_top + aabb_y_bound,
     };
 
     Vector2 distance = Vector2Subtract(c1.center, aabb_center);
@@ -84,10 +104,10 @@ bool just_engine_check_collision_circle_aabb(CircleCollider c1, AABBCollider a2)
 }
 
 bool just_engine_check_collision_aabb_aabb(AABBCollider a1, AABBCollider a2) {
-    return a1.x_left <= a2.x_right &&
-          a2.x_left <= a1.x_right &&
-          a1.y_top <= a2.y_bottom &&
-          a2.y_top <= a1.y_bottom;
+    return a1.x_left <= a2.x_right
+        && a2.x_left <= a1.x_right
+        && a1.y_top <= a2.y_bottom
+        && a2.y_top <= a1.y_bottom;
 }
 
 bool just_engine_check_rayhit_circle(Ray2 ray, CircleCollider c1, float32 max_dist) {
