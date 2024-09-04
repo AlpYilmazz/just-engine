@@ -105,9 +105,14 @@ static inline Anchor make_custom_anchor(Vector2 origin) {
 }
 
 typedef struct {
+    float32 width;
+    float32 height;
+} RectSize;
+
+typedef struct {
     uint32 width;
     uint32 height;
-} ScreenSize;
+} URectSize;
 
 typedef struct {
     uint32 id;

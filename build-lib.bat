@@ -25,6 +25,8 @@ set COMPILE=^
     ^
     %SRC_DIR%/events/events.c^
     ^
+    %SRC_DIR%/animation/animation.c^
+    ^
     %SRC_DIR%/physics/collision.c^
     ^
     %SRC_DIR%/shapes/shapes.c^

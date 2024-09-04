@@ -29,6 +29,7 @@ typedef struct {
 // TODO: FreeRectangleCollider: arbitrarily rotated rectangle
 
 float32 just_engine_collider_dist_circle_circle(CircleCollider c1, CircleCollider c2);
+bool just_engine_check_point_inside_aabb(AABBCollider a1, Vector2 p);
 
 bool just_engine_check_collision_line_line(LineSegmentCollider l1, LineSegmentCollider l2);
 bool just_engine_check_collision_line_circle(LineSegmentCollider l1, CircleCollider c2);
