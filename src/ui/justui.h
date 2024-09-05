@@ -65,19 +65,38 @@ Button button_new(
 
 void button_consume_click(Button* button);
 
-void handle_begin_hover_button(Button* button, Vector2 mouse);
-void handle_end_hover_button(Button* button, Vector2 mouse);
-void handle_pressed_button(Button* button, Vector2 mouse);
-void handle_released_button(Button* button, Vector2 mouse);
-void draw_button(Button* button);
+void ui_handle_begin_hover_button(Button* button, Vector2 mouse);
+void ui_handle_end_hover_button(Button* button, Vector2 mouse);
+void ui_handle_pressed_button(Button* button, Vector2 mouse);
+void ui_handle_released_button(Button* button, Vector2 mouse);
+void ui_draw_button(Button* button);
+
+typedef struct {
+    Color idle_color;
+    Color hovered_color;
+    bool is_bordered;
+    float32 border_thick;
+    Color border_color;
+} AreaStyle;
+
+typedef struct {
+    UIElement elem;
+    AreaStyle style;
+} Area;
+
+void ui_handle_begin_hover_area(Area* area, Vector2 mouse);
+void ui_handle_end_hover_area(Area* area, Vector2 mouse);
+void ui_handle_pressed_area(Area* area, Vector2 mouse);
+void ui_handle_released_area(Area* area, Vector2 mouse);
+void ui_draw_area(Area* area);
 
 // ----------------
 
-void ui_element_handle_begin_hover(UIElement* elem, Vector2 mouse);
-void ui_element_handle_end_hover(UIElement* elem, Vector2 mouse);
-void ui_element_handle_pressed(UIElement* elem, Vector2 mouse);
-void ui_element_handle_released(UIElement* elem, Vector2 mouse);
-void ui_element_draw(UIElement* elem);
+void ui_handle_begin_hover_element(UIElement* elem, Vector2 mouse);
+void ui_handle_end_hover_element(UIElement* elem, Vector2 mouse);
+void ui_handle_pressed_element(UIElement* elem, Vector2 mouse);
+void ui_handle_released_element(UIElement* elem, Vector2 mouse);
+void ui_draw_element(UIElement* elem);
 
 // ----------------
 
@@ -94,6 +113,7 @@ UIElementStore ui_element_store_new_active();
 void ui_element_store_drop(UIElementStore* store);
 
 UIElementId put_ui_element_button(UIElementStore* store, Button button);
+UIElementId put_ui_element_area(UIElementStore* store, Area area);
 
 void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id);
 UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id);

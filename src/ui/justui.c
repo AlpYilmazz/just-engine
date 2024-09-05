@@ -4,6 +4,7 @@
 #include "raymath.h"
 
 #include "base.h"
+#include "logging.h"
 #include "memory/memory.h"
 
 #include "justui.h"
@@ -38,7 +39,7 @@ Button button_new(
         .style = style,
         .title = {0},
     };
-    strcpy(&button.title, title);
+    strcpy(&button.title[0], title);
     return button;
 }
 
@@ -46,28 +47,29 @@ void button_consume_click(Button* button) {
     button->elem.state.just_clicked = false;
 }
 
-void handle_begin_hover_button(Button* button, Vector2 mouse) {
+void ui_handle_begin_hover_button(Button* button, Vector2 mouse) {
     button->elem.state.hover = true;
 }
 
-void handle_end_hover_button(Button* button, Vector2 mouse) {
+void ui_handle_end_hover_button(Button* button, Vector2 mouse) {
     button->elem.state.hover = false;
 }
 
-void handle_pressed_button(Button* button, Vector2 mouse) {
+void ui_handle_pressed_button(Button* button, Vector2 mouse) {
     button->elem.state.pressed = true;
 }
 
-void handle_released_button(Button* button, Vector2 mouse) {
+void ui_handle_released_button(Button* button, Vector2 mouse) {
     if (button->elem.state.hover && button->elem.state.pressed) {
-        button->elem.state.pressed = false;
         button->elem.state.just_clicked = true;
         button->elem.state.click_point_relative = mouse;
     }
 }
 
-void draw_button(Button* button) {
+void ui_draw_button(Button* button) {
     UIElement* elem = &button->elem;
+    ButtonStyle* style = &button->style;
+
     Vector2 top_left = find_rectangle_top_left(elem->anchor, elem->position, elem->size);
 
     Rectangle rect = {
@@ -77,41 +79,137 @@ void draw_button(Button* button) {
         .height = elem->size.height,
     };
 
-    Color color = button->style.idle_color;;
+    Color color = style->idle_color;
     if (elem->disabled) {
-        color = button->style.disabled_color;
+        color = style->disabled_color;
     }
     else { // if (!elem->disabled)
-        if (button->elem.state.pressed) {
-            color = button->style.pressed_color;
+        if (elem->state.pressed) {
+            color = style->pressed_color;
         }
-        else if (button->elem.state.hover) {
-            color = button->style.hovered_color;
+        else if (elem->state.hover) {
+            color = style->hovered_color;
         }
     }
 
     DrawRectangleRec(rect, color);
     
-    if (button->style.is_bordered) {
-        DrawRectangleLinesEx(rect, button->style.border_thick, button->style.border_color);
+    if (style->is_bordered) {
+        DrawRectangleLinesEx(rect, style->border_thick, style->border_color);
+    }
+
+    // Draw Text [title]
+}
+
+// AreaStyle
+// Area
+
+void ui_handle_begin_hover_area(Area* area, Vector2 mouse) {
+    area->elem.state.hover = true;
+}
+
+void ui_handle_end_hover_area(Area* area, Vector2 mouse) {
+    area->elem.state.hover = false;
+}
+
+void ui_handle_pressed_area(Area* area, Vector2 mouse) {
+    return;
+}
+
+void ui_handle_released_area(Area* area, Vector2 mouse) {
+    return;
+}
+
+void ui_draw_area(Area* area) {
+    UIElement* elem = &area->elem;
+    AreaStyle* style = &area->style;
+
+    Vector2 top_left = find_rectangle_top_left(elem->anchor, elem->position, elem->size);
+
+    Rectangle rect = {
+        .x = top_left.x,
+        .y = top_left.y,
+        .width = elem->size.width,
+        .height = elem->size.height,
+    };
+
+    Color color = style->idle_color;
+    if (elem->state.hover) {
+        color = style->hovered_color;
+    }
+
+    DrawRectangleRec(rect, color);
+
+    if (style->is_bordered) {
+        DrawRectangleLinesEx(rect, style->border_thick, style->border_color);
     }
 }
 
 // ----------------
 
-void ui_element_handle_begin_hover(UIElement* elem, Vector2 mouse) {
+void ui_handle_begin_hover_element(UIElement* elem, Vector2 mouse) {
+    switch (elem->type) {
+    case UIElementType_Area:
+        ui_handle_begin_hover_area((void*)elem, mouse);
+        break;
+    case UIElementType_Button:
+        ui_handle_begin_hover_button((void*)elem, mouse);
+        break;
+    default:
+        break;
+    }
 }
 
-void ui_element_handle_end_hover(UIElement* elem, Vector2 mouse) {
+void ui_handle_end_hover_element(UIElement* elem, Vector2 mouse) {
+    switch (elem->type) {
+    case UIElementType_Area:
+        ui_handle_end_hover_area((void*)elem, mouse);
+        break;
+    case UIElementType_Button:
+        ui_handle_end_hover_button((void*)elem, mouse);
+        break;
+    default:
+        break;
+    }
 }
 
-void ui_element_handle_pressed(UIElement* elem, Vector2 mouse) {
+void ui_handle_pressed_element(UIElement* elem, Vector2 mouse) {
+    switch (elem->type) {
+    case UIElementType_Area:
+        ui_handle_pressed_area((void*)elem, mouse);
+        break;
+    case UIElementType_Button:
+        ui_handle_pressed_button((void*)elem, mouse);
+        break;
+    default:
+        break;
+    }
 }
 
-void ui_element_handle_released(UIElement* elem, Vector2 mouse) {
+void ui_handle_released_element(UIElement* elem, Vector2 mouse) {
+    switch (elem->type) {
+    case UIElementType_Area:
+        ui_handle_released_area((void*)elem, mouse);
+        break;
+    case UIElementType_Button:
+        ui_handle_released_button((void*)elem, mouse);
+        break;
+    default:
+        break;
+    }
 }
 
-void ui_element_draw(UIElement* elem) {
+void ui_draw_element(UIElement* elem) {
+    switch (elem->type) {
+    case UIElementType_Area:
+        ui_draw_area((void*)elem);
+        break;
+    case UIElementType_Button:
+        ui_draw_button((void*)elem);
+        break;
+    default:
+        break;
+    }
 }
 
 // ----------------
@@ -147,6 +245,19 @@ UIElementId put_ui_element_button(UIElementStore* store, Button button) {
     return id;
 }
 
+UIElementId put_ui_element_area(UIElementStore* store, Area area) {
+    UIElementId id = { .id = store->count };
+    area.elem.id = id;
+    
+    Area* elem_ptr = bump_alloc(&store->memory, sizeof(Area));
+    *elem_ptr = area;
+
+    store->elems[store->count] = (void*)elem_ptr;
+    store->count++;
+
+    return id;
+}
+
 void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id) {
     return (void*) store->elems[elem_id.id];
 }
@@ -168,33 +279,45 @@ void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
 
     Vector2 mouse = GetMousePosition();
 
-    if (store->pressed_element != NULL) {
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-            Vector2 relative_mouse = ui_element_relative_point(store->pressed_element, mouse);
-            ui_element_handle_released(store->pressed_element, relative_mouse);
-        }
-    }
+    // if (store->pressed_element != NULL) {
+    //     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+    //         JUST_LOG_DEBUG("0\n");
+    //         Vector2 relative_mouse = ui_element_relative_point(store->pressed_element, mouse);
+    //         ui_handle_released_element(store->pressed_element, relative_mouse);
+    //     }
+    // }
+
+    JUST_LOG_DEBUG("Count: %d\n", store->count);
 
     for (uint32 i = 0; i < store->count; i++) {
         UIElement* elem = store->elems[i];
-        Vector2 relative_mouse = ui_element_relative_point(store->pressed_element, mouse);
+        Vector2 relative_mouse = ui_element_relative_point(elem, mouse);
+
+        elem->state.just_clicked = 0;
         
         bool elem_hovered = ui_element_hovered(elem, mouse);
         if (!elem->state.hover && elem_hovered) {
-            ui_element_handle_begin_hover(elem, relative_mouse);
+            JUST_LOG_DEBUG("1\n");
+            ui_handle_begin_hover_element(elem, relative_mouse);
         }
         else if (elem->state.hover && !elem_hovered) {
-            ui_element_handle_end_hover(elem, relative_mouse);
+            JUST_LOG_DEBUG("2\n");
+            ui_handle_end_hover_element(elem, relative_mouse);
         }
 
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (elem_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            JUST_LOG_DEBUG("3\n");
             store->pressed_element = elem;
-            ui_element_handle_pressed(elem, relative_mouse);
+            ui_handle_pressed_element(elem, relative_mouse);
         }
 
-        // if (IsMouseButtonReleased(MOUSE_BUTTON_RIGHT)) {
-        //     ui_element_handle_released(elem, relative_mouse);
-        // }
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+            JUST_LOG_DEBUG("4\n");
+            if (elem == store->pressed_element) {
+                ui_handle_released_element(store->pressed_element, relative_mouse);
+            }
+            elem->state.pressed = false;
+        }
     }
 }
 
@@ -206,6 +329,6 @@ void SYSTEM_RENDER_draw_ui_elements(
     }
 
     for (uint32 i = 0; i < store->count; i++) {
-        ui_element_draw(store->elems[i]);
+        ui_draw_element(store->elems[i]);
     }
 }
