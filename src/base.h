@@ -1,6 +1,7 @@
 #pragma once
 
 #include "raylib.h"
+#include "raymath.h"
 
 typedef     unsigned char           uint8;
 typedef     unsigned short          uint16;
