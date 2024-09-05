@@ -37,6 +37,7 @@
         "locale": "c",
         "thread": "c",
         "xlocmes": "c",
-        "xlocnum": "c"
+        "xlocnum": "c",
+        "iosfwd": "c"
     }
 }

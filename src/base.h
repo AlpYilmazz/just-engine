@@ -114,6 +114,26 @@ typedef struct {
     uint32 height;
 } URectSize;
 
+static inline Vector2 rectsize_into_v2(RectSize size) {
+    return (Vector2) {size.width, size.height};
+}
+
+static inline Vector2 find_rectangle_top_left(Anchor anchor, Vector2 position, RectSize size) {
+    return Vector2Subtract(
+        position,
+        Vector2Multiply(anchor.origin, rectsize_into_v2(size))
+    );
+}
+
+static inline Vector2 find_rectangle_top_left_rect(Anchor anchor, Rectangle rect) {
+    Vector2 position = {rect.x, rect.y};
+    Vector2 size = {rect.width, rect.height};
+    return Vector2Subtract(
+        position,
+        Vector2Multiply(anchor.origin, size)
+    );
+}
+
 typedef struct {
     uint32 id;
 } ComponentId;
