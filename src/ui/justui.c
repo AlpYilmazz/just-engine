@@ -71,6 +71,7 @@ void ui_draw_button(Button* button) {
     ButtonStyle* style = &button->style;
 
     Vector2 top_left = find_rectangle_top_left(elem->anchor, elem->position, elem->size);
+    Vector2 mid = Vector2Add(top_left, Vector2Scale(rectsize_into_v2(elem->size), 0.5));
 
     Rectangle rect = {
         .x = top_left.x,
@@ -99,6 +100,10 @@ void ui_draw_button(Button* button) {
     }
 
     // Draw Text [title]
+    Vector2 text_size = MeasureTextEx(style->title_font, button->title, style->title_font_size, style->title_spacing);
+    Vector2 text_pos = Vector2Subtract(mid, Vector2Scale(text_size, 0.5));
+
+    DrawTextEx(style->title_font, button->title, text_pos, style->title_font_size, style->title_spacing, style->title_color);
 }
 
 // AreaStyle
@@ -218,7 +223,7 @@ void ui_draw_element(UIElement* elem) {
 
 UIElementStore ui_element_store_new() {
     UIElementStore store = {0};
-    store.memory = make_bump_allocator_with_size(256 * sizeof(Button));
+    store.memory = make_bump_allocator_with_size(512 * sizeof(UIElement));
     return store;
 }
 
@@ -230,6 +235,11 @@ UIElementStore ui_element_store_new_active() {
 
 void ui_element_store_drop(UIElementStore* store) {
     free_bump_allocator(&store->memory);
+}
+
+void ui_element_store_clear(UIElementStore* store) {
+    reset_bump_allocator(&store->memory);
+    store->count = 0;
 }
 
 UIElementId put_ui_element_button(UIElementStore* store, Button button) {

@@ -46,9 +46,15 @@ typedef struct {
     Color hovered_color;
     Color pressed_color;
     Color disabled_color;
+    //
     bool is_bordered;
     float32 border_thick;
     Color border_color;
+    //
+    Font title_font;
+    float32 title_font_size;
+    float32 title_spacing;
+    Color title_color;
 } ButtonStyle;
 
 typedef struct {
