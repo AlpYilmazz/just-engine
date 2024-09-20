@@ -9,6 +9,19 @@
 
 #include "justui.h"
 
+// UIEvent
+// UIEventContext
+
+typedef struct {
+    void (*fn)(UIElement* elem, UIEvent event, UIEventContext context);
+} UIHandleFunction;
+
+static UIHandleFunction UI_HANDLE_VTABLE[CUSTOM_UI_ELEMENT_SLOT_COUNT] = {0};
+
+void put_ui_handle_vtable_entry(uint32 type_id, void (*handler)(UIElement* elem, UIEvent event, UIEventContext context)) {
+    UI_HANDLE_VTABLE[type_id] = (UIHandleFunction) { .fn = handler };
+}
+
 // UIElementId
 // UIElementType
 // UIElementState
@@ -28,42 +41,8 @@ Vector2 ui_element_relative_point(UIElement* elem, Vector2 point) {
 // ButtonStyle
 // Button
 
-Button button_new(
-    UIElement elem,
-    ButtonStyle style,
-    char* title
-) {
-    elem.type = UIElementType_Button;
-    Button button =  {
-        .elem = elem,
-        .style = style,
-        .title = {0},
-    };
-    strcpy(&button.title[0], title);
-    return button;
-}
-
 void button_consume_click(Button* button) {
     button->elem.state.just_clicked = false;
-}
-
-void ui_handle_begin_hover_button(Button* button, Vector2 mouse) {
-    button->elem.state.hover = true;
-}
-
-void ui_handle_end_hover_button(Button* button, Vector2 mouse) {
-    button->elem.state.hover = false;
-}
-
-void ui_handle_pressed_button(Button* button, Vector2 mouse) {
-    button->elem.state.pressed = true;
-}
-
-void ui_handle_released_button(Button* button, Vector2 mouse) {
-    if (button->elem.state.hover && button->elem.state.pressed) {
-        button->elem.state.just_clicked = true;
-        button->elem.state.click_point_relative = mouse;
-    }
 }
 
 void ui_draw_button(Button* button) {
@@ -106,24 +85,31 @@ void ui_draw_button(Button* button) {
     DrawTextEx(style->title_font, button->title, text_pos, style->title_font_size, style->title_spacing, style->title_color);
 }
 
+void ui_handle_button(Button* button, UIEvent event, UIEventContext context) {
+    switch (event) {
+    case UIEvent_BeginHover:
+        button->elem.state.hover = true;
+        break;
+    case UIEvent_EndHover:
+        button->elem.state.hover = false;
+        break;
+    case UIEvent_Pressed:
+        button->elem.state.pressed = true;
+        break;
+    case UIEvent_Released:
+        if (button->elem.state.hover && button->elem.state.pressed) {
+            button->elem.state.just_clicked = true;
+            button->elem.state.click_point_relative = context.mouse;
+        }
+        break;
+    case UIEvent_Draw:
+        ui_draw_button(button);
+        break;
+    }
+}
+
 // AreaStyle
 // Area
-
-void ui_handle_begin_hover_area(Area* area, Vector2 mouse) {
-    area->elem.state.hover = true;
-}
-
-void ui_handle_end_hover_area(Area* area, Vector2 mouse) {
-    area->elem.state.hover = false;
-}
-
-void ui_handle_pressed_area(Area* area, Vector2 mouse) {
-    return;
-}
-
-void ui_handle_released_area(Area* area, Vector2 mouse) {
-    return;
-}
 
 void ui_draw_area(Area* area) {
     UIElement* elem = &area->elem;
@@ -150,69 +136,36 @@ void ui_draw_area(Area* area) {
     }
 }
 
+void ui_handle_area(Area* area, UIEvent event, UIEventContext context) {
+    switch (event) {
+    case UIEvent_BeginHover:
+        area->elem.state.hover = true;
+        break;
+    case UIEvent_EndHover:
+        area->elem.state.hover = false;
+        break;
+    case UIEvent_Pressed:
+        break;
+    case UIEvent_Released:
+        break;
+    case UIEvent_Draw:
+        ui_draw_area(area);
+        break;
+    }
+}
+
 // ----------------
 
-void ui_handle_begin_hover_element(UIElement* elem, Vector2 mouse) {
+void ui_handle_element(UIElement* elem, UIEvent event, UIEventContext context) {
     switch (elem->type) {
     case UIElementType_Area:
-        ui_handle_begin_hover_area((void*)elem, mouse);
+        ui_handle_area((void*)elem, event, context);
         break;
     case UIElementType_Button:
-        ui_handle_begin_hover_button((void*)elem, mouse);
+        ui_handle_button((void*)elem, event, context);
         break;
     default:
-        break;
-    }
-}
-
-void ui_handle_end_hover_element(UIElement* elem, Vector2 mouse) {
-    switch (elem->type) {
-    case UIElementType_Area:
-        ui_handle_end_hover_area((void*)elem, mouse);
-        break;
-    case UIElementType_Button:
-        ui_handle_end_hover_button((void*)elem, mouse);
-        break;
-    default:
-        break;
-    }
-}
-
-void ui_handle_pressed_element(UIElement* elem, Vector2 mouse) {
-    switch (elem->type) {
-    case UIElementType_Area:
-        ui_handle_pressed_area((void*)elem, mouse);
-        break;
-    case UIElementType_Button:
-        ui_handle_pressed_button((void*)elem, mouse);
-        break;
-    default:
-        break;
-    }
-}
-
-void ui_handle_released_element(UIElement* elem, Vector2 mouse) {
-    switch (elem->type) {
-    case UIElementType_Area:
-        ui_handle_released_area((void*)elem, mouse);
-        break;
-    case UIElementType_Button:
-        ui_handle_released_button((void*)elem, mouse);
-        break;
-    default:
-        break;
-    }
-}
-
-void ui_draw_element(UIElement* elem) {
-    switch (elem->type) {
-    case UIElementType_Area:
-        ui_draw_area((void*)elem);
-        break;
-    case UIElementType_Button:
-        ui_draw_button((void*)elem);
-        break;
-    default:
+        UI_HANDLE_VTABLE[elem->type].fn(elem, event, context);
         break;
     }
 }
@@ -242,6 +195,29 @@ void ui_element_store_clear(UIElementStore* store) {
     store->count = 0;
 }
 
+void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id) {
+    return (void*) store->elems[elem_id.id];
+}
+
+UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id) {
+    return store->elems[elem_id.id];
+}
+
+// ----------------
+
+UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size) {
+    UIElementId id = { .id = store->count };
+    
+    UIElement* elem_ptr = bump_alloc(&store->memory, size);
+    memcpy(elem_ptr, elem, size);
+    elem_ptr->id = id;
+
+    store->elems[store->count] = (void*)elem_ptr;
+    store->count++;
+
+    return id;
+}
+
 UIElementId put_ui_element_button(UIElementStore* store, Button button) {
     UIElementId id = { .id = store->count };
     button.elem.id = id;
@@ -268,17 +244,7 @@ UIElementId put_ui_element_area(UIElementStore* store, Area area) {
     return id;
 }
 
-void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id) {
-    return (void*) store->elems[elem_id.id];
-}
-
-UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id) {
-    return store->elems[elem_id.id];
-}
-
-Button* get_ui_element_button(UIElementStore* store, UIElementId elem_id) {
-    return (Button*) store->elems[elem_id.id];
-}
+// ----------------
 
 void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
     UIElementStore* store
@@ -297,34 +263,32 @@ void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
     //     }
     // }
 
-    JUST_LOG_DEBUG("Count: %d\n", store->count);
-
+    UIEventContext context = {0};
     for (uint32 i = 0; i < store->count; i++) {
         UIElement* elem = store->elems[i];
-        Vector2 relative_mouse = ui_element_relative_point(elem, mouse);
+
+        UIEventContext context = {
+            .mouse = ui_element_relative_point(elem, mouse),
+        };
 
         elem->state.just_clicked = 0;
         
         bool elem_hovered = ui_element_hovered(elem, mouse);
         if (!elem->state.hover && elem_hovered) {
-            JUST_LOG_DEBUG("1\n");
-            ui_handle_begin_hover_element(elem, relative_mouse);
+            ui_handle_element(elem, UIEvent_BeginHover, context);
         }
         else if (elem->state.hover && !elem_hovered) {
-            JUST_LOG_DEBUG("2\n");
-            ui_handle_end_hover_element(elem, relative_mouse);
+            ui_handle_element(elem, UIEvent_EndHover, context);
         }
 
         if (elem_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            JUST_LOG_DEBUG("3\n");
             store->pressed_element = elem;
-            ui_handle_pressed_element(elem, relative_mouse);
+            ui_handle_element(elem, UIEvent_Pressed, context);
         }
 
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-            JUST_LOG_DEBUG("4\n");
             if (elem == store->pressed_element) {
-                ui_handle_released_element(store->pressed_element, relative_mouse);
+                ui_handle_element(elem, UIEvent_Released, context);
             }
             elem->state.pressed = false;
         }
@@ -339,6 +303,7 @@ void SYSTEM_RENDER_draw_ui_elements(
     }
 
     for (uint32 i = 0; i < store->count; i++) {
-        ui_draw_element(store->elems[i]);
+        UIEventContext context = {0};
+        ui_handle_element(store->elems[i], UIEvent_Draw, context);
     }
 }

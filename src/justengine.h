@@ -588,12 +588,17 @@ void arrow_draw(Arrow arrow, float32 thick, Color color);
 #define __HEADER_UI_JUSTUI
 #ifdef __HEADER_UI_JUSTUI
 
+#define CUSTOM_UI_ELEMENT_SLOT_COUNT 100
+
 typedef struct {
     uint32 id;
 } UIElementId;
 
+/**
+ * Variants [0, CUSTOM_UI_ELEMENT_SLOT_COUNT) are reserved for custom elements
+ */
 typedef enum {
-    UIElementType_Area,
+    UIElementType_Area = CUSTOM_UI_ELEMENT_SLOT_COUNT,
     UIElementType_Layout,
     UIElementType_TextInput,
     UIElementType_Selection,
@@ -621,8 +626,21 @@ typedef struct {
     bool disabled;
 } UIElement;
 
-bool ui_element_hovered(UIElement* elem, Vector2 mouse);
-Vector2 ui_element_relative_point(UIElement* elem, Vector2 point);
+// ----------------
+typedef enum {
+    UIEvent_BeginHover,
+    UIEvent_EndHover,
+    UIEvent_Pressed,
+    UIEvent_Released,
+    UIEvent_Draw,
+} UIEvent;
+
+typedef struct {
+    Vector2 mouse;
+} UIEventContext;
+
+void put_ui_handle_vtable_entry(uint32 type_id, void (*handler)(UIElement* elem, UIEvent event, UIEventContext context));
+// ----------------
 
 typedef struct {
     Color idle_color;
@@ -646,19 +664,7 @@ typedef struct {
     char title[20];
 } Button;
 
-Button button_new(
-    UIElement elem,
-    ButtonStyle style,
-    char* title
-);
-
 void button_consume_click(Button* button);
-
-void handle_begin_hover_button(Button* button, Vector2 mouse);
-void handle_end_hover_button(Button* button, Vector2 mouse);
-void handle_pressed_button(Button* button, Vector2 mouse);
-void handle_released_button(Button* button, Vector2 mouse);
-void draw_button(Button* button);
 
 typedef struct {
     Color idle_color;
@@ -673,22 +679,6 @@ typedef struct {
     AreaStyle style;
 } Area;
 
-void ui_handle_begin_hover_area(Area* area, Vector2 mouse);
-void ui_handle_end_hover_area(Area* area, Vector2 mouse);
-void ui_handle_pressed_area(Area* area, Vector2 mouse);
-void ui_handle_released_area(Area* area, Vector2 mouse);
-void ui_draw_area(Area* area);
-
-// ----------------
-
-void ui_element_handle_begin_hover(UIElement* elem, Vector2 mouse);
-void ui_element_handle_end_hover(UIElement* elem, Vector2 mouse);
-void ui_element_handle_pressed(UIElement* elem, Vector2 mouse);
-void ui_element_handle_released(UIElement* elem, Vector2 mouse);
-void ui_element_draw(UIElement* elem);
-
-// ----------------
-
 typedef struct {
     BumpAllocator memory;
     uint32 count;
@@ -701,13 +691,15 @@ UIElementStore ui_element_store_new();
 UIElementStore ui_element_store_new_active();
 void ui_element_store_drop(UIElementStore* store);
 
-UIElementId put_ui_element_button(UIElementStore* store, Button button);
-UIElementId put_ui_element_area(UIElementStore* store, Area area);
-
 void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id);
 UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id);
 
-Button* get_ui_element_button(UIElementStore* store, UIElementId elem_id);
+// ----------------
+UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size);
+
+UIElementId put_ui_element_button(UIElementStore* store, Button button);
+UIElementId put_ui_element_area(UIElementStore* store, Area area);
+// ----------------
 
 void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
     UIElementStore* store
