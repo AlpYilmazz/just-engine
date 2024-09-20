@@ -262,6 +262,48 @@ void ui_draw_slider(Slider* slider) {
         .y = mid.y,
     };
     DrawCircleV(cursor_pos, cursor_radius, style->cursor_color);
+
+    // Draw text
+    const float32 MARGIN = 10;
+
+    {
+        const char* low_value_text = TextFormat("%0.1f", slider->low_value);
+        Vector2 low_value_text_size = MeasureTextEx(style->title_font, low_value_text, style->title_font_size, style->title_spacing);
+        Vector2 low_value_text_pos = {
+            .x = top_left.x - low_value_text_size.x - MARGIN,
+            .y = mid.y - low_value_text_size.y/2.0,
+        };
+        DrawTextEx(style->title_font, low_value_text, low_value_text_pos, style->title_font_size, style->title_spacing, style->title_color);
+    }
+
+    {
+        const char* high_value_text = TextFormat("%0.1f", slider->high_value);
+        Vector2 high_value_text_size = MeasureTextEx(style->title_font, high_value_text, style->title_font_size, style->title_spacing);
+        Vector2 high_value_text_pos = {
+            .x = bottom_right.x + MARGIN,
+            .y = mid.y - high_value_text_size.y/2.0,
+        };
+        DrawTextEx(style->title_font, high_value_text, high_value_text_pos, style->title_font_size, style->title_spacing, style->title_color);
+    }
+
+    {
+        const char* cursor_value_text = TextFormat("%0.2f", get_slider_value(slider));
+        Vector2 cursor_value_text_size = MeasureTextEx(style->title_font, cursor_value_text, style->title_font_size, style->title_spacing);
+        Vector2 cursor_value_text_pos = {
+            .x = cursor_pos.x - cursor_value_text_size.x/2.0,
+            .y = cursor_pos.y + cursor_radius + MARGIN,
+        };
+        DrawTextEx(style->title_font, cursor_value_text, cursor_value_text_pos, style->title_font_size, style->title_spacing, style->title_color);
+    }
+
+    {
+        Vector2 title_size = MeasureTextEx(style->title_font, slider->title, style->title_font_size, style->title_spacing);
+        Vector2 title_pos = {
+            .x = mid.x - title_size.x/2.0,
+            .y = mid.y - title_size.y/2.0 - cursor_radius - 2*MARGIN,
+        };
+        DrawTextEx(style->title_font, slider->title, title_pos, style->title_font_size, style->title_spacing, style->title_color);
+    }
 }
 
 void ui_handle_slider(Slider* slider, UIEvent event, UIEventContext context) {

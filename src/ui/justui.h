@@ -122,6 +122,11 @@ typedef struct {
 typedef struct {
     Color line_color;
     Color cursor_color;
+    //
+    Font title_font;
+    float32 title_font_size;
+    float32 title_spacing;
+    Color title_color;
 } SliderStyle;
 
 typedef struct {

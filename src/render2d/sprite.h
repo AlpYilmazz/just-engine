@@ -13,7 +13,9 @@ typedef enum {
 typedef struct {
     Anchor anchor;
     Vector2 position;       // position of the anchor
+    bool use_source_size;
     Vector2 size;
+    Vector2 scale;
     float32 rotation;       // rotation around its anchor
     RotationWay rway;
 } SpriteTransform;

@@ -126,6 +126,7 @@ void SYSTEM_RENDER_sorted_sprites(
     Texture* texture;
     SpriteTransform transform;
     Rectangle source;
+    Vector2 size;
     Rectangle destination;
     Vector2 origin;
     float32 rotation;
@@ -136,13 +137,17 @@ void SYSTEM_RENDER_sorted_sprites(
         source = BYTEWISE_EQUALS(&sprite.source, &RECTANGLE_NICHE, Rectangle)
             ? (Rectangle) {0, 0, texture->width, texture->height}
             : sprite.source;
+        size = transform.use_source_size
+            ? (Vector2) {source.width, source.height}
+            : transform.size;
+        size = Vector2Multiply(size, transform.scale);
         destination = (Rectangle) {
             .x = transform.position.x,
             .y = transform.position.y,
-            .width = transform.size.x,
-            .height = transform.size.y,
+            .width = size.x,
+            .height = size.y,
         };
-        origin = Vector2Multiply(transform.anchor.origin, transform.size);
+        origin = Vector2Multiply(transform.anchor.origin, size);
         rotation = transform.rotation * transform.rway;
 
         DrawTexturePro(

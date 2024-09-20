@@ -705,6 +705,11 @@ typedef struct {
 typedef struct {
     Color line_color;
     Color cursor_color;
+    //
+    Font title_font;
+    float32 title_font_size;
+    float32 title_spacing;
+    Color title_color;
 } SliderStyle;
 
 typedef struct {
@@ -768,7 +773,9 @@ typedef enum {
 typedef struct {
     Anchor anchor;
     Vector2 position;       // position of the anchor
+    bool use_source_size;
     Vector2 size;
+    Vector2 scale;
     float32 rotation;       // rotation around its anchor
     RotationWay rway;
 } SpriteTransform;
