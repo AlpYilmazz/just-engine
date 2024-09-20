@@ -599,10 +599,9 @@ typedef struct {
  */
 typedef enum {
     UIElementType_Area = CUSTOM_UI_ELEMENT_SLOT_COUNT,
-    UIElementType_Layout,
-    UIElementType_TextInput,
-    UIElementType_Selection,
     UIElementType_Button,
+    UIElementType_SelectionBox,
+    UIElementType_Slider,
 } UIElementType;
 
 typedef struct {
@@ -632,15 +631,30 @@ typedef enum {
     UIEvent_EndHover,
     UIEvent_Pressed,
     UIEvent_Released,
+    UIEvent_Update,
     UIEvent_Draw,
 } UIEvent;
 
 typedef struct {
+    float32 delta_time;
     Vector2 mouse;
 } UIEventContext;
 
 void put_ui_handle_vtable_entry(uint32 type_id, void (*handler)(UIElement* elem, UIEvent event, UIEventContext context));
 // ----------------
+
+typedef struct {
+    Color idle_color;
+    Color hovered_color;
+    bool is_bordered;
+    float32 border_thick;
+    Color border_color;
+} AreaStyle;
+
+typedef struct {
+    UIElement elem;
+    AreaStyle style;
+} Area;
 
 typedef struct {
     Color idle_color;
@@ -667,17 +681,42 @@ typedef struct {
 void button_consume_click(Button* button);
 
 typedef struct {
-    Color idle_color;
-    Color hovered_color;
+    Color selected_color;
+    Color unselected_color;
+    Color disabled_color;
+    //
     bool is_bordered;
     float32 border_thick;
     Color border_color;
-} AreaStyle;
+    //
+    Font title_font;
+    float32 title_font_size;
+    float32 title_spacing;
+    Color title_color;
+} SelectionBoxStyle;
 
 typedef struct {
     UIElement elem;
-    AreaStyle style;
-} Area;
+    SelectionBoxStyle style;
+    char title[20];
+    bool selected;
+} SelectionBox;
+
+typedef struct {
+    Color line_color;
+    Color cursor_color;
+} SliderStyle;
+
+typedef struct {
+    UIElement elem;
+    SliderStyle style;
+    char title[20];
+    float32 low_value;
+    float32 high_value;
+    float32 cursor; // [0, 1]
+} Slider;
+
+float32 get_slider_value(Slider* slider);
 
 typedef struct {
     BumpAllocator memory;
@@ -697,12 +736,19 @@ UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id);
 // ----------------
 UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size);
 
-UIElementId put_ui_element_button(UIElementStore* store, Button button);
 UIElementId put_ui_element_area(UIElementStore* store, Area area);
+UIElementId put_ui_element_button(UIElementStore* store, Button button);
+UIElementId put_ui_element_selection_box(UIElementStore* store, SelectionBox sbox);
+UIElementId put_ui_element_slider(UIElementStore* store, Slider slider);
 // ----------------
 
 void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
     UIElementStore* store
+);
+
+void SYSTEM_UPDATE_update_ui_elements(
+    UIElementStore* store,
+    float32 delta_time
 );
 
 void SYSTEM_RENDER_draw_ui_elements(
