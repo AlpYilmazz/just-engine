@@ -81,6 +81,7 @@ void render_sprites_z_index_sort(SortedRenderSprites* render_sprites) {
     RenderSprite temp;
     bool no_swap_done = true;
     for (uint32 begin = 0; begin < render_sprites->count - 1; begin++) {
+        no_swap_done = true;
         for (uint32 i = render_sprites->count - 1; i > begin; i--) {
             if (render_sprites->sprites[i].z_index < render_sprites->sprites[i-1].z_index) {
                 // swap

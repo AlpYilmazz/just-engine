@@ -50,6 +50,7 @@ typedef enum {
     UIEvent_Released,
     UIEvent_Update,
     UIEvent_Draw,
+    UIEvent_DropElement,
 } UIEvent;
 
 typedef struct {

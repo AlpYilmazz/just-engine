@@ -136,6 +136,22 @@ static inline Vector2 find_rectangle_top_left_rect(Anchor anchor, Rectangle rect
 }
 
 typedef struct {
+    uint32 mask;
+} Layers;
+
+static inline void set_layer(Layers* layers, uint32 layer) {
+    layers->mask |= 1 << layer;
+}
+
+static inline void unset_layer(Layers* layers, uint32 layer) {
+    layers->mask &= ((1 << layer) ^ 0xFFFFFFFF);
+}
+
+static inline bool layers_overlap(Layers ls1, Layers ls2) {
+    return ls1.mask & ls2.mask;
+}
+
+typedef struct {
     uint32 id;
 } ComponentId;
 

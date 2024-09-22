@@ -75,13 +75,13 @@ void ui_handle_area(Area* area, UIEvent event, UIEventContext context) {
         area->elem.state.hover = false;
         break;
     case UIEvent_Pressed:
-        break;
     case UIEvent_Released:
-        break;
     case UIEvent_Update:
         break;
     case UIEvent_Draw:
         ui_draw_area(area);
+        break;
+    case UIEvent_DropElement:
         break;
     }
 }
@@ -156,6 +156,8 @@ void ui_handle_button(Button* button, UIEvent event, UIEventContext context) {
     case UIEvent_Draw:
         ui_draw_button(button);
         break;
+    case UIEvent_DropElement:
+        break;
     }
 }
 
@@ -214,6 +216,8 @@ void ui_handle_selection_box(SelectionBox* sbox, UIEvent event, UIEventContext c
         break;
     case UIEvent_Draw:
         ui_draw_selection_box(sbox);
+        break;
+    case UIEvent_DropElement:
         break;
     }
 }
@@ -326,6 +330,8 @@ void ui_handle_slider(Slider* slider, UIEvent event, UIEventContext context) {
     case UIEvent_Draw:
         ui_draw_slider(slider);
         break;
+    case UIEvent_DropElement:
+        break;
     }
 }
 
@@ -367,11 +373,20 @@ UIElementStore ui_element_store_new_active() {
     return store;
 }
 
+static inline void drop_elements(UIElementStore* store) {
+    for (uint32 i = 0; i < store->count; i++) {
+        UIEventContext context = {0};
+        ui_handle_element(store->elems[i], UIEvent_DropElement, context);
+    }
+}
+
 void ui_element_store_drop(UIElementStore* store) {
+    drop_elements(store);
     free_bump_allocator(&store->memory);
 }
 
 void ui_element_store_clear(UIElementStore* store) {
+    drop_elements(store);
     reset_bump_allocator(&store->memory);
     store->count = 0;
 }

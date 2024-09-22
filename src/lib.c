@@ -43,6 +43,13 @@
  * 
  */
 
+void SYSTEM_UPDATE_camera_visibility(
+    SpriteStore* RES_sprite_store,
+    Camera2D camera
+) {
+    // TODO
+}
+
 void SYSTEM_POST_UPDATE_check_mutated_images(
     TextureAssets* RES_texture_assets,
     Events_TextureAssetEvent* RES_texture_asset_events
