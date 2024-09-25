@@ -6,21 +6,9 @@
 #include "base.h"
 #include "asset.h"
 
-const AssetHandle PRIMARY_ASSET_HANDLE = {0};
-const TextureHandle PRIMARY_TEXTURE_HANDLE = {0};
-const uint8 DEFAULT_IMAGE_DATA[4] = {255, 0, 255, 255};
-
-AssetHandle primary_handle() {
-    return PRIMARY_ASSET_HANDLE;
-}
-
-AssetHandle new_handle(uint32 id) {
-    return (AssetHandle) { id };
-}
-
-TextureHandle primary_texture_handle() {
-    return PRIMARY_TEXTURE_HANDLE;
-}
+const uint8 DEFAULT_IMAGE_DATA[4] = {255, 0, 255, 255}; // MAGENTA
+const uint8 BLANK_IMAGE_DATA[4] = {0, 0, 0, 0};         // BLANK
+const uint8 WHITE_IMAGE_DATA[4] = {255, 255, 255, 255}; // WHITE
 
 TextureHandle new_texture_handle(uint32 id) {
     return (TextureHandle) { id };
@@ -47,21 +35,52 @@ TextureResponse valid_texture_response(Texture* texture) {
 TextureAssets just_engine_new_texture_assets() {
     TextureAssets texture_assets = {0};
 
-    Image image = {
+    Image default_image = {
         .data = (void*)&DEFAULT_IMAGE_DATA,
         .width = 1,
         .height = 1,
         .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
         .mipmaps = 1
     };
-    Texture texture = LoadTextureFromImage(image);
+    Texture default_texture = LoadTextureFromImage(default_image);
 
-    texture_assets.next_slot_available_bump = 1;
-    texture_assets.slots[PRIMARY_TEXTURE_HANDLE.id] = true;
-    texture_assets.image_ready[PRIMARY_TEXTURE_HANDLE.id] = true;
-    texture_assets.texture_ready[PRIMARY_TEXTURE_HANDLE.id] = true;
-    texture_assets.images[PRIMARY_TEXTURE_HANDLE.id] = image;
-    texture_assets.textures[PRIMARY_TEXTURE_HANDLE.id] = texture;
+    Image blank_image = {
+        .data = (void*)&BLANK_IMAGE_DATA,
+        .width = 1,
+        .height = 1,
+        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+        .mipmaps = 1
+    };
+    Texture blank_texture = LoadTextureFromImage(blank_image);
+
+    Image white_image = {
+        .data = (void*)&WHITE_IMAGE_DATA,
+        .width = 1,
+        .height = 1,
+        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+        .mipmaps = 1
+    };
+    Texture white_texture = LoadTextureFromImage(white_image);
+
+    texture_assets.next_slot_available_bump = 3;
+
+    texture_assets.slots[DEFAULT_TEXTURE_HANDLE_ID] = true;
+    texture_assets.image_ready[DEFAULT_TEXTURE_HANDLE_ID] = true;
+    texture_assets.texture_ready[DEFAULT_TEXTURE_HANDLE_ID] = true;
+    texture_assets.images[DEFAULT_TEXTURE_HANDLE_ID] = default_image;
+    texture_assets.textures[DEFAULT_TEXTURE_HANDLE_ID] = default_texture;
+
+    texture_assets.slots[BLANK_TEXTURE_HANDLE_ID] = true;
+    texture_assets.image_ready[BLANK_TEXTURE_HANDLE_ID] = true;
+    texture_assets.texture_ready[BLANK_TEXTURE_HANDLE_ID] = true;
+    texture_assets.images[BLANK_TEXTURE_HANDLE_ID] = blank_image;
+    texture_assets.textures[BLANK_TEXTURE_HANDLE_ID] = blank_texture;
+
+    texture_assets.slots[WHITE_TEXTURE_HANDLE_ID] = true;
+    texture_assets.image_ready[WHITE_TEXTURE_HANDLE_ID] = true;
+    texture_assets.texture_ready[WHITE_TEXTURE_HANDLE_ID] = true;
+    texture_assets.images[WHITE_TEXTURE_HANDLE_ID] = white_image;
+    texture_assets.textures[WHITE_TEXTURE_HANDLE_ID] = white_texture;
     
     return texture_assets;
 }
@@ -125,7 +144,7 @@ Image* just_engine_texture_assets_get_image_or_default(TextureAssets* assets, Te
     if (assets->image_ready[handle.id]) {
         return &assets->images[handle.id];
     }
-    return &assets->images[PRIMARY_TEXTURE_HANDLE.id];
+    return &assets->images[DEFAULT_TEXTURE_HANDLE_ID];
 }
 
 Image* just_engine_texture_assets_get_image_unchecked(TextureAssets* assets, TextureHandle handle) {
@@ -160,7 +179,7 @@ Texture* just_engine_texture_assets_get_texture_or_default(TextureAssets* assets
     if (assets->texture_ready[handle.id]) {
         return &assets->textures[handle.id];
     }
-    return &assets->textures[PRIMARY_TEXTURE_HANDLE.id];
+    return &assets->textures[DEFAULT_TEXTURE_HANDLE_ID];
 }
 
 Texture* just_engine_texture_assets_get_texture_unchecked(TextureAssets* assets, TextureHandle handle) {

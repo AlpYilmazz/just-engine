@@ -5,6 +5,8 @@
 #include "base.h"
 #include "assets/asset.h"
 
+#include "camera2d.h"
+
 typedef enum {
     Rotation_CW = 1,
     Rotation_CCW = -1,
@@ -21,8 +23,23 @@ typedef struct {
 } SpriteTransform;
 
 typedef struct {
+    // -- render start
     TextureHandle texture;
     Color tint;
+    bool use_custom_source;
+    Rectangle source;
+    uint32 z_index;
+    // -- render end
+    bool use_layer_system; // otherwise renders on the primary camera by default
+    Layers layers;
+    bool visible;
+    bool camera_visible;
+} Sprite;
+
+typedef struct {
+    TextureHandle texture;
+    Color tint;
+    bool use_custom_source;
     Rectangle source;
     SpriteTransform transform;
     uint32 z_index;
@@ -35,21 +52,21 @@ typedef struct {
 } SortedRenderSprites;
 
 typedef struct {
-    // -- render start
-    TextureHandle texture;
-    Color tint;
-    Rectangle source;
-    uint32 z_index;
-    // -- render end
-    bool visible;
-    bool camera_visible;
-} Sprite;
+    uint32 camera_index;
+    uint32 sort_index;
+} CameraSortElem;
+
+typedef struct {
+    uint32 camera_count;
+    CameraSortElem camera_sort[MAX_CAMERA_COUNT];
+    SortedRenderSprites render_sprites[MAX_CAMERA_COUNT];
+} PreparedRenderSprites;
 
 typedef struct {
     uint32 count;
     uint32 capacity;
     uint32 free_count;
-    bool* slots;
+    bool* slot_occupied;
     SpriteTransform* transforms;
     Sprite* sprites;
 } SpriteStore;
@@ -63,11 +80,14 @@ SpriteComponentId spawn_sprite(
 );
 void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId id);
 
-Vector2 calculate_relative_origin_from_anchor(Anchor anchor, Vector2 size);
+void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
+    SpriteCameraStore* sprite_camera_store,
+    SpriteStore* sprite_store,
+    PreparedRenderSprites* prepared_render_sprites
+);
 
-void render_sprites_reserve_total(SortedRenderSprites* render_sprites, uint32 capacity);
-void render_sprites_push_back_unchecked(SortedRenderSprites* render_sprites, RenderSprite sprite);
-
-// TODO: impl n*logn sort and maybe use pointers to avoid many clones
-void render_sprites_z_index_sort(SortedRenderSprites* render_sprites);
-RenderSprite extract_render_sprite(SpriteTransform* transform, Sprite* sprite);
+void SYSTEM_RENDER_sorted_sprites(
+    TextureAssets* RES_texture_assets,
+    SpriteCameraStore* sprite_camera_store,
+    PreparedRenderSprites* prepared_render_sprites
+);

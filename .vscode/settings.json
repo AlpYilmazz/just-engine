@@ -38,6 +38,8 @@
         "thread": "c",
         "xlocmes": "c",
         "xlocnum": "c",
-        "iosfwd": "c"
+        "iosfwd": "c",
+        "raymath.h": "c",
+        "atomic": "cpp"
     }
 }

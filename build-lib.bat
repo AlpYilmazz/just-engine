@@ -33,6 +33,7 @@ set COMPILE=^
     ^
     %SRC_DIR%/ui/justui.c^
     ^
+    %SRC_DIR%/render2d/camera2d.c^
     %SRC_DIR%/render2d/sprite.c^
     ^
     %SRC_DIR%/logging.c^

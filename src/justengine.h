@@ -139,6 +139,8 @@ static inline Vector2 find_rectangle_top_left_rect(Anchor anchor, Rectangle rect
     );
 }
 
+#define PRIMARY_LAYER 1
+
 typedef struct {
     uint32 mask;
 } Layers;
@@ -155,12 +157,78 @@ static inline bool layers_overlap(Layers ls1, Layers ls2) {
     return ls1.mask & ls2.mask;
 }
 
+static inline Layers on_single_layer(uint32 layer) {
+    Layers layers = {0};
+    set_layer(&layers, layer);
+    return layers;
+}
+
+static inline Layers on_primary_layer() {
+    return on_single_layer(PRIMARY_LAYER);
+}
+
 typedef struct {
     uint32 id;
 } ComponentId;
 
 static inline ComponentId new_component_id(uint32 id) {
     return (ComponentId) { id };
+}
+
+#define Vector2_From(val) ((Vector2) {val, val})
+#define Vector2_Ones ((Vector2) {1.0, 1.0})
+#define Vector2_Unit_X ((Vector2) {1.0, 0.0})
+#define Vector2_Unit_Y ((Vector2) {0.0, 1.0})
+#define Vector2_Neg_Unit_X ((Vector2) {-1.0, 0.0})
+#define Vector2_Neg_Unit_Y ((Vector2) {0.0, -1.0})
+#define Vector2_On_X(val) ((Vector2) {val, 0.0})
+#define Vector2_On_Y(val) ((Vector2) {0.0, val})
+#define Vector2_XX(vec) ((Vector2) {vec.x, vec.x})
+#define Vector2_YY(vec) ((Vector2) {vec.y, vec.y})
+#define Vector2_YX(vec) ((Vector2) {vec.y, vec.x})
+
+static inline Vector2 vector2_from(float32 val) {
+    return (Vector2) {val, val};
+}
+
+static inline Vector2 vector2_ones() {
+    return (Vector2) {1.0, 1.0};
+}
+
+static inline Vector2 vector2_unit_x() {
+    return (Vector2) {1.0, 0.0};
+}
+
+static inline Vector2 vector2_unit_y() {
+    return (Vector2) {0.0, 1.0};
+}
+
+static inline Vector2 vector2_neg_unit_x() {
+    return (Vector2) {-1.0, 0.0};
+}
+
+static inline Vector2 vector2_neg_unit_y() {
+    return (Vector2) {0.0, -1.0};
+}
+
+static inline Vector2 vector2_on_x(float32 val) {
+    return (Vector2) {val, 0.0};
+}
+
+static inline Vector2 vector2_on_y(float32 val) {
+    return (Vector2) {0.0, val};
+}
+
+static inline Vector2 vector2_xx(Vector2 vec) {
+    return (Vector2) {vec.x, vec.x};
+}
+
+static inline Vector2 vector2_yy(Vector2 vec) {
+    return (Vector2) {vec.y, vec.y};
+}
+
+static inline Vector2 vector2_yx(Vector2 vec) {
+    return (Vector2) {vec.y, vec.x};
 }
 
 #endif // __HEADER_BASE
@@ -306,19 +374,14 @@ void example_async_task_print_int_arg(TaskArgVoid* arg);
 #ifdef __HEADER_ASSET_ASSET
 
 #define TEXTURE_SLOTS 100
-
-typedef struct {
-    uint32 id;
-} AssetHandle;
-
-AssetHandle primary_handle();
-AssetHandle new_handle(uint32 id);
+#define DEFAULT_TEXTURE_HANDLE_ID   0
+#define BLANK_TEXTURE_HANDLE_ID     1
+#define WHITE_TEXTURE_HANDLE_ID     2
 
 typedef struct {
     uint32 id;
 } TextureHandle;
 
-TextureHandle primary_texture_handle();
 TextureHandle new_texture_handle(uint32 id);
 
 typedef struct {
@@ -618,6 +681,7 @@ typedef enum {
     UIElementType_Button,
     UIElementType_SelectionBox,
     UIElementType_Slider,
+    UIElementType_Panel,
 } UIElementType;
 
 typedef struct {
@@ -644,6 +708,7 @@ typedef struct {
 // ----------------
 typedef enum {
     UIEvent_BeginHover,
+    UIEvent_StayHover,
     UIEvent_EndHover,
     UIEvent_Pressed,
     UIEvent_Released,
@@ -654,11 +719,20 @@ typedef enum {
 
 typedef struct {
     float32 delta_time;
-    Vector2 mouse;
+    Vector2 mouse;      // relative to element top-left
+    Vector2 element_origin;
 } UIEventContext;
 
 void put_ui_handle_vtable_entry(uint32 type_id, void (*handler)(UIElement* elem, UIEvent event, UIEventContext context));
 // ----------------
+
+typedef struct {
+    BumpAllocator memory;
+    uint32 count;
+    UIElement** elems;
+    UIElement* pressed_element;
+    bool active;
+} UIElementStore;
 
 typedef struct {
     Color idle_color;
@@ -741,15 +815,14 @@ typedef struct {
 float32 get_slider_value(Slider* slider);
 
 typedef struct {
-    BumpAllocator memory;
-    uint32 count;
-    UIElement* elems[100];
-    UIElement* pressed_element;
-    bool active;
-} UIElementStore;
+    UIElement elem;
+    UIElementStore store;
+    bool open;
+} Panel;
 
 UIElementStore ui_element_store_new();
 UIElementStore ui_element_store_new_active();
+void ui_element_store_drop_elements(UIElementStore* store);
 void ui_element_store_drop(UIElementStore* store);
 
 void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id);
@@ -762,6 +835,7 @@ UIElementId put_ui_element_area(UIElementStore* store, Area area);
 UIElementId put_ui_element_button(UIElementStore* store, Button button);
 UIElementId put_ui_element_selection_box(UIElementStore* store, SelectionBox sbox);
 UIElementId put_ui_element_slider(UIElementStore* store, Slider slider);
+UIElementId put_ui_element_panel(UIElementStore* store, Panel panel);
 // ----------------
 
 void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
@@ -778,6 +852,29 @@ void SYSTEM_RENDER_draw_ui_elements(
 );
 
 #endif // __HEADER_UI_JUSTUI
+
+#define __HEADER_RENDER2D_CAMERA2D
+#ifdef __HEADER_RENDER2D_CAMERA2D
+
+#define MAX_CAMERA_COUNT 10
+#define PRIMARY_CAMERA_ID 0
+
+typedef struct {
+    Camera2D camera;
+    Layers layers;
+    uint32 sort_index;
+} SpriteCamera;
+
+typedef struct {
+    uint32 count;
+    SpriteCamera cameras[MAX_CAMERA_COUNT];
+} SpriteCameraStore;
+
+void set_primary_camera(SpriteCameraStore* store, SpriteCamera camera);
+SpriteCamera* get_primary_camera(SpriteCameraStore* store);
+void add_camera(SpriteCameraStore* store, SpriteCamera camera);
+
+#endif // __HEADER_RENDER2D_CAMERA2D
 
 #define __HEADER_RENDER2D_SPRITE
 #ifdef __HEADER_RENDER2D_SPRITE
@@ -798,8 +895,23 @@ typedef struct {
 } SpriteTransform;
 
 typedef struct {
+    // -- render start
     TextureHandle texture;
     Color tint;
+    bool use_custom_source;
+    Rectangle source;
+    uint32 z_index;
+    // -- render end
+    bool use_layer_system; // otherwise renders on the primary camera by default
+    Layers layers;
+    bool visible;
+    bool camera_visible;
+} Sprite;
+
+typedef struct {
+    TextureHandle texture;
+    Color tint;
+    bool use_custom_source;
     Rectangle source;
     SpriteTransform transform;
     uint32 z_index;
@@ -812,21 +924,21 @@ typedef struct {
 } SortedRenderSprites;
 
 typedef struct {
-    // -- render start
-    TextureHandle texture;
-    Color tint;
-    Rectangle source;
-    uint32 z_index;
-    // -- render end
-    bool visible;
-    bool camera_visible;
-} Sprite;
+    uint32 camera_index;
+    uint32 sort_index;
+} CameraSortElem;
+
+typedef struct {
+    uint32 camera_count;
+    CameraSortElem camera_sort[MAX_CAMERA_COUNT];
+    SortedRenderSprites render_sprites[MAX_CAMERA_COUNT];
+} PreparedRenderSprites;
 
 typedef struct {
     uint32 count;
     uint32 capacity;
     uint32 free_count;
-    bool* slots;
+    bool* slot_occupied;
     SpriteTransform* transforms;
     Sprite* sprites;
 } SpriteStore;
@@ -840,14 +952,17 @@ SpriteComponentId spawn_sprite(
 );
 void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId id);
 
-Vector2 calculate_relative_origin_from_anchor(Anchor anchor, Vector2 size);
+void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
+    SpriteCameraStore* sprite_camera_store,
+    SpriteStore* sprite_store,
+    PreparedRenderSprites* prepared_render_sprites
+);
 
-void render_sprites_reserve_total(SortedRenderSprites* render_sprites, uint32 capacity);
-void render_sprites_push_back_unchecked(SortedRenderSprites* render_sprites, RenderSprite sprite);
-
-// TODO: impl n*logn sort and maybe use pointers to avoid many clones
-void render_sprites_z_index_sort(SortedRenderSprites* render_sprites);
-RenderSprite extract_render_sprite(SpriteTransform* transform, Sprite* sprite);
+void SYSTEM_RENDER_sorted_sprites(
+    TextureAssets* RES_texture_assets,
+    SpriteCameraStore* sprite_camera_store,
+    PreparedRenderSprites* prepared_render_sprites
+);
 
 #endif // __HEADER_RENDER2D_SPRITE
 
@@ -870,16 +985,6 @@ void SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
 
 void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
     TemporaryStorage* RES_temporary_storage
-);
-
-void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
-    SpriteStore* sprite_store,
-    SortedRenderSprites* render_sprites
-);
-
-void SYSTEM_RENDER_sorted_sprites(
-    TextureAssets* RES_texture_assets,
-    SortedRenderSprites* render_sprites
 );
 
 #endif // __HEADER_LIB

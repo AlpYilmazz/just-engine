@@ -5,19 +5,14 @@
 #include "base.h"
 
 #define TEXTURE_SLOTS 100
-
-typedef struct {
-    uint32 id;
-} AssetHandle;
-
-AssetHandle primary_handle();
-AssetHandle new_handle(uint32 id);
+#define DEFAULT_TEXTURE_HANDLE_ID   0
+#define BLANK_TEXTURE_HANDLE_ID     1
+#define WHITE_TEXTURE_HANDLE_ID     2
 
 typedef struct {
     uint32 id;
 } TextureHandle;
 
-TextureHandle primary_texture_handle();
 TextureHandle new_texture_handle(uint32 id);
 
 typedef struct {

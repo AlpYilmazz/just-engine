@@ -174,7 +174,7 @@ void tick_animation_timer(SpriteAnimation* anim, float delta_time_seconds) {
 }
 
 TextureHandle get_current_texture(SpriteAnimation* anim) {
-    if (anim->texture_count == 0) return primary_texture_handle();
+    if (anim->texture_count == 0) return new_texture_handle(DEFAULT_TEXTURE_HANDLE_ID);
     return anim->textures[anim->current_texture_ind];
 }
 
@@ -246,7 +246,7 @@ void tick_sprite_sheet_animation_timer(SpriteSheetAnimation* anim, float delta_t
 SpriteSheetSprite sprite_sheet_get_current_sprite(SpriteSheetAnimation* anim) {
     if (anim->count == 0) {
         return (SpriteSheetSprite) {
-            .texture_handle = primary_texture_handle(),
+            .texture_handle = new_texture_handle(DEFAULT_TEXTURE_HANDLE_ID),
             .sprite = {0, 0, 1, 1},
         };
     }

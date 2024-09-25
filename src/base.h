@@ -135,6 +135,8 @@ static inline Vector2 find_rectangle_top_left_rect(Anchor anchor, Rectangle rect
     );
 }
 
+#define PRIMARY_LAYER 1
+
 typedef struct {
     uint32 mask;
 } Layers;
@@ -151,10 +153,76 @@ static inline bool layers_overlap(Layers ls1, Layers ls2) {
     return ls1.mask & ls2.mask;
 }
 
+static inline Layers on_single_layer(uint32 layer) {
+    Layers layers = {0};
+    set_layer(&layers, layer);
+    return layers;
+}
+
+static inline Layers on_primary_layer() {
+    return on_single_layer(PRIMARY_LAYER);
+}
+
 typedef struct {
     uint32 id;
 } ComponentId;
 
 static inline ComponentId new_component_id(uint32 id) {
     return (ComponentId) { id };
+}
+
+#define Vector2_From(val) ((Vector2) {val, val})
+#define Vector2_Ones ((Vector2) {1.0, 1.0})
+#define Vector2_Unit_X ((Vector2) {1.0, 0.0})
+#define Vector2_Unit_Y ((Vector2) {0.0, 1.0})
+#define Vector2_Neg_Unit_X ((Vector2) {-1.0, 0.0})
+#define Vector2_Neg_Unit_Y ((Vector2) {0.0, -1.0})
+#define Vector2_On_X(val) ((Vector2) {val, 0.0})
+#define Vector2_On_Y(val) ((Vector2) {0.0, val})
+#define Vector2_XX(vec) ((Vector2) {vec.x, vec.x})
+#define Vector2_YY(vec) ((Vector2) {vec.y, vec.y})
+#define Vector2_YX(vec) ((Vector2) {vec.y, vec.x})
+
+static inline Vector2 vector2_from(float32 val) {
+    return (Vector2) {val, val};
+}
+
+static inline Vector2 vector2_ones() {
+    return (Vector2) {1.0, 1.0};
+}
+
+static inline Vector2 vector2_unit_x() {
+    return (Vector2) {1.0, 0.0};
+}
+
+static inline Vector2 vector2_unit_y() {
+    return (Vector2) {0.0, 1.0};
+}
+
+static inline Vector2 vector2_neg_unit_x() {
+    return (Vector2) {-1.0, 0.0};
+}
+
+static inline Vector2 vector2_neg_unit_y() {
+    return (Vector2) {0.0, -1.0};
+}
+
+static inline Vector2 vector2_on_x(float32 val) {
+    return (Vector2) {val, 0.0};
+}
+
+static inline Vector2 vector2_on_y(float32 val) {
+    return (Vector2) {0.0, val};
+}
+
+static inline Vector2 vector2_xx(Vector2 vec) {
+    return (Vector2) {vec.x, vec.x};
+}
+
+static inline Vector2 vector2_yy(Vector2 vec) {
+    return (Vector2) {vec.y, vec.y};
+}
+
+static inline Vector2 vector2_yx(Vector2 vec) {
+    return (Vector2) {vec.y, vec.x};
 }
