@@ -42,6 +42,8 @@ TextureHandle just_engine_texture_assets_reserve_texture_slot(TextureAssets* ass
 void just_engine_texture_assets_put_image(TextureAssets* assets, TextureHandle handle, Image image);
 void just_engine_texture_assets_load_image_unchecked(TextureAssets* assets, TextureHandle handle);
 void just_engine_texture_assets_load_texture_uncheched(TextureAssets* assets, TextureHandle handle);
+void just_engine_texture_assets_update_texture_unchecked(TextureAssets* assets, TextureHandle handle);
+void just_engine_texture_assets_update_texture_rec_unchecked(TextureAssets* assets, TextureHandle handle, Rectangle rec);
 void just_engine_texture_assets_put_image_and_load_texture(TextureAssets* assets, TextureHandle handle, Image image);
 void just_engine_texture_assets_load_texture_then_unload_image(TextureAssets* assets, TextureHandle handle, Image image);
 

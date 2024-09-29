@@ -67,6 +67,7 @@ typedef struct {
     uint32 capacity;
     uint32 free_count;
     bool* slot_occupied;
+    uint32* generations;
     SpriteTransform* transforms;
     Sprite* sprites;
 } SpriteStore;
@@ -78,7 +79,7 @@ SpriteComponentId spawn_sprite(
     SpriteTransform transform,
     Sprite sprite
 );
-void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId id);
+void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId sprite_id);
 
 void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteCameraStore* sprite_camera_store,

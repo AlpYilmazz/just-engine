@@ -106,8 +106,13 @@ static inline Anchor make_custom_anchor(Vector2 origin) {
 }
 
 typedef struct {
-    float32 width;
-    float32 height;
+    union {
+        struct {
+            float32 width;
+            float32 height;
+        };
+        Vector2 as_vec;
+    };
 } RectSize;
 
 typedef struct {
@@ -115,14 +120,10 @@ typedef struct {
     uint32 height;
 } URectSize;
 
-static inline Vector2 rectsize_into_v2(RectSize size) {
-    return (Vector2) {size.width, size.height};
-}
-
 static inline Vector2 find_rectangle_top_left(Anchor anchor, Vector2 position, RectSize size) {
     return Vector2Subtract(
         position,
-        Vector2Multiply(anchor.origin, rectsize_into_v2(size))
+        Vector2Multiply(anchor.origin, size.as_vec)
     );
 }
 
@@ -135,22 +136,44 @@ static inline Vector2 find_rectangle_top_left_rect(Anchor anchor, Rectangle rect
     );
 }
 
+typedef uint32 BitMask32;
+
+static inline BitMask32 set_bit(BitMask32 mask, uint32 bit) {
+    return mask | (1 << bit);
+}
+
+static inline BitMask32 unset_bit(BitMask32 mask, uint32 bit) {
+    return mask & ((1 << bit) ^ 0xFFFFFFFF);
+}
+
+static inline bool check_bit(BitMask32 mask, uint32 bit) {
+    return mask & (1 << bit);
+}
+
+static inline bool check_overlap(BitMask32 mask1, BitMask32 mask2) {
+    return mask1 & mask2;
+}
+
 #define PRIMARY_LAYER 1
 
 typedef struct {
-    uint32 mask;
+    BitMask32 mask;
 } Layers;
 
 static inline void set_layer(Layers* layers, uint32 layer) {
-    layers->mask |= 1 << layer;
+    layers->mask = set_bit(layers->mask, layer);
 }
 
 static inline void unset_layer(Layers* layers, uint32 layer) {
-    layers->mask &= ((1 << layer) ^ 0xFFFFFFFF);
+    layers->mask = unset_bit(layers->mask, layer);
 }
 
-static inline bool layers_overlap(Layers ls1, Layers ls2) {
-    return ls1.mask & ls2.mask;
+static inline bool check_layer(Layers layers, uint32 layer) {
+    return check_bit(layers.mask, layer);
+}
+
+static inline bool check_layer_overlap(Layers ls1, Layers ls2) {
+    return check_overlap(ls1.mask, ls2.mask);
 }
 
 static inline Layers on_single_layer(uint32 layer) {
@@ -165,10 +188,11 @@ static inline Layers on_primary_layer() {
 
 typedef struct {
     uint32 id;
+    uint32 generation;
 } ComponentId;
 
-static inline ComponentId new_component_id(uint32 id) {
-    return (ComponentId) { id };
+static inline ComponentId new_component_id(uint32 id, uint32 generation) {
+    return (ComponentId) { id, generation };
 }
 
 #define Vector2_From(val) ((Vector2) {val, val})

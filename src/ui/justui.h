@@ -19,16 +19,34 @@ typedef enum {
     UIElementType_Button,
     UIElementType_SelectionBox,
     UIElementType_Slider,
+    UIElementType_ChoiceList,
     UIElementType_Panel,
 } UIElementType;
 
 typedef struct {
     // bool idle;
-    bool hover;
-    bool pressed;
+    bool on_hover;
+    bool on_press;
+    //
+    bool just_begin_hover;
+    bool just_end_hover;
+    bool just_pressed;
+    //
     bool just_clicked;
     Vector2 click_point_relative;
 } UIElementState;
+
+// TODO: maybe utilize bitmask
+// typedef enum {
+//     ON_HOVER,
+//     ON_PRESS,
+//     //
+//     JUST_BEGIN_HOVER,
+//     JUST_END_HOVER,
+//     JUST_PRESSED,
+//     //
+//     JUST_CLICKED,
+// } UIElementStateEnum;
 
 /**
  * Specific UI Elements have to start with UIElement field
@@ -37,6 +55,7 @@ typedef struct {
     UIElementId id;
     UIElementType type;
     UIElementState state;
+    uint32 layer;
     Anchor anchor;
     Vector2 position;
     RectSize size;
@@ -65,9 +84,15 @@ void put_ui_handle_vtable_entry(uint32 type_id, void (*handler)(UIElement* elem,
 // ----------------
 
 typedef struct {
+    uint32 layer;
+    uint32 index;
+} ElementSort;
+
+typedef struct {
     BumpAllocator memory;
     uint32 count;
     UIElement** elems;
+    ElementSort* layer_sort;
     UIElement* pressed_element;
     bool active;
 } UIElementStore;
@@ -104,6 +129,7 @@ typedef struct {
 typedef struct {
     UIElement elem;
     ButtonStyle style;
+    Vector2 draw_offset;
     char title[20];
 } Button;
 
@@ -153,12 +179,49 @@ typedef struct {
 float32 get_slider_value(Slider* slider);
 
 typedef struct {
+    uint32 rows;
+    uint32 cols;
+    URectSize option_size;
+    uint32 option_margin; // half space between options
+    //
+    Color selected_color;
+    Color unselected_color;
+    Color disabled_color;
+    //
+    bool is_bordered;
+    float32 border_thick;
+    Color border_color;
+    //
+    Font title_font;
+    float32 title_font_size;
+    float32 title_spacing;
+    Color title_color;
+} ChoiceListStyle;
+
+typedef struct {
+    uint32 id;
+    char title[20];
+} ChoiceListOption;
+
+typedef struct {
+    UIElement elem;
+    ChoiceListStyle style;
+    bool some_option_hovered;
+    uint32 hovered_option_index;
+    uint32 selected_option_id;
+    uint32 option_count;
+    ChoiceListOption options[20];
+} ChoiceList;
+
+typedef struct {
     UIElement elem;
     UIElementStore store;
     bool open;
 } Panel;
 
+UIElementStore ui_element_store_new_with_count_hint(uint32 count_hint);
 UIElementStore ui_element_store_new();
+UIElementStore ui_element_store_new_active_with_count_hint(uint32 count_hint);
 UIElementStore ui_element_store_new_active();
 void ui_element_store_drop_elements(UIElementStore* store);
 void ui_element_store_drop(UIElementStore* store);
@@ -173,6 +236,7 @@ UIElementId put_ui_element_area(UIElementStore* store, Area area);
 UIElementId put_ui_element_button(UIElementStore* store, Button button);
 UIElementId put_ui_element_selection_box(UIElementStore* store, SelectionBox sbox);
 UIElementId put_ui_element_slider(UIElementStore* store, Slider slider);
+UIElementId put_ui_element_choice_list(UIElementStore* store, ChoiceList choice_list);
 UIElementId put_ui_element_panel(UIElementStore* store, Panel panel);
 // ----------------
 

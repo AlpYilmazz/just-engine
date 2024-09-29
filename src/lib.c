@@ -80,10 +80,11 @@ void SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
         TextureAssetEvent event = just_engine_events_iter_texture_asset_events_read_next(&events_iter);
         switch (event.type) {
         case AssetEvent_Changed:
-            just_engine_texture_assets_unload_texture(RES_texture_assets, event.handle);
-            // fallthrough
+            just_engine_texture_assets_update_texture_unchecked(RES_texture_assets, event.handle);
+            break;
         case AssetEvent_Loaded:
             just_engine_texture_assets_load_texture_uncheched(RES_texture_assets, event.handle);
+            break;
         }
     }
 

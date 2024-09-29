@@ -14,7 +14,7 @@ SpriteComponentId spawn_sprite(
     SpriteTransform transform,
     Sprite sprite
 ) {
-    uint32 entity_id;
+    uint32 sprite_id;
 
     #define INITIAL_CAPACITY 100
     #define GROWTH_FACTOR 2
@@ -23,6 +23,7 @@ SpriteComponentId spawn_sprite(
         sprite_store->capacity = INITIAL_CAPACITY;
 
         sprite_store->slot_occupied = malloc(sprite_store->capacity * sizeof(bool));
+        sprite_store->generations = malloc(sprite_store->capacity * sizeof(uint32));
         sprite_store->transforms = malloc(sprite_store->capacity * sizeof(SpriteTransform));
         sprite_store->sprites = malloc(sprite_store->capacity * sizeof(Sprite));
     }
@@ -31,7 +32,7 @@ SpriteComponentId spawn_sprite(
             for (uint32 i = 0; i < sprite_store->count; i++) {
                 if (!sprite_store->slot_occupied[i]) {
                     sprite_store->free_count--;
-                    entity_id = i;
+                    sprite_id = i;
                     goto SET_ENTITY_AND_RETURN;
                 }
             }
@@ -40,41 +41,29 @@ SpriteComponentId spawn_sprite(
         sprite_store->capacity = GROWTH_FACTOR * sprite_store->capacity;
 
         sprite_store->slot_occupied = realloc(sprite_store->slot_occupied, sprite_store->capacity * sizeof(bool));
+        sprite_store->generations = realloc(sprite_store->generations, sprite_store->capacity * sizeof(uint32));
         sprite_store->transforms = realloc(sprite_store->transforms, sprite_store->capacity * sizeof(SpriteTransform));
         sprite_store->sprites = realloc(sprite_store->sprites, sprite_store->capacity * sizeof(Sprite));
     }
 
-    entity_id = sprite_store->count;
+    sprite_id = sprite_store->count;
     sprite_store->count++;
 
     #undef INITIAL_CAPACITY
     #undef GROWTH_FACTOR
 
     SET_ENTITY_AND_RETURN:
-    sprite_store->slot_occupied[entity_id] = true;
-    sprite_store->sprites[entity_id] = sprite;
-    sprite_store->transforms[entity_id] = transform;
-    return new_component_id(entity_id);
+    sprite_store->slot_occupied[sprite_id] = true;
+    const uint32 generation = sprite_store->generations[sprite_id]++;
+    sprite_store->sprites[sprite_id] = sprite;
+    sprite_store->transforms[sprite_id] = transform;
+    return new_component_id(sprite_id, generation);
 }
 
-void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId cid) {
-    sprite_store->slot_occupied[cid.id] = false;
+void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId sprite_id) {
+    sprite_store->generations[sprite_id.id]++;
+    sprite_store->slot_occupied[sprite_id.id] = false;
     sprite_store->free_count++;
-}
-
-void render_sprites_reserve_total(SortedRenderSprites* render_sprites, uint32 capacity) {
-    if (render_sprites->capacity < capacity) {
-        // TODO: init with initial capacity instead of checking if uninit
-        if (render_sprites->capacity > 0) {
-            free(render_sprites->sprites);
-        }
-        render_sprites->sprites = malloc(capacity * sizeof(RenderSprite));
-    }
-}
-
-void render_sprites_push_back_unchecked(SortedRenderSprites* render_sprites, RenderSprite sprite) {
-    render_sprites->sprites[render_sprites->count] = sprite;
-    render_sprites->count++;
 }
 
 void render_sprites_push_back(SortedRenderSprites* render_sprites, RenderSprite render_sprite) {
@@ -140,6 +129,7 @@ static void insert_sorted(CameraSortElem* arr, uint32 count, CameraSortElem valu
                 arr[j] = arr[j-1];
             }
             arr[i] = value;
+            return;
         }
     }
     arr[count] = value;
@@ -151,15 +141,12 @@ void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     PreparedRenderSprites* prepared_render_sprites
 ) {
     prepared_render_sprites->camera_count = sprite_camera_store->count;
-    JUST_LOG_DEBUG("camera count: %d\n", sprite_camera_store->count);
 
     SpriteTransform* transform;
     Sprite* sprite;
     for (uint32 camera_i = 0; camera_i < sprite_camera_store->count; camera_i++) {
         SpriteCamera* sprite_camera = &sprite_camera_store->cameras[camera_i];
         SortedRenderSprites* render_sprites = &prepared_render_sprites->render_sprites[camera_i];
-
-        JUST_LOG_DEBUG("camera %d\n", camera_i);
 
         insert_sorted(
             prepared_render_sprites->camera_sort,
@@ -169,19 +156,16 @@ void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
                 .sort_index =  sprite_camera->sort_index,
             }
         );
-        JUST_LOG_DEBUG("camera_inserted_for_sort\n");
 
         for (uint32 i = 0; i < sprite_store->count; i++) {
             transform = &sprite_store->transforms[i];
             sprite = &sprite_store->sprites[i];
 
-            JUST_LOG_DEBUG("check sprite %d\n", i);
             if (sprite->visible && sprite->camera_visible) {
                 if (
                     (!sprite->use_layer_system && camera_i == PRIMARY_CAMERA_ID)
-                    || (sprite->use_layer_system && layers_overlap(sprite->layers, sprite_camera->layers))
+                    || (sprite->use_layer_system && check_layer_overlap(sprite->layers, sprite_camera->layers))
                 ) {
-                    JUST_LOG_DEBUG("prepared sprite %d\n", i);
                     render_sprites_push_back(
                         render_sprites,
                         extract_render_sprite(transform, sprite)
@@ -189,10 +173,7 @@ void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
                 }
             }
         }
-        JUST_LOG_DEBUG("start render_sprites_z_index_sort\n");
-        JUST_LOG_DEBUG("render_sprites: %d, %d\n", render_sprites->count, render_sprites->capacity);
         render_sprites_z_index_sort(render_sprites);
-        JUST_LOG_DEBUG("end render_sprites_z_index_sort\n");
     }
 }
 

@@ -110,8 +110,13 @@ static inline Anchor make_custom_anchor(Vector2 origin) {
 }
 
 typedef struct {
-    float32 width;
-    float32 height;
+    union {
+        struct {
+            float32 width;
+            float32 height;
+        };
+        Vector2 as_vec;
+    };
 } RectSize;
 
 typedef struct {
@@ -119,14 +124,10 @@ typedef struct {
     uint32 height;
 } URectSize;
 
-static inline Vector2 rectsize_into_v2(RectSize size) {
-    return (Vector2) {size.width, size.height};
-}
-
 static inline Vector2 find_rectangle_top_left(Anchor anchor, Vector2 position, RectSize size) {
     return Vector2Subtract(
         position,
-        Vector2Multiply(anchor.origin, rectsize_into_v2(size))
+        Vector2Multiply(anchor.origin, size.as_vec)
     );
 }
 
@@ -139,22 +140,44 @@ static inline Vector2 find_rectangle_top_left_rect(Anchor anchor, Rectangle rect
     );
 }
 
+typedef uint32 BitMask32;
+
+static inline BitMask32 set_bit(BitMask32 mask, uint32 bit) {
+    return mask | (1 << bit);
+}
+
+static inline BitMask32 unset_bit(BitMask32 mask, uint32 bit) {
+    return mask & ((1 << bit) ^ 0xFFFFFFFF);
+}
+
+static inline bool check_bit(BitMask32 mask, uint32 bit) {
+    return mask & (1 << bit);
+}
+
+static inline bool check_overlap(BitMask32 mask1, BitMask32 mask2) {
+    return mask1 & mask2;
+}
+
 #define PRIMARY_LAYER 1
 
 typedef struct {
-    uint32 mask;
+    BitMask32 mask;
 } Layers;
 
 static inline void set_layer(Layers* layers, uint32 layer) {
-    layers->mask |= 1 << layer;
+    layers->mask = set_bit(layers->mask, layer);
 }
 
 static inline void unset_layer(Layers* layers, uint32 layer) {
-    layers->mask &= ((1 << layer) ^ 0xFFFFFFFF);
+    layers->mask = unset_bit(layers->mask, layer);
 }
 
-static inline bool layers_overlap(Layers ls1, Layers ls2) {
-    return ls1.mask & ls2.mask;
+static inline bool check_layer(Layers layers, uint32 layer) {
+    return check_bit(layers.mask, layer);
+}
+
+static inline bool check_layer_overlap(Layers ls1, Layers ls2) {
+    return check_overlap(ls1.mask, ls2.mask);
 }
 
 static inline Layers on_single_layer(uint32 layer) {
@@ -169,10 +192,11 @@ static inline Layers on_primary_layer() {
 
 typedef struct {
     uint32 id;
+    uint32 generation;
 } ComponentId;
 
-static inline ComponentId new_component_id(uint32 id) {
-    return (ComponentId) { id };
+static inline ComponentId new_component_id(uint32 id, uint32 generation) {
+    return (ComponentId) { id, generation };
 }
 
 #define Vector2_From(val) ((Vector2) {val, val})
@@ -411,6 +435,8 @@ TextureHandle just_engine_texture_assets_reserve_texture_slot(TextureAssets* ass
 void just_engine_texture_assets_put_image(TextureAssets* assets, TextureHandle handle, Image image);
 void just_engine_texture_assets_load_image_unchecked(TextureAssets* assets, TextureHandle handle);
 void just_engine_texture_assets_load_texture_uncheched(TextureAssets* assets, TextureHandle handle);
+void just_engine_texture_assets_update_texture_unchecked(TextureAssets* assets, TextureHandle handle);
+void just_engine_texture_assets_update_texture_rec_unchecked(TextureAssets* assets, TextureHandle handle, Rectangle rec);
 void just_engine_texture_assets_put_image_and_load_texture(TextureAssets* assets, TextureHandle handle, Image image);
 void just_engine_texture_assets_load_texture_then_unload_image(TextureAssets* assets, TextureHandle handle, Image image);
 
@@ -681,16 +707,34 @@ typedef enum {
     UIElementType_Button,
     UIElementType_SelectionBox,
     UIElementType_Slider,
+    UIElementType_ChoiceList,
     UIElementType_Panel,
 } UIElementType;
 
 typedef struct {
     // bool idle;
-    bool hover;
-    bool pressed;
+    bool on_hover;
+    bool on_press;
+    //
+    bool just_begin_hover;
+    bool just_end_hover;
+    bool just_pressed;
+    //
     bool just_clicked;
     Vector2 click_point_relative;
 } UIElementState;
+
+// TODO: maybe utilize bitmask
+// typedef enum {
+//     ON_HOVER,
+//     ON_PRESS,
+//     //
+//     JUST_BEGIN_HOVER,
+//     JUST_END_HOVER,
+//     JUST_PRESSED,
+//     //
+//     JUST_CLICKED,
+// } UIElementStateEnum;
 
 /**
  * Specific UI Elements have to start with UIElement field
@@ -699,6 +743,7 @@ typedef struct {
     UIElementId id;
     UIElementType type;
     UIElementState state;
+    uint32 layer;
     Anchor anchor;
     Vector2 position;
     RectSize size;
@@ -727,9 +772,15 @@ void put_ui_handle_vtable_entry(uint32 type_id, void (*handler)(UIElement* elem,
 // ----------------
 
 typedef struct {
+    uint32 layer;
+    uint32 index;
+} ElementSort;
+
+typedef struct {
     BumpAllocator memory;
     uint32 count;
     UIElement** elems;
+    ElementSort* layer_sort;
     UIElement* pressed_element;
     bool active;
 } UIElementStore;
@@ -766,6 +817,7 @@ typedef struct {
 typedef struct {
     UIElement elem;
     ButtonStyle style;
+    Vector2 draw_offset;
     char title[20];
 } Button;
 
@@ -815,12 +867,49 @@ typedef struct {
 float32 get_slider_value(Slider* slider);
 
 typedef struct {
+    uint32 rows;
+    uint32 cols;
+    URectSize option_size;
+    uint32 option_margin; // half space between options
+    //
+    Color selected_color;
+    Color unselected_color;
+    Color disabled_color;
+    //
+    bool is_bordered;
+    float32 border_thick;
+    Color border_color;
+    //
+    Font title_font;
+    float32 title_font_size;
+    float32 title_spacing;
+    Color title_color;
+} ChoiceListStyle;
+
+typedef struct {
+    uint32 id;
+    char title[20];
+} ChoiceListOption;
+
+typedef struct {
+    UIElement elem;
+    ChoiceListStyle style;
+    bool some_option_hovered;
+    uint32 hovered_option_index;
+    uint32 selected_option_id;
+    uint32 option_count;
+    ChoiceListOption options[20];
+} ChoiceList;
+
+typedef struct {
     UIElement elem;
     UIElementStore store;
     bool open;
 } Panel;
 
+UIElementStore ui_element_store_new_with_count_hint(uint32 count_hint);
 UIElementStore ui_element_store_new();
+UIElementStore ui_element_store_new_active_with_count_hint(uint32 count_hint);
 UIElementStore ui_element_store_new_active();
 void ui_element_store_drop_elements(UIElementStore* store);
 void ui_element_store_drop(UIElementStore* store);
@@ -835,6 +924,7 @@ UIElementId put_ui_element_area(UIElementStore* store, Area area);
 UIElementId put_ui_element_button(UIElementStore* store, Button button);
 UIElementId put_ui_element_selection_box(UIElementStore* store, SelectionBox sbox);
 UIElementId put_ui_element_slider(UIElementStore* store, Slider slider);
+UIElementId put_ui_element_choice_list(UIElementStore* store, ChoiceList choice_list);
 UIElementId put_ui_element_panel(UIElementStore* store, Panel panel);
 // ----------------
 
@@ -939,6 +1029,7 @@ typedef struct {
     uint32 capacity;
     uint32 free_count;
     bool* slot_occupied;
+    uint32* generations;
     SpriteTransform* transforms;
     Sprite* sprites;
 } SpriteStore;
@@ -950,7 +1041,7 @@ SpriteComponentId spawn_sprite(
     SpriteTransform transform,
     Sprite sprite
 );
-void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId id);
+void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId sprite_id);
 
 void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteCameraStore* sprite_camera_store,

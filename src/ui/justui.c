@@ -58,7 +58,7 @@ void ui_draw_area(Area* area, Vector2 element_origin) {
     };
 
     Color color = style->idle_color;
-    if (elem->state.hover) {
+    if (elem->state.on_hover) {
         color = style->hovered_color;
     }
 
@@ -71,12 +71,6 @@ void ui_draw_area(Area* area, Vector2 element_origin) {
 
 void ui_handle_area(Area* area, UIEvent event, UIEventContext context) {
     switch (event) {
-    case UIEvent_BeginHover:
-        area->elem.state.hover = true;
-        break;
-    case UIEvent_EndHover:
-        area->elem.state.hover = false;
-        break;
     case UIEvent_Draw:
         ui_draw_area(area, context.element_origin);
         break;
@@ -98,7 +92,8 @@ void ui_draw_button(Button* button, Vector2 element_origin) {
         element_origin,
         find_rectangle_top_left(elem->anchor, elem->position, elem->size)
     );
-    Vector2 mid = Vector2Add(top_left, Vector2Scale(rectsize_into_v2(elem->size), 0.5));
+    top_left = Vector2Add(top_left, button->draw_offset);
+    Vector2 mid = Vector2Add(top_left, Vector2Scale(elem->size.as_vec, 0.5));
 
     Rectangle rect = {
         .x = top_left.x,
@@ -112,10 +107,10 @@ void ui_draw_button(Button* button, Vector2 element_origin) {
         color = style->disabled_color;
     }
     else { // if (!elem->disabled)
-        if (elem->state.pressed) {
+        if (elem->state.on_press) {
             color = style->pressed_color;
         }
-        else if (elem->state.hover) {
+        else if (elem->state.on_hover) {
             color = style->hovered_color;
         }
     }
@@ -135,22 +130,6 @@ void ui_draw_button(Button* button, Vector2 element_origin) {
 
 void ui_handle_button(Button* button, UIEvent event, UIEventContext context) {
     switch (event) {
-    case UIEvent_BeginHover:
-        button->elem.state.hover = true;
-        break;
-    case UIEvent_EndHover:
-        button->elem.state.hover = false;
-        break;
-    case UIEvent_Pressed:
-        button->elem.state.pressed = true;
-        break;
-    case UIEvent_Released:
-        if (button->elem.state.hover && button->elem.state.pressed) {
-            button->elem.state.pressed = false;
-            button->elem.state.just_clicked = true;
-            button->elem.state.click_point_relative = context.mouse;
-        }
-        break;
     case UIEvent_Draw:
         ui_draw_button(button, context.element_origin);
         break;
@@ -168,7 +147,7 @@ void ui_draw_selection_box(SelectionBox* sbox, Vector2 element_origin) {
         element_origin,
         find_rectangle_top_left(elem->anchor, elem->position, elem->size)
     );
-    Vector2 mid = Vector2Add(top_left, Vector2Scale(rectsize_into_v2(elem->size), 0.5));
+    Vector2 mid = Vector2Add(top_left, Vector2Scale(elem->size.as_vec, 0.5));
 
     Rectangle rect = {
         .x = top_left.x,
@@ -194,22 +173,8 @@ void ui_draw_selection_box(SelectionBox* sbox, Vector2 element_origin) {
 
 void ui_handle_selection_box(SelectionBox* sbox, UIEvent event, UIEventContext context) {
     switch (event) {
-    case UIEvent_BeginHover:
-        sbox->elem.state.hover = true;
-        break;
-    case UIEvent_EndHover:
-        sbox->elem.state.hover = false;
-        break;
-    case UIEvent_Pressed:
-        sbox->elem.state.pressed = true;
-        break;
     case UIEvent_Released:
-        if (sbox->elem.state.hover && sbox->elem.state.pressed) {
-            sbox->selected ^= 1;
-            sbox->elem.state.pressed = false;
-            sbox->elem.state.just_clicked = true;
-            sbox->elem.state.click_point_relative = context.mouse;
-        }
+        sbox->selected ^= 1;
         break;
     case UIEvent_Draw:
         ui_draw_selection_box(sbox, context.element_origin);
@@ -226,7 +191,7 @@ float32 get_slider_value(Slider* slider) {
 
 void ui_update_slider(Slider* slider, Vector2 element_origin, Vector2 mouse, float32 delta_time) {
     UIElement* elem = &slider->elem;
-    if (elem->state.pressed) {
+    if (elem->state.on_press) {
         Vector2 top_left = Vector2Add(
             element_origin,
             find_rectangle_top_left(elem->anchor, elem->position, elem->size)
@@ -248,7 +213,7 @@ void ui_draw_slider(Slider* slider, Vector2 element_origin) {
     UIElement* elem = &slider->elem;
     SliderStyle* style = &slider->style;
 
-    Vector2 size_vec = rectsize_into_v2(elem->size);
+    Vector2 size_vec = elem->size.as_vec;
     Vector2 top_left = Vector2Add(
         element_origin,
         find_rectangle_top_left(elem->anchor, elem->position, elem->size)
@@ -266,7 +231,7 @@ void ui_draw_slider(Slider* slider, Vector2 element_origin) {
         .x = start_pos.x + (end_pos.x - start_pos.x) * slider->cursor,
         .y = mid.y,
     };
-    DrawCircleV(cursor_pos, cursor_radius, elem->state.hover ? style->cursor_color : RED);
+    DrawCircleV(cursor_pos, cursor_radius, style->cursor_color);
 
     // Draw text
     const float32 MARGIN = 10;
@@ -313,23 +278,141 @@ void ui_draw_slider(Slider* slider, Vector2 element_origin) {
 
 void ui_handle_slider(Slider* slider, UIEvent event, UIEventContext context) {
     switch (event) {
-    case UIEvent_BeginHover:
-        slider->elem.state.hover = true;
-        break;
-    case UIEvent_EndHover:
-        slider->elem.state.hover = false;
-        break;
-    case UIEvent_Pressed:
-        slider->elem.state.pressed = true;
-        break;
-    case UIEvent_Released:
-        slider->elem.state.pressed = false;
-        break;
     case UIEvent_Update:
         ui_update_slider(slider, context.element_origin, context.mouse, context.delta_time);
         break;
     case UIEvent_Draw:
         ui_draw_slider(slider, context.element_origin);
+        break;
+    }
+}
+
+// ChoiceListStyle
+// ChoiceListOption
+// ChoiceList
+
+void ui_set_hovered_choise_list(ChoiceList* choice_list, Vector2 mouse) {
+    UIElement* elem = &choice_list->elem;
+    ChoiceListStyle* style = &choice_list->style;
+    
+    // JUST_LOG_INFO("mouse: %0.2f %0.2f\n", mouse.x, mouse.y);
+    // JUST_LOG_INFO("uint32 mouse: %d %d\n", (uint32)mouse.x, (uint32)mouse.y);
+    // JUST_LOG_INFO("int32 mouse: %d %d\n", (int32)mouse.x, (int32)mouse.y);
+
+    RectSize cell_size = {
+        .width = style->option_size.width + 2*style->option_margin,
+        .height = style->option_size.height + 2*style->option_margin,
+    };
+
+    uint32 cell_x = ((uint32)mouse.x) / cell_size.width;
+    uint32 cell_y = ((uint32)mouse.y) / cell_size.height;
+
+    uint32 option_index = (cell_y * style->cols) + cell_x;
+    if (cell_x >= style->cols || cell_y >= style->rows || option_index >= choice_list->option_count) {
+        choice_list->some_option_hovered = false;
+        return;
+    }
+
+    Vector2 cell_top_left = {
+        .x = cell_x * cell_size.width,
+        .y = cell_y * cell_size.height,
+    };
+    Vector2 mouse_on_cell = Vector2Subtract(mouse, cell_top_left);
+    JUST_LOG_DEBUG("cell: %d %d, mouse: %0.2f %0.2f, mouse_on_cell: %0.2f %0.2f\n", cell_x, cell_y, mouse.x, mouse.y, mouse_on_cell.x, mouse_on_cell.y);
+
+    if (
+        style->option_margin <= mouse_on_cell.x && mouse_on_cell.x <= style->option_margin + style->option_size.width
+        && style->option_margin <= mouse_on_cell.y && mouse_on_cell.y <= style->option_margin + style->option_size.height
+    ) {
+        choice_list->some_option_hovered = true;
+        choice_list->hovered_option_index = option_index;
+    }
+}
+
+void ui_draw_choice_list(ChoiceList* choice_list, Vector2 element_origin) {
+    UIElement* elem = &choice_list->elem;
+    ChoiceListStyle* style = &choice_list->style;
+
+    Vector2 top_left = Vector2Add(
+        element_origin,
+        find_rectangle_top_left(elem->anchor, elem->position, elem->size)
+    );
+
+    {
+        Rectangle bg_rect = {
+            .x = top_left.x,
+            .y = top_left.y,
+            .width = elem->size.width,
+            .height = elem->size.height,
+        };
+        DrawRectangleRec(bg_rect, (Color) {100, 100, 100, 50});
+        DrawRectangleLinesEx(bg_rect, 2, (Color) {100, 100, 100, 100});
+    }
+
+    RectSize cell_size = {
+        .width = style->option_size.width + 2*style->option_margin,
+        .height = style->option_size.height + 2*style->option_margin,
+    };
+
+    for (uint32 j = 0; j < style->rows; j++) {
+        for (uint32 i = 0; i < style->cols; i++) {
+            uint32 option_index = j*style->cols + i;
+            if (option_index >= choice_list->option_count) {
+                continue;
+            }
+
+            ChoiceListOption* option = &choice_list->options[option_index];
+
+            Vector2 cell_top_left = {
+                .x = i * cell_size.width,
+                .y = j * cell_size.height,
+            };
+            cell_top_left = Vector2Add(top_left, cell_top_left);
+            Vector2 cell_mid = Vector2Add(cell_top_left, Vector2Scale(cell_size.as_vec, 0.5));
+
+            Rectangle rect = {
+                .x = cell_top_left.x + style->option_margin,
+                .y = cell_top_left.y + style->option_margin,
+                .width = style->option_size.width,
+                .height = style->option_size.height,
+            };
+
+            Color color = elem->disabled ? style->disabled_color
+                : (choice_list->selected_option_id == option->id) ? style->selected_color
+                : style->unselected_color;
+            // Color color = choice_list->selected_option_id == option->id ? GREEN : RED;
+
+            DrawRectangleRec(rect, color);
+                
+            if (style->is_bordered) {
+                DrawRectangleLinesEx(rect, style->border_thick, style->border_color);
+            }
+
+            // Draw Text [title]
+            Vector2 text_size = MeasureTextEx(style->title_font, option->title, style->title_font_size, style->title_spacing);
+            Vector2 text_pos = Vector2Subtract(cell_mid, Vector2Scale(text_size, 0.5));
+
+            DrawTextEx(style->title_font, option->title, text_pos, style->title_font_size, style->title_spacing, style->title_color);
+        }
+    }
+}
+
+void ui_handle_choice_list(ChoiceList* choice_list, UIEvent event, UIEventContext context) {
+    switch (event) {
+    case UIEvent_BeginHover:
+    case UIEvent_StayHover:
+        ui_set_hovered_choise_list(choice_list, context.mouse);
+        break;
+    case UIEvent_EndHover:
+        choice_list->some_option_hovered = false;
+        break;
+    case UIEvent_Released:
+        if (choice_list->some_option_hovered) {
+            choice_list->selected_option_id = choice_list->options[choice_list->hovered_option_index].id;
+        }
+        break;
+    case UIEvent_Draw:
+        ui_draw_choice_list(choice_list, context.element_origin);
         break;
     }
 }
@@ -362,7 +445,12 @@ void ui_handle_panel(Panel* panel, UIEvent event, UIEventContext panel_context) 
     }
     JUST_LOG_DEBUG("Panel open\n");
 
-    Vector2 panel_top_left = find_rectangle_top_left(panel->elem.anchor, panel->elem.position, panel->elem.size);
+    // JUST_LOG_INFO("\tpanel mouse: %0.2f %0.2f\n", panel_context.mouse.x, panel_context.mouse.y);
+
+    Vector2 panel_top_left = Vector2Add(
+        panel_context.element_origin,
+        find_rectangle_top_left(panel->elem.anchor, panel->elem.position, panel->elem.size)
+    );
 
     switch (event) {
     case UIEvent_BeginHover:
@@ -371,82 +459,150 @@ void ui_handle_panel(Panel* panel, UIEvent event, UIEventContext panel_context) 
     case UIEvent_Pressed:
     case UIEvent_Released:
         for (uint32 i = 0; i < panel->store.count; i++) {
-            panel->store.elems[i]->state.just_clicked = false;
+            UIElement* elem = panel->store.elems[i];
+            elem->state.just_begin_hover = false;
+            elem->state.just_end_hover = false;
+            elem->state.just_pressed = false;
+            elem->state.just_clicked = false;
         }
         break;
     }
 
     switch (event) {
     case UIEvent_BeginHover:
-        panel->elem.state.hover = true;
     case UIEvent_StayHover:
+        // Hover Check
+        UIElement* hover_candidate_elem = NULL;
         for (uint32 i = 0; i < panel->store.count; i++) {
             UIElement* elem = panel->store.elems[i];
 
-            UIEventContext context = {
-                .mouse = ui_element_relative_point(elem, context.mouse),
-            };
-            
             bool elem_hovered = ui_element_hovered(elem, panel_context.mouse);
-            if (!elem->state.hover && elem_hovered) {
-                ui_handle_element(elem, UIEvent_BeginHover, context);
+            if (elem_hovered) {
+                // BeginHover OR StayHover Candidates
+                if (hover_candidate_elem == NULL || elem->layer > hover_candidate_elem->layer) {
+                    // JUST_LOG_INFO("Hover Candidate: %d\n", elem->id);
+                    hover_candidate_elem = elem;
+                }
             }
-            else if (elem->state.hover && elem_hovered) {
-                ui_handle_element(elem, UIEvent_StayHover, context);
-            }
-            else if (elem->state.hover && !elem_hovered) {
+        }
+        for (uint32 i = 0; i < panel->store.count; i++) {
+            UIElement* elem = panel->store.elems[i];
+
+            bool elem_hovered = ui_element_hovered(elem, panel_context.mouse);
+            if (elem->state.on_hover && (!elem_hovered || elem != hover_candidate_elem)) {
+                // EndHover
+                JUST_LOG_INFO("EndHover: %d\n", elem->id);
+                UIEventContext context = {
+                    .mouse = ui_element_relative_point(elem, panel_context.mouse),
+                    .element_origin = panel_top_left,
+                };
+                elem->state.just_end_hover = true;
+                elem->state.on_hover = false;
                 ui_handle_element(elem, UIEvent_EndHover, context);
             }
         }
+        if (hover_candidate_elem != NULL) {
+            UIElement* elem = hover_candidate_elem;
+            // JUST_LOG_INFO("Hover Result: %d\n", elem->id);
+
+            UIEventContext context = {
+                .mouse = ui_element_relative_point(elem, panel_context.mouse),
+                .element_origin = panel_top_left,
+            };
+
+            if (!elem->state.on_hover) {
+                JUST_LOG_INFO("BeginHover: %d\n", elem->id);
+                elem->state.just_begin_hover = true;
+                elem->state.on_hover = true;
+                ui_handle_element(elem, UIEvent_BeginHover, context);
+            }
+            else { // if (elem->state.on_hover)
+                // JUST_LOG_INFO("StayHover: %d\n", elem->id);
+                ui_handle_element(elem, UIEvent_StayHover, context);
+            }
+        }
+        // Hover Check -- END --
+
+        // for (uint32 i = 0; i < panel->store.count; i++) {
+        //     UIElement* elem = panel->store.elems[i];
+
+        //     UIEventContext context = {
+        //         .mouse = ui_element_relative_point(elem, panel_context.mouse),
+        //         .element_origin = panel_top_left,
+        //     };
+        //     // JUST_LOG_INFO("\t\telem mouse: %0.2f %0.2f\n", context.mouse.x, context.mouse.y);
+            
+        //     bool elem_hovered = ui_element_hovered(elem, panel_context.mouse);
+        //     if (!elem->state.on_hover && elem_hovered) {
+        //         elem->state.just_begin_hover = true;
+        //         elem->state.on_hover = true;
+        //         ui_handle_element(elem, UIEvent_BeginHover, context);
+        //     }
+        //     else if (elem->state.on_hover && elem_hovered) {
+        //         ui_handle_element(elem, UIEvent_StayHover, context);
+        //     }
+        //     else if (elem->state.on_hover && !elem_hovered) {
+        //         elem->state.just_end_hover = true;
+        //         elem->state.on_hover = false;
+        //         ui_handle_element(elem, UIEvent_EndHover, context);
+        //     }
+        // }
         break;
     case UIEvent_EndHover:
-        panel->elem.state.hover = false;
-        
         for (uint32 i = 0; i < panel->store.count; i++) {
             UIElement* elem = panel->store.elems[i];
 
-            bool elem_hovered = ui_element_hovered(elem, panel_context.mouse);
-            if (elem->state.hover && !elem_hovered) {
+            if (elem->state.on_hover) {
+                JUST_LOG_INFO("EndHover: %d\n", elem->id);
                 UIEventContext context = {
                     .mouse = ui_element_relative_point(elem, panel_context.mouse),
+                    .element_origin = panel_top_left,
                 };
+                elem->state.just_end_hover = true;
+                elem->state.on_hover = false;
                 ui_handle_element(elem, UIEvent_EndHover, context);
             }
         }
         break;
     case UIEvent_Pressed:
-        panel->elem.state.pressed = true;
-
         for (uint32 i = 0; i < panel->store.count; i++) {
             UIElement* elem = panel->store.elems[i];
             
-            bool elem_hovered = ui_element_hovered(elem, panel_context.mouse);
-            if (elem_hovered) {
-                panel->store.pressed_element = elem;
+            if (elem->state.on_hover) {
+                JUST_LOG_INFO("Pressed: %d\n", elem->id);
                 UIEventContext context = {
                     .mouse = ui_element_relative_point(elem, panel_context.mouse),
+                    .element_origin = panel_top_left,
                 };
+                panel->store.pressed_element = elem;
+                JUST_LOG_INFO("pressed_element: %p -> %d\n", panel->store.pressed_element, elem->id);
+                elem->state.just_pressed = true;
+                elem->state.on_press = true;
                 ui_handle_element(elem, UIEvent_Pressed, context);
             }
         }
         break;
     case UIEvent_Released:
-        if (panel->elem.state.hover && panel->elem.state.pressed) {
-            panel->elem.state.pressed = false;
-            panel->elem.state.just_clicked = true;
-            panel->elem.state.click_point_relative = panel_context.mouse;
+        JUST_LOG_INFO("Panel Released\n");
+        for (uint32 i = 0; i < panel->store.count; i++) {
+            UIElement* elem = panel->store.elems[i];
 
-            for (uint32 i = 0; i < panel->store.count; i++) {
-                UIElement* elem = panel->store.elems[i];
-
-                if (elem == panel->store.pressed_element) {
+            JUST_LOG_INFO("Released: pressed_element: %p\n", panel->store.pressed_element);
+            if (elem == panel->store.pressed_element) {
+                JUST_LOG_INFO("I am pressed_element: %d\n", elem->id);
+                if (elem->state.on_hover && elem->state.on_press) {
+                    JUST_LOG_INFO("Released: %d\n", elem->id);
                     UIEventContext context = {
                         .mouse = ui_element_relative_point(elem, panel_context.mouse),
+                        .element_origin = panel_top_left,
                     };
+                    elem->state.just_clicked = true;
+                    elem->state.click_point_relative = context.mouse;
                     ui_handle_element(elem, UIEvent_Released, context);
                 }
-                elem->state.pressed = false;
+                panel->store.pressed_element = NULL;
             }
+            elem->state.on_press = false;
         }
         break;
     case UIEvent_Update:
@@ -463,10 +619,11 @@ void ui_handle_panel(Panel* panel, UIEvent event, UIEventContext panel_context) 
     case UIEvent_Draw:
         ui_draw_panel(panel, panel_context.element_origin);
         for (uint32 i = 0; i < panel->store.count; i++) {
+            UIElement* elem = panel->store.elems[panel->store.layer_sort[i].index];
             UIEventContext context = {
                 .element_origin = panel_top_left,
             };
-            ui_handle_element(panel->store.elems[i], UIEvent_Draw, context);
+            ui_handle_element(elem, UIEvent_Draw, context);
         }
         break;
     case UIEvent_DropElement:
@@ -491,6 +648,9 @@ void ui_handle_element(UIElement* elem, UIEvent event, UIEventContext context) {
     case UIElementType_Slider:
         ui_handle_slider((void*)elem, event, context);
         break;
+    case UIElementType_ChoiceList:
+        ui_handle_choice_list((void*)elem, event, context);
+        break;
     case UIElementType_Panel:
         ui_handle_panel((void*)elem, event, context);
         break;
@@ -504,16 +664,28 @@ void ui_handle_element(UIElement* elem, UIEvent event, UIEventContext context) {
 
 // UIElementStore
 
-UIElementStore ui_element_store_new() {
+UIElementStore ui_element_store_new_with_count_hint(uint32 count_hint) {
     UIElementStore store = {0};
 
-    uint32 elems_count = 100;
+    uint32 elems_count = count_hint;
+    uint32 layer_sort_size = elems_count * sizeof(ElementSort);
     uint32 elems_size = elems_count * sizeof(UIElement*);
     uint32 elem_store_mem_size = 10 * elems_count * sizeof(UIElement);
 
     store.memory = make_bump_allocator_with_size(elems_size + elem_store_mem_size);
+    store.layer_sort = bump_alloc(&store.memory, layer_sort_size);
     store.elems = bump_alloc(&store.memory, elems_size);
 
+    return store;
+}
+
+UIElementStore ui_element_store_new() {
+    return ui_element_store_new_with_count_hint(100);
+}
+
+UIElementStore ui_element_store_new_active_with_count_hint(uint32 count_hint) {
+    UIElementStore store = ui_element_store_new_with_count_hint(count_hint);
+    store.active = true;
     return store;
 }
 
@@ -551,6 +723,20 @@ UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id) {
 
 // ----------------
 
+static uint32 insert_sorted(ElementSort* arr, uint32 count, ElementSort value) {
+    for (uint32 i = 0; i < count; i++) {
+        if (arr[i].layer > value.layer) {
+            for (uint32 j = count+1; j > i; j--) {
+                arr[j] = arr[j-1];
+            }
+            arr[i] = value;
+            return i;
+        }
+    }
+    arr[count] = value;
+    return count;
+} 
+
 UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size) {
     UIElementId id = { .id = store->count };
     
@@ -559,9 +745,17 @@ UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size) 
     elem_ptr->id = id;
 
     store->elems[store->count] = (void*)elem_ptr;
+    uint32 sort_order = insert_sorted(
+        store->layer_sort,
+        store->count,
+        (ElementSort) {
+            .layer = elem_ptr->layer,
+            .index = id.id,
+        }
+    );
     store->count++;
 
-    JUST_LOG_DEBUG("Id: %d, Size: %d\n", id.id, size);
+    JUST_LOG_INFO("Id: %d, Count: %d, Sort: %d, Size: %d\n", id.id, store->count, sort_order, size);
     return id;
 }
 
@@ -581,6 +775,10 @@ UIElementId put_ui_element_slider(UIElementStore* store, Slider slider) {
     return put_ui_element(store, (void*)&slider, sizeof(Slider));
 }
 
+UIElementId put_ui_element_choice_list(UIElementStore* store, ChoiceList choice_list) {
+    return put_ui_element(store, (void*)&choice_list, sizeof(ChoiceList));
+}
+
 UIElementId put_ui_element_panel(UIElementStore* store, Panel panel) {
     return put_ui_element(store, (void*)&panel, sizeof(Panel));
 }
@@ -595,15 +793,67 @@ void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
     }
 
     Vector2 mouse = GetMousePosition();
+    bool mouse_left_pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    bool mouse_left_released = IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+    // JUST_LOG_INFO("mouse: %0.2f %0.2f\n", mouse.x, mouse.y);
 
-    // if (store->pressed_element != NULL) {
-    //     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-    //         JUST_LOG_DEBUG("0\n");
-    //         Vector2 relative_mouse = ui_element_relative_point(store->pressed_element, mouse);
-    //         ui_handle_released_element(store->pressed_element, relative_mouse);
-    //     }
-    // }
+    // Reset
+    for (uint32 i = 0; i < store->count; i++) {
+        UIElement* elem = store->elems[i];
+        elem->state.just_begin_hover = false;
+        elem->state.just_end_hover = false;
+        elem->state.just_pressed = false;
+        elem->state.just_clicked = false;
+    }
 
+    // Hover Check
+    UIElement* hover_candidate_elem = NULL;
+    for (uint32 i = 0; i < store->count; i++) {
+        UIElement* elem = store->elems[i];
+
+        bool elem_hovered = ui_element_hovered(elem, mouse);
+        if (elem_hovered) {
+            // BeginHover OR StayHover Candidates
+            if (hover_candidate_elem == NULL || elem->layer > hover_candidate_elem->layer) {
+                hover_candidate_elem = elem;
+            }
+        }
+    }
+    for (uint32 i = 0; i < store->count; i++) {
+        UIElement* elem = store->elems[i];
+
+        bool elem_hovered = ui_element_hovered(elem, mouse);
+        if (elem->state.on_hover && (!elem_hovered || elem != hover_candidate_elem)) {
+            // EndHover
+            UIEventContext context = {
+                .mouse = ui_element_relative_point(elem, mouse),
+                .element_origin = {0, 0},
+            };
+            elem->state.just_end_hover = true;
+            elem->state.on_hover = false;
+            ui_handle_element(elem, UIEvent_EndHover, context);
+        }
+    }
+    if (hover_candidate_elem != NULL) {
+        UIElement* elem = hover_candidate_elem;
+
+        UIEventContext context = {
+            .mouse = ui_element_relative_point(elem, mouse),
+            .element_origin = {0, 0},
+        };
+
+        if (!elem->state.on_hover) {
+            elem->state.just_begin_hover = true;
+            elem->state.on_hover = true;
+            ui_handle_element(elem, UIEvent_BeginHover, context);
+        }
+        else if (elem->state.on_hover) {
+            ui_handle_element(elem, UIEvent_StayHover, context);
+        }
+    }
+    // Hover Check -- END --
+
+    // Pressed/Released Check
     for (uint32 i = 0; i < store->count; i++) {
         UIElement* elem = store->elems[i];
 
@@ -612,31 +862,26 @@ void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
             .element_origin = {0, 0},
         };
 
-        elem->state.just_clicked = false;
-        
-        bool elem_hovered = ui_element_hovered(elem, mouse);
-        if (!elem->state.hover && elem_hovered) {
-            ui_handle_element(elem, UIEvent_BeginHover, context);
-        }
-        else if (elem->state.hover && elem_hovered) {
-            ui_handle_element(elem, UIEvent_StayHover, context);
-        }
-        else if (elem->state.hover && !elem_hovered) {
-            ui_handle_element(elem, UIEvent_EndHover, context);
-        }
-
-        if (elem_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (elem->state.on_hover && mouse_left_pressed) {
             store->pressed_element = elem;
+            elem->state.just_pressed = true;
+            elem->state.on_press = true;
             ui_handle_element(elem, UIEvent_Pressed, context);
         }
 
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        if (mouse_left_released) {
             if (elem == store->pressed_element) {
-                ui_handle_element(elem, UIEvent_Released, context);
+                if (elem->state.on_hover && elem->state.on_press) {
+                    elem->state.just_clicked = true;
+                    elem->state.click_point_relative = context.mouse;
+                    ui_handle_element(elem, UIEvent_Released, context);
+                }
+                store->pressed_element = NULL;
             }
-            elem->state.pressed = false;
+            elem->state.on_press = false;
         }
     }
+    // Pressed/Released Check -- END --
 }
 
 void SYSTEM_UPDATE_update_ui_elements(
@@ -675,9 +920,8 @@ void SYSTEM_RENDER_draw_ui_elements(
         .element_origin = {0, 0},
     };
     
-    JUST_LOG_DEBUG("Store Elem Count: %d\n", store->count);
     for (uint32 i = 0; i < store->count; i++) {
-        JUST_LOG_DEBUG("Store Draw Elem: %d\n", i);
-        ui_handle_element(store->elems[i], UIEvent_Draw, context);
+        UIElement* elem = store->elems[store->layer_sort[i].index];
+        ui_handle_element(elem, UIEvent_Draw, context);
     }
 }

@@ -117,6 +117,14 @@ void just_engine_texture_assets_load_texture_uncheched(TextureAssets* assets, Te
     assets->texture_ready[handle.id] = true;
 }
 
+void just_engine_texture_assets_update_texture_unchecked(TextureAssets* assets, TextureHandle handle) {
+    UpdateTexture(assets->textures[handle.id], assets->images[handle.id].data);
+}
+
+void just_engine_texture_assets_update_texture_rec_unchecked(TextureAssets* assets, TextureHandle handle, Rectangle rec) {
+    UpdateTextureRec(assets->textures[handle.id], rec, assets->images[handle.id].data);
+}
+
 void just_engine_texture_assets_put_image_and_load_texture(TextureAssets* assets, TextureHandle handle, Image image) {
     just_engine_texture_assets_put_image(assets, handle, image);
     just_engine_texture_assets_load_texture_uncheched(assets, handle);
