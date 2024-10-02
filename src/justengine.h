@@ -1,8 +1,34 @@
 #pragma once
 
+#include "stdlib.h"
+
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
+
+#define __HEADER_LOGGING
+#ifdef __HEADER_LOGGING
+
+typedef enum {
+    LOG_LEVEL_ALL = 0,
+    LOG_LEVEL_TRACE,
+    LOG_LEVEL_DEBUG,
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_WARN,
+    LOG_LEVEL_ERROR,
+    LOG_LEVEL_NONE,
+} LogLevel;
+
+void SET_LOG_LEVEL(LogLevel log_level);
+
+void JUST_LOG_TRACE(const char* format, ...);
+void JUST_LOG_DEBUG(const char* format, ...);
+void JUST_LOG_INFO(const char* format, ...);
+void JUST_LOG_WARN(const char* format, ...);
+void JUST_LOG_ERROR(const char* format, ...);
+void JUST_LOG_PANIC(const char* format, ...);
+
+#endif // __HEAEDER_LOGGING
 
 #define __HEADER_BASE
 #ifdef __HEADER_BASE
@@ -20,8 +46,11 @@ typedef     long long               int64;
 typedef     float                   float32;
 typedef     double                  float64;
 
+typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
+
+#define PANIC(message, ...) { JUST_LOG_PANIC(message, __VA_ARGS__); exit(EXIT_FAILURE) }
 
 #define STRUCT_ZERO_INIT {0}
 #define LAZY_INIT {0}
@@ -257,68 +286,57 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 
 #endif // __HEADER_BASE
 
-#define __HEADER_LOGGING
-#ifdef __HEADER_LOGGING
-
-typedef enum {
-    LOG_LEVEL_ALL = 0,
-    LOG_LEVEL_TRACE,
-    LOG_LEVEL_DEBUG,
-    LOG_LEVEL_INFO,
-    LOG_LEVEL_WARN,
-    LOG_LEVEL_ERROR,
-    LOG_LEVEL_NONE,
-} LogLevel;
-
-void SET_LOG_LEVEL(LogLevel log_level);
-
-void JUST_LOG_TRACE(const char* format, ...);
-void JUST_LOG_DEBUG(const char* format, ...);
-void JUST_LOG_INFO(const char* format, ...);
-void JUST_LOG_WARN(const char* format, ...);
-void JUST_LOG_ERROR(const char* format, ...);
-
-#endif // __HEAEDER_LOGGING
-
 #define __HEADER_MEMORY_MEMORY
 #ifdef __HEADER_MEMORY_MEMORY
+
+typedef struct {
+    usize size;
+    usize alignment;
+} MemoryLayout;
+
+#define layoutof(TYPE) ((MemoryLayout) { .size = sizeof(TYPE), .alignment = _Alignof(TYPE)})
+
+usize addr_align_up(usize addr, usize align);
+void* ptr_align_up(void* ptr, usize align);
 
 #define BUMP_ALLOCATOR_DEFAULT_SIZE (10 * 1024)
 
 typedef struct {
     byte* base;
     byte* cursor;
-    uint32 total_size_in_bytes;
+    usize total_size;
 } BumpAllocator;
 
 typedef BumpAllocator TemporaryStorage;
 
-BumpAllocator make_bump_allocator_with_size(uint32 size_in_bytes);
+BumpAllocator make_bump_allocator_with_size(usize size);
 BumpAllocator make_bump_allocator();
 void free_bump_allocator(BumpAllocator* bump_allocator);
 void reset_bump_allocator(BumpAllocator* bump_allocator);
-void* bump_alloc(BumpAllocator* bump_allocator, uint32 size_in_bytes);
+void* bump_alloc(BumpAllocator* bump_allocator, usize size);
+void* bump_alloc_aligned(BumpAllocator* bump_allocator, MemoryLayout layout);
 
 #define ARENA_ALLOCATOR_DEFAULT_REGION_SIZE (10 * 1024)
 
 typedef struct ArenaRegion {
     struct ArenaRegion* next_region;
-    uint32 size_in_bytes;
-    uint32 free_size_in_bytes;
+    usize total_size;
+    usize free_size;
     byte* cursor;
     byte base[];
 } ArenaRegion;
 
 typedef struct {
-    uint32 region_size;
+    usize region_size;
     ArenaRegion* head_region;
 } ArenaAllocator;
 
-ArenaAllocator make_arena_allocator_with_region_size(uint32 region_size_in_bytes);
+ArenaAllocator make_arena_allocator_with_region_size(usize region_size);
 ArenaAllocator make_arena_allocator();
 void free_arena_allocator(ArenaAllocator* arena_allocator);
 void reset_arena_allocator(ArenaAllocator* arena_allocator);
-void* arena_alloc(ArenaAllocator* arena_allocator, uint32 size_in_bytes);
+void* arena_alloc(ArenaAllocator* arena_allocator, usize size);
+void* arena_alloc_aligned(ArenaAllocator* arena_allocator, MemoryLayout layout);
 
 #endif // __HEADER_MEMORY_MEMORY
 
@@ -918,7 +936,7 @@ void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id);
 UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id);
 
 // ----------------
-UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size);
+UIElementId put_ui_element(UIElementStore* store, UIElement* elem, MemoryLayout layout);
 
 UIElementId put_ui_element_area(UIElementStore* store, Area area);
 UIElementId put_ui_element_button(UIElementStore* store, Button button);

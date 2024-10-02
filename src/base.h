@@ -1,7 +1,11 @@
 #pragma once
 
+#include "stdlib.h"
+
 #include "raylib.h"
 #include "raymath.h"
+
+#include "logging.h"
 
 typedef     unsigned char           uint8;
 typedef     unsigned short          uint16;
@@ -16,8 +20,11 @@ typedef     long long               int64;
 typedef     float                   float32;
 typedef     double                  float64;
 
+typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
+
+#define PANIC(message, ...) { JUST_LOG_PANIC(message, __VA_ARGS__); exit(EXIT_FAILURE) }
 
 #define STRUCT_ZERO_INIT {0}
 #define LAZY_INIT {0}

@@ -1,7 +1,7 @@
 @echo off
 SETLOCAL
 
-set COMPILER_FLAGS=-c
+set COMPILER_FLAGS=-c -std=c11
 
 set INCLUDE=-Ivendor/raylib-5.0/include -Isrc
 set LIB=

@@ -17,3 +17,4 @@ void JUST_LOG_DEBUG(const char* format, ...);
 void JUST_LOG_INFO(const char* format, ...);
 void JUST_LOG_WARN(const char* format, ...);
 void JUST_LOG_ERROR(const char* format, ...);
+void JUST_LOG_PANIC(const char* format, ...);

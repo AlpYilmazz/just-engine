@@ -1,25 +1,30 @@
 #include "stdio.h"
 
-#define SIZE 100
+typedef     unsigned int            uint32;
+typedef     unsigned long long      uint64;
+typedef     unsigned char           byte;
 
 typedef struct {
-    int a;
-    int b;
-    unsigned char base[SIZE];
-} ArenaRegion;
+    uint32 a;       // 4
+    uint64 b;       // 8
+    byte c;         // 1
+    uint32 d[9];    // 4*9 = 36 => (4*2)*4 + 4
+} Test;
 
 typedef struct {
-    int a;
-    int b;
-} ArenaRegion2;
+    uint32 a;       // 4
+    byte pad1[4];       // 4
+    uint64 b;       // 8
+    byte c;         // 1
+    byte pad2[3];       // 3
+    uint32 d0[1];   // 4
+    uint32 d[8];    // 32 = 4*8
+} TestPadded;
 
 int main() {
-    ArenaRegion ar = {0};
 
-    printf("Size: %d + %d\n", sizeof(ArenaRegion), SIZE);
-    printf("Size 2: %d\n", sizeof(ArenaRegion2));
-
-    printf("%p -> %p - %p - %p\n", &ar, ar.base, &ar.base, &ar.base[0]);
+    printf("Auto padded   - Size: %d, Align: %d\n", sizeof(Test), _Alignof(Test));
+    printf("Manual padded - Size: %d, Align: %d\n", sizeof(TestPadded), _Alignof(TestPadded));
 
     return 0;
 }

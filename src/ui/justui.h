@@ -230,7 +230,7 @@ void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id);
 UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id);
 
 // ----------------
-UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size);
+UIElementId put_ui_element(UIElementStore* store, UIElement* elem, MemoryLayout layout);
 
 UIElementId put_ui_element_area(UIElementStore* store, Area area);
 UIElementId put_ui_element_button(UIElementStore* store, Button button);

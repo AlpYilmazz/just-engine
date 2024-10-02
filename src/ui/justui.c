@@ -668,13 +668,19 @@ UIElementStore ui_element_store_new_with_count_hint(uint32 count_hint) {
     UIElementStore store = {0};
 
     uint32 elems_count = count_hint;
-    uint32 layer_sort_size = elems_count * sizeof(ElementSort);
-    uint32 elems_size = elems_count * sizeof(UIElement*);
-    uint32 elem_store_mem_size = 10 * elems_count * sizeof(UIElement);
 
-    store.memory = make_bump_allocator_with_size(elems_size + elem_store_mem_size);
-    store.layer_sort = bump_alloc(&store.memory, layer_sort_size);
-    store.elems = bump_alloc(&store.memory, elems_size);
+    MemoryLayout layer_sort_array_layout = array_layoutof(ElementSort, elems_count);
+    MemoryLayout elems_array_layout = array_layoutof(UIElement*, elems_count);
+
+    uint32 elem_store_mem_size =
+        layer_sort_array_layout.size
+        + elems_array_layout.size
+        + (10 * elems_count * sizeof(UIElement));
+
+    store.memory = make_bump_allocator_with_size(elem_store_mem_size);
+
+    store.layer_sort = bump_alloc_aligned(&store.memory, layer_sort_array_layout);
+    store.elems = bump_alloc_aligned(&store.memory, elems_array_layout);
 
     return store;
 }
@@ -737,11 +743,11 @@ static uint32 insert_sorted(ElementSort* arr, uint32 count, ElementSort value) {
     return count;
 } 
 
-UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size) {
+UIElementId put_ui_element(UIElementStore* store, UIElement* elem, MemoryLayout layout) {
     UIElementId id = { .id = store->count };
     
-    UIElement* elem_ptr = bump_alloc(&store->memory, size);
-    memcpy(elem_ptr, elem, size);
+    UIElement* elem_ptr = bump_alloc_aligned(&store->memory, layout);
+    memcpy(elem_ptr, elem, layout.size);
     elem_ptr->id = id;
 
     store->elems[store->count] = (void*)elem_ptr;
@@ -755,32 +761,32 @@ UIElementId put_ui_element(UIElementStore* store, UIElement* elem, uint32 size) 
     );
     store->count++;
 
-    JUST_LOG_INFO("Id: %d, Count: %d, Sort: %d, Size: %d\n", id.id, store->count, sort_order, size);
+    JUST_LOG_INFO("Id: %d, Count: %d, Sort: %d, Size: %d\n", id.id, store->count, sort_order, layout.size);
     return id;
 }
 
 UIElementId put_ui_element_area(UIElementStore* store, Area area) {
-    return put_ui_element(store, (void*)&area, sizeof(Area));
+    return put_ui_element(store, (void*)&area, layoutof(Area));
 }
 
 UIElementId put_ui_element_button(UIElementStore* store, Button button) {
-    return put_ui_element(store, (void*)&button, sizeof(Button));
+    return put_ui_element(store, (void*)&button, layoutof(Button));
 }
 
 UIElementId put_ui_element_selection_box(UIElementStore* store, SelectionBox sbox) {
-    return put_ui_element(store, (void*)&sbox, sizeof(SelectionBox));
+    return put_ui_element(store, (void*)&sbox, layoutof(SelectionBox));
 }
 
 UIElementId put_ui_element_slider(UIElementStore* store, Slider slider) {
-    return put_ui_element(store, (void*)&slider, sizeof(Slider));
+    return put_ui_element(store, (void*)&slider, layoutof(Slider));
 }
 
 UIElementId put_ui_element_choice_list(UIElementStore* store, ChoiceList choice_list) {
-    return put_ui_element(store, (void*)&choice_list, sizeof(ChoiceList));
+    return put_ui_element(store, (void*)&choice_list, layoutof(ChoiceList));
 }
 
 UIElementId put_ui_element_panel(UIElementStore* store, Panel panel) {
-    return put_ui_element(store, (void*)&panel, sizeof(Panel));
+    return put_ui_element(store, (void*)&panel, layoutof(Panel));
 }
 
 // ----------------
