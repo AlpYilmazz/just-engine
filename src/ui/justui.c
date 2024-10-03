@@ -293,37 +293,49 @@ void ui_handle_slider(Slider* slider, UIEvent event, UIEventContext context) {
 
 void ui_set_hovered_choise_list(ChoiceList* choice_list, Vector2 mouse) {
     UIElement* elem = &choice_list->elem;
-    ChoiceListStyle* style = &choice_list->style;
+    GridLayout* layout = &choice_list->layout;
     
-    // JUST_LOG_INFO("mouse: %0.2f %0.2f\n", mouse.x, mouse.y);
-    // JUST_LOG_INFO("uint32 mouse: %d %d\n", (uint32)mouse.x, (uint32)mouse.y);
-    // JUST_LOG_INFO("int32 mouse: %d %d\n", (int32)mouse.x, (int32)mouse.y);
-
-    RectSize cell_size = {
-        .width = style->option_size.width + 2*style->option_margin,
-        .height = style->option_size.height + 2*style->option_margin,
-    };
-
-    uint32 cell_x = ((uint32)mouse.x) / cell_size.width;
-    uint32 cell_y = ((uint32)mouse.y) / cell_size.height;
-
-    uint32 option_index = (cell_y * style->cols) + cell_x;
-    if (cell_x >= style->cols || cell_y >= style->rows || option_index >= choice_list->option_count) {
-        choice_list->some_option_hovered = false;
-        return;
-    }
-
-    Vector2 cell_top_left = {
-        .x = cell_x * cell_size.width,
-        .y = cell_y * cell_size.height,
-    };
-    Vector2 mouse_on_cell = Vector2Subtract(mouse, cell_top_left);
-    JUST_LOG_DEBUG("cell: %d %d, mouse: %0.2f %0.2f, mouse_on_cell: %0.2f %0.2f\n", cell_x, cell_y, mouse.x, mouse.y, mouse_on_cell.x, mouse_on_cell.y);
+    choice_list->some_option_hovered = false;
 
     if (
-        style->option_margin <= mouse_on_cell.x && mouse_on_cell.x <= style->option_margin + style->option_size.width
-        && style->option_margin <= mouse_on_cell.y && mouse_on_cell.y <= style->option_margin + style->option_size.height
+        mouse.x < layout->box_padding || layout->box_padding + layout->content_box.width < mouse.x
+        || mouse.y < layout->box_padding || layout->box_padding + layout->content_box.height < mouse.y
     ) {
+        return;
+    }
+    // Mouse Inside ContentBox
+
+    Vector2 mouse_on_content = {
+        .x = mouse.x - layout->box_padding,
+        .y = mouse.y - layout->box_padding,
+    };
+
+    RectSize cellbox_size = {
+        .width = layout->cell_size.width + layout->cell_padding,
+        .height = layout->cell_size.height + layout->cell_padding,
+    };
+
+    uint32 cell_x = ((uint32)mouse_on_content.x) / (uint32)cellbox_size.width;
+    uint32 cell_y = ((uint32)mouse_on_content.y) / (uint32)cellbox_size.height;
+
+    uint32 option_index = (cell_y * layout->cols) + cell_x;
+    if (cell_x >= layout->cols || cell_y >= layout->rows || option_index >= choice_list->option_count) {
+        return;
+    }
+    // Cell is an Option
+
+    Vector2 cell_top_left = {
+        .x = (cell_x * cellbox_size.width) + layout->box_padding,
+        .y = (cell_y * cellbox_size.height) + layout->box_padding,
+    };
+    Vector2 mouse_on_cell = Vector2Subtract(mouse, cell_top_left);
+
+    if (
+        EPSILON <= mouse_on_cell.x && mouse_on_cell.x <= layout->cell_size.width
+        && EPSILON <= mouse_on_cell.y && mouse_on_cell.y <= layout->cell_size.height
+    ) {
+        // Mouse Inside Cell Content
+        JUST_LOG_DEBUG("option: %d, cell: %d %d, mouse: %0.2f %0.2f, mouse_on_cell: %0.2f %0.2f\n", option_index, cell_x, cell_y, mouse.x, mouse.y, mouse_on_cell.x, mouse_on_cell.y);
         choice_list->some_option_hovered = true;
         choice_list->hovered_option_index = option_index;
     }
@@ -332,6 +344,7 @@ void ui_set_hovered_choise_list(ChoiceList* choice_list, Vector2 mouse) {
 void ui_draw_choice_list(ChoiceList* choice_list, Vector2 element_origin) {
     UIElement* elem = &choice_list->elem;
     ChoiceListStyle* style = &choice_list->style;
+    GridLayout* layout = &choice_list->layout;
 
     Vector2 top_left = Vector2Add(
         element_origin,
@@ -349,51 +362,33 @@ void ui_draw_choice_list(ChoiceList* choice_list, Vector2 element_origin) {
         DrawRectangleLinesEx(bg_rect, 2, (Color) {100, 100, 100, 100});
     }
 
-    RectSize cell_size = {
-        .width = style->option_size.width + 2*style->option_margin,
-        .height = style->option_size.height + 2*style->option_margin,
-    };
+    layout->next_cell = 0;
+    for (uint32 option_index = 0; option_index < choice_list->option_count; option_index++) {
+        JUST_LOG_DEBUG("option: %d\n", option_index);
+        ChoiceListOption* option = &choice_list->options[option_index];
 
-    for (uint32 j = 0; j < style->rows; j++) {
-        for (uint32 i = 0; i < style->cols; i++) {
-            uint32 option_index = j*style->cols + i;
-            if (option_index >= choice_list->option_count) {
-                continue;
-            }
+        Rectangle cell_rect = grid_layout_next(layout);
+        Vector2 cell_mid = {
+            .x = cell_rect.x + cell_rect.width*0.5,
+            .y = cell_rect.y + cell_rect.height*0.5,
+        };
 
-            ChoiceListOption* option = &choice_list->options[option_index];
+        Color color = elem->disabled ? style->disabled_color
+            : (choice_list->selected_option_id == option->id) ? style->selected_color
+            : style->unselected_color;
+        // Color color = choice_list->selected_option_id == option->id ? GREEN : RED;
 
-            Vector2 cell_top_left = {
-                .x = i * cell_size.width,
-                .y = j * cell_size.height,
-            };
-            cell_top_left = Vector2Add(top_left, cell_top_left);
-            Vector2 cell_mid = Vector2Add(cell_top_left, Vector2Scale(cell_size.as_vec, 0.5));
-
-            Rectangle rect = {
-                .x = cell_top_left.x + style->option_margin,
-                .y = cell_top_left.y + style->option_margin,
-                .width = style->option_size.width,
-                .height = style->option_size.height,
-            };
-
-            Color color = elem->disabled ? style->disabled_color
-                : (choice_list->selected_option_id == option->id) ? style->selected_color
-                : style->unselected_color;
-            // Color color = choice_list->selected_option_id == option->id ? GREEN : RED;
-
-            DrawRectangleRec(rect, color);
-                
-            if (style->is_bordered) {
-                DrawRectangleLinesEx(rect, style->border_thick, style->border_color);
-            }
-
-            // Draw Text [title]
-            Vector2 text_size = MeasureTextEx(style->title_font, option->title, style->title_font_size, style->title_spacing);
-            Vector2 text_pos = Vector2Subtract(cell_mid, Vector2Scale(text_size, 0.5));
-
-            DrawTextEx(style->title_font, option->title, text_pos, style->title_font_size, style->title_spacing, style->title_color);
+        DrawRectangleRec(cell_rect, color);
+            
+        if (style->is_bordered) {
+            DrawRectangleLinesEx(cell_rect, style->border_thick, style->border_color);
         }
+
+        // Draw Text [title]
+        Vector2 text_size = MeasureTextEx(style->title_font, option->title, style->title_font_size, style->title_spacing);
+        Vector2 text_pos = Vector2Subtract(cell_mid, Vector2Scale(text_size, 0.5));
+
+        DrawTextEx(style->title_font, option->title, text_pos, style->title_font_size, style->title_spacing, style->title_color);
     }
 }
 
@@ -438,12 +433,12 @@ void ui_draw_panel(Panel* panel, Vector2 element_origin) {
 void ui_handle_element(UIElement* elem, UIEvent event, UIEventContext context);
 
 void ui_handle_panel(Panel* panel, UIEvent event, UIEventContext panel_context) {
-    JUST_LOG_DEBUG("Panel: %d\n", event);
+    JUST_LOG_TRACE("Panel: %d\n", event);
     if (!panel->open) {
-        JUST_LOG_DEBUG("Panel closed\n");
+        JUST_LOG_TRACE("Panel closed\n");
         return;
     }
-    JUST_LOG_DEBUG("Panel open\n");
+    JUST_LOG_TRACE("Panel open\n");
 
     // JUST_LOG_INFO("\tpanel mouse: %0.2f %0.2f\n", panel_context.mouse.x, panel_context.mouse.y);
 
@@ -606,9 +601,9 @@ void ui_handle_panel(Panel* panel, UIEvent event, UIEventContext panel_context) 
         }
         break;
     case UIEvent_Update:
-        JUST_LOG_DEBUG("Panel Elem Count: %d\n", panel->store.count);
+        JUST_LOG_TRACE("Panel Elem Count: %d\n", panel->store.count);
         for (uint32 i = 0; i < panel->store.count; i++) {
-            JUST_LOG_DEBUG("Update Elem: %d\n", i);
+            JUST_LOG_TRACE("Update Elem: %d\n", i);
             UIEventContext context = {
                 .mouse = ui_element_relative_point(panel->store.elems[i], panel_context.mouse),
                 .element_origin = panel_top_left,
@@ -679,8 +674,11 @@ UIElementStore ui_element_store_new_with_count_hint(uint32 count_hint) {
 
     store.memory = make_bump_allocator_with_size(elem_store_mem_size);
 
-    store.layer_sort = bump_alloc_aligned(&store.memory, layer_sort_array_layout);
-    store.elems = bump_alloc_aligned(&store.memory, elems_array_layout);
+    // store.layer_sort = bump_alloc_aligned(&store.memory, layer_sort_array_layout);
+    // store.elems = bump_alloc_aligned(&store.memory, elems_array_layout);
+
+    store.layer_sort = bump_alloc(&store.memory, layer_sort_array_layout.size);
+    store.elems = bump_alloc(&store.memory, elems_array_layout.size);
 
     return store;
 }
@@ -746,7 +744,8 @@ static uint32 insert_sorted(ElementSort* arr, uint32 count, ElementSort value) {
 UIElementId put_ui_element(UIElementStore* store, UIElement* elem, MemoryLayout layout) {
     UIElementId id = { .id = store->count };
     
-    UIElement* elem_ptr = bump_alloc_aligned(&store->memory, layout);
+    // UIElement* elem_ptr = bump_alloc_aligned(&store->memory, layout);
+    UIElement* elem_ptr = bump_alloc(&store->memory, layout.size);
     memcpy(elem_ptr, elem, layout.size);
     elem_ptr->id = id;
 
@@ -900,9 +899,9 @@ void SYSTEM_UPDATE_update_ui_elements(
 
     Vector2 mouse = GetMousePosition();
 
-    JUST_LOG_DEBUG("Store Elem Count: %d\n", store->count);
+    JUST_LOG_TRACE("Store Elem Count: %d\n", store->count);
     for (uint32 i = 0; i < store->count; i++) {
-        JUST_LOG_DEBUG("Store Update Elem: %d\n", i);
+        JUST_LOG_TRACE("Store Update Elem: %d\n", i);
         UIElement* elem = store->elems[i];
 
         UIEventContext context = {

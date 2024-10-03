@@ -5,6 +5,8 @@
 #include "base.h"
 #include "memory/memory.h"
 
+#include "uilayout.h"
+
 #define CUSTOM_UI_ELEMENT_SLOT_COUNT 100
 
 typedef struct {
@@ -179,10 +181,10 @@ typedef struct {
 float32 get_slider_value(Slider* slider);
 
 typedef struct {
-    uint32 rows;
-    uint32 cols;
-    URectSize option_size;
-    uint32 option_margin; // half space between options
+    // uint32 rows;
+    // uint32 cols;
+    // URectSize option_size;
+    // uint32 option_margin; // half space between options
     //
     Color selected_color;
     Color unselected_color;
@@ -206,6 +208,7 @@ typedef struct {
 typedef struct {
     UIElement elem;
     ChoiceListStyle style;
+    GridLayout layout;
     bool some_option_hovered;
     uint32 hovered_option_index;
     uint32 selected_option_id;

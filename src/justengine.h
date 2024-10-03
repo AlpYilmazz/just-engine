@@ -50,7 +50,7 @@ typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
 
-#define PANIC(message, ...) { JUST_LOG_PANIC(message, __VA_ARGS__); exit(EXIT_FAILURE); }
+#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
 
 #define STRUCT_ZERO_INIT {0}
 #define LAZY_INIT {0}
@@ -96,8 +96,6 @@ typedef enum {
     Anchor_Right_Mid,
 
     Anchor_Center,
-
-    // Anchor_Custom_UV,       // uv coordinate: [0.0, 1.0]
 } AnchorType;
 
 typedef struct {
@@ -128,10 +126,7 @@ static inline Anchor make_anchor(AnchorType type) {
     case Anchor_Center:
         return (Anchor) { .origin = {0.5, 0.5} };
     }
-
-    // non-reachable, default in the switch
-    // TODO: maybe add assert
-    return (Anchor) {0};
+    PANIC("Incorrect AnchorType!\n");
 }
 
 static inline Anchor make_custom_anchor(Vector2 origin) {
@@ -165,6 +160,22 @@ static inline Vector2 find_rectangle_top_left_rect(Anchor anchor, Rectangle rect
     Vector2 size = {rect.width, rect.height};
     return Vector2Subtract(
         position,
+        Vector2Multiply(anchor.origin, size)
+    );
+}
+
+static inline Vector2 find_rectangle_position(Anchor anchor, Vector2 top_left, RectSize size) {
+    return Vector2Add(
+        top_left,
+        Vector2Multiply(anchor.origin, size.as_vec)
+    );
+}
+
+static inline Vector2 find_rectangle_position_rect(Anchor anchor, Rectangle rect) {
+    Vector2 top_left = {rect.x, rect.y};
+    Vector2 size = {rect.width, rect.height};
+    return Vector2Add(
+        top_left,
         Vector2Multiply(anchor.origin, size)
     );
 }
@@ -708,6 +719,86 @@ void arrow_draw(Arrow arrow, float32 thick, Color color);
 
 #endif // __HEADER_SHAPES_SHAPES
 
+#define __HEADER_UI_UILAYOUT
+#ifdef __HEADER_UI_UILAYOUT
+
+typedef struct {
+    Rectangle box;
+    float32 box_padding;
+    float32 row_padding;
+    uint32 rows;
+} RowLayoutBegin;
+
+typedef struct {
+    Rectangle box;
+    float32 box_padding;
+    float32 row_padding;
+    uint32 rows;
+    //
+    Rectangle content_box;
+    RectSize row_size;
+    uint32 next_row;
+} RowLayout;
+
+RowLayout row_layout(RowLayoutBegin layout);
+Rectangle row_layout_next_n(RowLayout* layout, uint32 count);
+Rectangle row_layout_next(RowLayout* layout);
+
+typedef struct {
+    Rectangle box;
+    float32 box_padding;
+    float32 col_padding;
+    uint32 cols;
+} ColumnLayoutBegin;
+
+typedef struct {
+    Rectangle box;
+    float32 box_padding;
+    float32 col_padding;
+    uint32 cols;
+    //
+    Rectangle content_box;
+    RectSize col_size;
+    uint32 next_col;
+} ColumnLayout;
+
+ColumnLayout column_layout(ColumnLayoutBegin layout);
+Rectangle column_layout_next_n(ColumnLayout* layout, uint32 count);
+Rectangle column_layout_next(ColumnLayout* layout);
+
+typedef enum {
+    Grid_RowMajor,
+    Grid_ColumnMajor,
+} GridMajor;
+
+typedef struct {
+    Rectangle box;
+    float32 box_padding;
+    float32 cell_padding;
+    GridMajor major;
+    uint32 rows;
+    uint32 cols;
+} GridLayoutBegin;
+
+typedef struct {
+    Rectangle box;
+    float32 box_padding;
+    float32 cell_padding;
+    GridMajor major;
+    uint32 rows;
+    uint32 cols;
+    //
+    Rectangle content_box;
+    RectSize cell_size;
+    uint32 next_cell;
+} GridLayout;
+
+GridLayout grid_layout(GridLayoutBegin layout);
+Rectangle grid_layout_next_n(GridLayout* layout, uint32 count);
+Rectangle grid_layout_next(GridLayout* layout);
+
+#endif // __HEADER_UI_UILAYOUT
+
 #define __HEADER_UI_JUSTUI
 #ifdef __HEADER_UI_JUSTUI
 
@@ -885,10 +976,10 @@ typedef struct {
 float32 get_slider_value(Slider* slider);
 
 typedef struct {
-    uint32 rows;
-    uint32 cols;
-    URectSize option_size;
-    uint32 option_margin; // half space between options
+    // uint32 rows;
+    // uint32 cols;
+    // URectSize option_size;
+    // uint32 option_margin; // half space between options
     //
     Color selected_color;
     Color unselected_color;
@@ -912,6 +1003,7 @@ typedef struct {
 typedef struct {
     UIElement elem;
     ChoiceListStyle style;
+    GridLayout layout;
     bool some_option_hovered;
     uint32 hovered_option_index;
     uint32 selected_option_id;
