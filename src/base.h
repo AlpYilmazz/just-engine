@@ -24,6 +24,25 @@ typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
 
+#define Option(Type) DeclType_Option_##Type
+#define Option_None {0}
+#define Option_Some(val) { .is_some = true, .value = val, }
+#define DECLARE__Option(Type) typedef struct { bool is_some; Type value; } Option(Type);
+
+DECLARE__Option(uint8);
+DECLARE__Option(uint16);
+DECLARE__Option(uint32);
+DECLARE__Option(uint64);
+DECLARE__Option(int8);
+DECLARE__Option(int16);
+DECLARE__Option(int32);
+DECLARE__Option(int64);
+DECLARE__Option(float32);
+DECLARE__Option(float64);
+DECLARE__Option(usize);
+DECLARE__Option(byte);
+DECLARE__Option(char);
+
 #define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
 
 #define STRUCT_ZERO_INIT {0}
@@ -121,6 +140,15 @@ typedef struct {
     uint32 width;
     uint32 height;
 } URectSize;
+
+static inline Rectangle into_rectangle(Vector2 position, RectSize size) {
+    return (Rectangle) {
+        .x = position.x,
+        .y = position.y,
+        .width = size.width,
+        .height = size.height,
+    };
+}
 
 static inline Vector2 find_rectangle_top_left(Anchor anchor, Vector2 position, RectSize size) {
     return Vector2Subtract(

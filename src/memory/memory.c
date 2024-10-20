@@ -13,7 +13,7 @@ typedef enum {
 // -----
 
 usize addr_align_up(usize addr, usize align) {
-    return (addr + align - 1) & (align - 1);
+    return (addr + align - 1) & ~(align - 1);
 }
 
 void* ptr_align_up(void* ptr, usize align) {

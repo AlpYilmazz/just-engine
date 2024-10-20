@@ -40,6 +40,8 @@
         "xlocnum": "c",
         "iosfwd": "c",
         "raymath.h": "c",
-        "atomic": "cpp"
+        "atomic": "cpp",
+        "optional": "cpp",
+        "xtr1common": "cpp"
     }
 }

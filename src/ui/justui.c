@@ -64,8 +64,8 @@ void ui_draw_area(Area* area, Vector2 element_origin) {
 
     DrawRectangleRec(rect, color);
 
-    if (style->is_bordered) {
-        DrawRectangleLinesEx(rect, style->border_thick, style->border_color);
+    if (style->border.is_bordered) {
+        DrawRectangleLinesEx(rect, style->border.thick, style->border.color);
     }
 }
 
@@ -117,15 +117,15 @@ void ui_draw_button(Button* button, Vector2 element_origin) {
 
     DrawRectangleRec(rect, color);
     
-    if (style->is_bordered) {
-        DrawRectangleLinesEx(rect, style->border_thick, style->border_color);
+    if (style->border.is_bordered) {
+        DrawRectangleLinesEx(rect, style->border.thick, style->border.color);
     }
 
     // Draw Text [title]
-    Vector2 text_size = MeasureTextEx(style->title_font, button->title, style->title_font_size, style->title_spacing);
+    Vector2 text_size = MeasureTextEx(style->title.font, button->title, style->title.font_size, style->title.spacing);
     Vector2 text_pos = Vector2Subtract(mid, Vector2Scale(text_size, 0.5));
 
-    DrawTextEx(style->title_font, button->title, text_pos, style->title_font_size, style->title_spacing, style->title_color);
+    DrawTextEx(style->title.font, button->title, text_pos, style->title.font_size, style->title.spacing, style->title.color);
 }
 
 void ui_handle_button(Button* button, UIEvent event, UIEventContext context) {
@@ -160,15 +160,15 @@ void ui_draw_selection_box(SelectionBox* sbox, Vector2 element_origin) {
 
     DrawRectangleRec(rect, color);
     
-    if (style->is_bordered) {
-        DrawRectangleLinesEx(rect, style->border_thick, style->border_color);
+    if (style->border.is_bordered) {
+        DrawRectangleLinesEx(rect, style->border.thick, style->border.color);
     }
 
     // Draw Text [title]
-    Vector2 text_size = MeasureTextEx(style->title_font, sbox->title, style->title_font_size, style->title_spacing);
+    Vector2 text_size = MeasureTextEx(style->title.font, sbox->title, style->title.font_size, style->title.spacing);
     Vector2 text_pos = Vector2Subtract(mid, Vector2Scale(text_size, 0.5));
 
-    DrawTextEx(style->title_font, sbox->title, text_pos, style->title_font_size, style->title_spacing, style->title_color);
+    DrawTextEx(style->title.font, sbox->title, text_pos, style->title.font_size, style->title.spacing, style->title.color);
 }
 
 void ui_handle_selection_box(SelectionBox* sbox, UIEvent event, UIEventContext context) {
@@ -238,41 +238,41 @@ void ui_draw_slider(Slider* slider, Vector2 element_origin) {
 
     {
         const char* low_value_text = TextFormat("%0.1f", slider->low_value);
-        Vector2 low_value_text_size = MeasureTextEx(style->title_font, low_value_text, style->title_font_size, style->title_spacing);
+        Vector2 low_value_text_size = MeasureTextEx(style->title.font, low_value_text, style->title.font_size, style->title.spacing);
         Vector2 low_value_text_pos = {
             .x = top_left.x - low_value_text_size.x - MARGIN,
             .y = mid.y - low_value_text_size.y/2.0,
         };
-        DrawTextEx(style->title_font, low_value_text, low_value_text_pos, style->title_font_size, style->title_spacing, style->title_color);
+        DrawTextEx(style->title.font, low_value_text, low_value_text_pos, style->title.font_size, style->title.spacing, style->title.color);
     }
 
     {
         const char* high_value_text = TextFormat("%0.1f", slider->high_value);
-        Vector2 high_value_text_size = MeasureTextEx(style->title_font, high_value_text, style->title_font_size, style->title_spacing);
+        Vector2 high_value_text_size = MeasureTextEx(style->title.font, high_value_text, style->title.font_size, style->title.spacing);
         Vector2 high_value_text_pos = {
             .x = bottom_right.x + MARGIN,
             .y = mid.y - high_value_text_size.y/2.0,
         };
-        DrawTextEx(style->title_font, high_value_text, high_value_text_pos, style->title_font_size, style->title_spacing, style->title_color);
+        DrawTextEx(style->title.font, high_value_text, high_value_text_pos, style->title.font_size, style->title.spacing, style->title.color);
     }
 
     {
         const char* cursor_value_text = TextFormat("%0.2f", get_slider_value(slider));
-        Vector2 cursor_value_text_size = MeasureTextEx(style->title_font, cursor_value_text, style->title_font_size, style->title_spacing);
+        Vector2 cursor_value_text_size = MeasureTextEx(style->title.font, cursor_value_text, style->title.font_size, style->title.spacing);
         Vector2 cursor_value_text_pos = {
             .x = cursor_pos.x - cursor_value_text_size.x/2.0,
             .y = cursor_pos.y + cursor_radius + MARGIN,
         };
-        DrawTextEx(style->title_font, cursor_value_text, cursor_value_text_pos, style->title_font_size, style->title_spacing, style->title_color);
+        DrawTextEx(style->title.font, cursor_value_text, cursor_value_text_pos, style->title.font_size, style->title.spacing, style->title.color);
     }
 
     {
-        Vector2 title_size = MeasureTextEx(style->title_font, slider->title, style->title_font_size, style->title_spacing);
+        Vector2 title_size = MeasureTextEx(style->title.font, slider->title, style->title.font_size, style->title.spacing);
         Vector2 title_pos = {
             .x = mid.x - title_size.x/2.0,
             .y = mid.y - title_size.y/2.0 - cursor_radius - 2*MARGIN,
         };
-        DrawTextEx(style->title_font, slider->title, title_pos, style->title_font_size, style->title_spacing, style->title_color);
+        DrawTextEx(style->title.font, slider->title, title_pos, style->title.font_size, style->title.spacing, style->title.color);
     }
 }
 
@@ -295,7 +295,7 @@ void ui_set_hovered_choise_list(ChoiceList* choice_list, Vector2 mouse) {
     UIElement* elem = &choice_list->elem;
     GridLayout* layout = &choice_list->layout;
     
-    choice_list->some_option_hovered = false;
+    choice_list->hovered_option_index = (Option(uint32)) Option_None;
 
     if (
         mouse.x < layout->box_padding || layout->box_padding + layout->content_box.width < mouse.x
@@ -336,8 +336,7 @@ void ui_set_hovered_choise_list(ChoiceList* choice_list, Vector2 mouse) {
     ) {
         // Mouse Inside Cell Content
         JUST_LOG_DEBUG("option: %d, cell: %d %d, mouse: %0.2f %0.2f, mouse_on_cell: %0.2f %0.2f\n", option_index, cell_x, cell_y, mouse.x, mouse.y, mouse_on_cell.x, mouse_on_cell.y);
-        choice_list->some_option_hovered = true;
-        choice_list->hovered_option_index = option_index;
+        choice_list->hovered_option_index = (Option(uint32)) Option_Some(option_index);
     }
 }
 
@@ -380,15 +379,15 @@ void ui_draw_choice_list(ChoiceList* choice_list, Vector2 element_origin) {
 
         DrawRectangleRec(cell_rect, color);
             
-        if (style->is_bordered) {
-            DrawRectangleLinesEx(cell_rect, style->border_thick, style->border_color);
+        if (style->border.is_bordered) {
+            DrawRectangleLinesEx(cell_rect, style->border.thick, style->border.color);
         }
 
         // Draw Text [title]
-        Vector2 text_size = MeasureTextEx(style->title_font, option->title, style->title_font_size, style->title_spacing);
+        Vector2 text_size = MeasureTextEx(style->title.font, option->title, style->title.font_size, style->title.spacing);
         Vector2 text_pos = Vector2Subtract(cell_mid, Vector2Scale(text_size, 0.5));
 
-        DrawTextEx(style->title_font, option->title, text_pos, style->title_font_size, style->title_spacing, style->title_color);
+        DrawTextEx(style->title.font, option->title, text_pos, style->title.font_size, style->title.spacing, style->title.color);
     }
 }
 
@@ -399,11 +398,11 @@ void ui_handle_choice_list(ChoiceList* choice_list, UIEvent event, UIEventContex
         ui_set_hovered_choise_list(choice_list, context.mouse);
         break;
     case UIEvent_EndHover:
-        choice_list->some_option_hovered = false;
+        choice_list->hovered_option_index = (Option(uint32)) Option_None;
         break;
     case UIEvent_Released:
-        if (choice_list->some_option_hovered) {
-            choice_list->selected_option_id = choice_list->options[choice_list->hovered_option_index].id;
+        if (choice_list->hovered_option_index.is_some) {
+            choice_list->selected_option_id = choice_list->options[choice_list->hovered_option_index.value].id;
         }
         break;
     case UIEvent_Draw:
@@ -411,6 +410,48 @@ void ui_handle_choice_list(ChoiceList* choice_list, UIEvent event, UIEventContex
         break;
     }
 }
+
+// ----------------
+
+Area make_ui_area(Area area) {
+    area.elem.type = UIElementType_Area;
+    area.elem.state = (UIElementState) {0};
+    return area;
+}
+
+Button make_ui_button(Button button) {
+    button.elem.type = UIElementType_Button;
+    button.elem.state = (UIElementState) {0};
+    return button;
+}
+
+SelectionBox make_ui_selection_box(SelectionBox selection_box) {
+    selection_box.elem.type = UIElementType_SelectionBox;
+    selection_box.elem.state = (UIElementState) {0};
+    return selection_box;
+}
+
+Slider make_ui_slider(Slider slider) {
+    slider.elem.type = UIElementType_Slider;
+    slider.elem.state = (UIElementState) {0};
+    return slider;
+}
+
+ChoiceList make_ui_choice_list(ChoiceList choice_list) {
+    choice_list.elem.type = UIElementType_ChoiceList;
+    choice_list.elem.state = (UIElementState) {0};
+    choice_list.layout.box = into_rectangle(choice_list.elem.position, choice_list.elem.size);
+    choice_list.hovered_option_index = (Option(uint32)) Option_None;
+    return choice_list;
+}
+
+Panel make_ui_panel(Panel panel) {
+    panel.elem.type = UIElementType_Panel;
+    panel.elem.state = (UIElementState) {0};
+    return panel;
+}
+
+// ----------------
 
 void ui_draw_panel(Panel* panel, Vector2 element_origin) {
     UIElement* elem = &panel->elem;
@@ -674,11 +715,11 @@ UIElementStore ui_element_store_new_with_count_hint(uint32 count_hint) {
 
     store.memory = make_bump_allocator_with_size(elem_store_mem_size);
 
-    // store.layer_sort = bump_alloc_aligned(&store.memory, layer_sort_array_layout);
-    // store.elems = bump_alloc_aligned(&store.memory, elems_array_layout);
+    store.layer_sort = bump_alloc_aligned(&store.memory, layer_sort_array_layout);
+    store.elems = bump_alloc_aligned(&store.memory, elems_array_layout);
 
-    store.layer_sort = bump_alloc(&store.memory, layer_sort_array_layout.size);
-    store.elems = bump_alloc(&store.memory, elems_array_layout.size);
+    // store.layer_sort = bump_alloc(&store.memory, layer_sort_array_layout.size);
+    // store.elems = bump_alloc(&store.memory, elems_array_layout.size);
 
     return store;
 }
@@ -744,8 +785,8 @@ static uint32 insert_sorted(ElementSort* arr, uint32 count, ElementSort value) {
 UIElementId put_ui_element(UIElementStore* store, UIElement* elem, MemoryLayout layout) {
     UIElementId id = { .id = store->count };
     
-    // UIElement* elem_ptr = bump_alloc_aligned(&store->memory, layout);
-    UIElement* elem_ptr = bump_alloc(&store->memory, layout.size);
+    UIElement* elem_ptr = bump_alloc_aligned(&store->memory, layout);
+    // UIElement* elem_ptr = bump_alloc(&store->memory, layout.size);
     memcpy(elem_ptr, elem, layout.size);
     elem_ptr->id = id;
 

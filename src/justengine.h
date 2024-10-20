@@ -50,6 +50,25 @@ typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
 
+#define Option(Type) DeclType_Option_##Type
+#define Option_None {0}
+#define Option_Some(val) { .is_some = true, .value = val, }
+#define DECLARE__Option(Type) typedef struct { bool is_some; Type value; } Option(Type);
+
+DECLARE__Option(uint8);
+DECLARE__Option(uint16);
+DECLARE__Option(uint32);
+DECLARE__Option(uint64);
+DECLARE__Option(int8);
+DECLARE__Option(int16);
+DECLARE__Option(int32);
+DECLARE__Option(int64);
+DECLARE__Option(float32);
+DECLARE__Option(float64);
+DECLARE__Option(usize);
+DECLARE__Option(byte);
+DECLARE__Option(char);
+
 #define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
 
 #define STRUCT_ZERO_INIT {0}
@@ -147,6 +166,15 @@ typedef struct {
     uint32 width;
     uint32 height;
 } URectSize;
+
+static inline Rectangle into_rectangle(Vector2 position, RectSize size) {
+    return (Rectangle) {
+        .x = position.x,
+        .y = position.y,
+        .width = size.width,
+        .height = size.height,
+    };
+}
 
 static inline Vector2 find_rectangle_top_left(Anchor anchor, Vector2 position, RectSize size) {
     return Vector2Subtract(
@@ -894,12 +922,25 @@ typedef struct {
     bool active;
 } UIElementStore;
 
+// ----------------
+typedef struct {
+    bool is_bordered;
+    float32 thick;
+    Color color;
+} UIBorderStyle;
+
+typedef struct {
+    Font font;
+    float32 font_size;
+    float32 spacing;
+    Color color;
+} UITextStyle;
+// ----------------
+
 typedef struct {
     Color idle_color;
     Color hovered_color;
-    bool is_bordered;
-    float32 border_thick;
-    Color border_color;
+    UIBorderStyle border;
 } AreaStyle;
 
 typedef struct {
@@ -912,15 +953,8 @@ typedef struct {
     Color hovered_color;
     Color pressed_color;
     Color disabled_color;
-    //
-    bool is_bordered;
-    float32 border_thick;
-    Color border_color;
-    //
-    Font title_font;
-    float32 title_font_size;
-    float32 title_spacing;
-    Color title_color;
+    UIBorderStyle border;
+    UITextStyle title;
 } ButtonStyle;
 
 typedef struct {
@@ -936,15 +970,8 @@ typedef struct {
     Color selected_color;
     Color unselected_color;
     Color disabled_color;
-    //
-    bool is_bordered;
-    float32 border_thick;
-    Color border_color;
-    //
-    Font title_font;
-    float32 title_font_size;
-    float32 title_spacing;
-    Color title_color;
+    UIBorderStyle border;
+    UITextStyle title;
 } SelectionBoxStyle;
 
 typedef struct {
@@ -957,11 +984,8 @@ typedef struct {
 typedef struct {
     Color line_color;
     Color cursor_color;
-    //
-    Font title_font;
-    float32 title_font_size;
-    float32 title_spacing;
-    Color title_color;
+    UIBorderStyle border;
+    UITextStyle title;
 } SliderStyle;
 
 typedef struct {
@@ -976,23 +1000,11 @@ typedef struct {
 float32 get_slider_value(Slider* slider);
 
 typedef struct {
-    // uint32 rows;
-    // uint32 cols;
-    // URectSize option_size;
-    // uint32 option_margin; // half space between options
-    //
     Color selected_color;
     Color unselected_color;
     Color disabled_color;
-    //
-    bool is_bordered;
-    float32 border_thick;
-    Color border_color;
-    //
-    Font title_font;
-    float32 title_font_size;
-    float32 title_spacing;
-    Color title_color;
+    UIBorderStyle border;
+    UITextStyle title;
 } ChoiceListStyle;
 
 typedef struct {
@@ -1004,8 +1016,7 @@ typedef struct {
     UIElement elem;
     ChoiceListStyle style;
     GridLayout layout;
-    bool some_option_hovered;
-    uint32 hovered_option_index;
+    Option(uint32) hovered_option_index;
     uint32 selected_option_id;
     uint32 option_count;
     ChoiceListOption options[20];
@@ -1016,6 +1027,15 @@ typedef struct {
     UIElementStore store;
     bool open;
 } Panel;
+
+// ----------------
+Area make_ui_area(Area area);
+Button make_ui_button(Button button);
+SelectionBox make_ui_selection_box(SelectionBox selection_box);
+Slider make_ui_slider(Slider slider);
+ChoiceList make_ui_choice_list(ChoiceList choice_list);
+Panel make_ui_panel(Panel panel);
+// ----------------
 
 UIElementStore ui_element_store_new_with_count_hint(uint32 count_hint);
 UIElementStore ui_element_store_new();
@@ -1050,6 +1070,7 @@ void SYSTEM_UPDATE_update_ui_elements(
 void SYSTEM_RENDER_draw_ui_elements(
     UIElementStore* store
 );
+
 
 #endif // __HEADER_UI_JUSTUI
 
