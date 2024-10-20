@@ -8,7 +8,7 @@
 // RowLayoutBegin
 // RowLayout
 
-RowLayout row_layout(RowLayoutBegin layout) {
+RowLayout make_row_layout(RowLayout layout) {
     Rectangle content_box = (Rectangle) {
         .x = layout.box.x + layout.box_padding,
         .y = layout.box.y + layout.box_padding,
@@ -52,7 +52,7 @@ Rectangle row_layout_next(RowLayout* layout) {
 // ColumnLayoutBegin
 // ColumnLayout
 
-ColumnLayout column_layout(ColumnLayoutBegin layout) {
+ColumnLayout make_column_layout(ColumnLayout layout) {
     Rectangle content_box = (Rectangle) {
         .x = layout.box.x + layout.box_padding,
         .y = layout.box.y + layout.box_padding,
@@ -97,7 +97,7 @@ Rectangle column_layout_next(ColumnLayout* layout) {
 // GridLayoutBegin
 // GridLayout
 
-GridLayout grid_layout(GridLayoutBegin layout) {
+GridLayout make_grid_layout(GridLayout layout) {
     Rectangle content_box = (Rectangle) {
         .x = layout.box.x + layout.box_padding,
         .y = layout.box.y + layout.box_padding,

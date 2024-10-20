@@ -363,7 +363,7 @@ void ui_draw_choice_list(ChoiceList* choice_list, Vector2 element_origin) {
 
     layout->next_cell = 0;
     for (uint32 option_index = 0; option_index < choice_list->option_count; option_index++) {
-        JUST_LOG_DEBUG("option: %d\n", option_index);
+        JUST_LOG_TRACE("option: %d\n", option_index);
         ChoiceListOption* option = &choice_list->options[option_index];
 
         Rectangle cell_rect = grid_layout_next(layout);
@@ -371,11 +371,13 @@ void ui_draw_choice_list(ChoiceList* choice_list, Vector2 element_origin) {
             .x = cell_rect.x + cell_rect.width*0.5,
             .y = cell_rect.y + cell_rect.height*0.5,
         };
+        JUST_LOG_DEBUG("[%d] cell_rect: {%0.0f %0.0f %0.0f %0.0f}\n", option_index, cell_rect.x, cell_rect.y, cell_rect.width, cell_rect.height);
 
         Color color = elem->disabled ? style->disabled_color
             : (choice_list->selected_option_id == option->id) ? style->selected_color
             : style->unselected_color;
         // Color color = choice_list->selected_option_id == option->id ? GREEN : RED;
+        JUST_LOG_TRACE("option color: {%d %d %d %d}\n", color.r, color.g, color.b, color.a);
 
         DrawRectangleRec(cell_rect, color);
             
@@ -441,6 +443,7 @@ ChoiceList make_ui_choice_list(ChoiceList choice_list) {
     choice_list.elem.type = UIElementType_ChoiceList;
     choice_list.elem.state = (UIElementState) {0};
     choice_list.layout.box = into_rectangle(choice_list.elem.position, choice_list.elem.size);
+    choice_list.layout = make_grid_layout(choice_list.layout);
     choice_list.hovered_option_index = (Option(uint32)) Option_None;
     return choice_list;
 }
