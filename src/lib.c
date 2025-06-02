@@ -63,7 +63,7 @@ void SYSTEM_POST_UPDATE_check_mutated_images(
                 .type = AssetEvent_Changed,
                 .consumed = false,
             };
-            just_engine_events_texture_asset_event_send_single(RES_texture_asset_events, event);
+            TextureAssetEvent__events_send_single(RES_texture_asset_events, event);
         }
     }
 }
@@ -74,10 +74,10 @@ void SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
 ) {
     static uint32 LOCAL_image_loaded_events_offset = 0;
 
-    EventsIter_TextureAssetEvent events_iter = just_engine_events_iter_texture_asset_events_begin_iter(RES_texture_asset_events, LOCAL_image_loaded_events_offset);
+    EventsIter_TextureAssetEvent events_iter = TextureAssetEvent__events_begin_iter(RES_texture_asset_events, LOCAL_image_loaded_events_offset);
 
-    while (just_engine_events_iter_texture_asset_events_has_next(&events_iter)) {
-        TextureAssetEvent event = just_engine_events_iter_texture_asset_events_read_next(&events_iter);
+    while (TextureAssetEvent__events_iter_has_next(&events_iter)) {
+        TextureAssetEvent event = TextureAssetEvent__events_iter_read_next(&events_iter);
         switch (event.type) {
         case AssetEvent_Changed:
             just_engine_texture_assets_update_texture_unchecked(RES_texture_assets, event.handle);
@@ -88,13 +88,13 @@ void SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
         }
     }
 
-    LOCAL_image_loaded_events_offset = just_engine_events_iter_texture_asset_events_end_iter(&events_iter);
+    LOCAL_image_loaded_events_offset = TextureAssetEvent__events_iter_end(&events_iter);
 }
 
 void SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
     Events_TextureAssetEvent* RES_texture_asset_events
 ) {
-    just_engine_events_texture_asset_event_swap_buffers(RES_texture_asset_events);
+    TextureAssetEvent__events_swap_buffers(RES_texture_asset_events);
 }
 
 void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(

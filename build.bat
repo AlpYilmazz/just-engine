@@ -8,7 +8,7 @@ set COMPILER_FLAGS=-std=c11
 set INCLUDE=-Ijustengine/include
 set LIB=-Ljustengine/lib
 
-set LINK=-ljustengine -lraylib -lgdi32 -lwinmm
+set LINK=-ljustengine -lraylib -lgdi32 -lwinmm -lws2_32
 
 set SRC_DIR=.
 set TARGET_DIR=target

@@ -2,6 +2,40 @@
 
 #include "base.h"
 
+#define DYNARRAY_INITIAL_CAPACITY 2
+#define DYNARRAY_GROWTH_FACTOR 2
+
+#define dynarray_push_back(arr, item) \
+    do { \
+        if (arr->capacity == 0) { \
+            arr->capacity = DYNARRAY_INITIAL_CAPACITY; \
+            arr->sprites = malloc(arr->capacity * sizeof(item)); \
+        } \
+        else if (arr->length == arr->capacity) { \
+            arr->capacity = DYNARRAY_GROWTH_FACTOR * arr->capacity; \
+            arr->items = realloc(arr->items, arr->capacity * sizeof(item)); \
+        } \
+        \
+        arr->items[render_sprites->length] = item; \
+        arr->length++; \
+    } while(0);\
+
+static inline Buffer* malloc_buffer(usize size) {
+    Buffer* buffer = malloc(sizeof(Buffer) + size); // Buffer + [bytes]
+    buffer->length = size;
+    buffer->bytes = (byte*) (buffer + 1);
+    return buffer;
+}
+
+static inline FillBuffer* malloc_fillbuffer(usize size) {
+    FillBuffer* fillbuffer = malloc(sizeof(FillBuffer) + size); // FillBuffer + [bytes]
+    fillbuffer->length = size;
+    fillbuffer->bytes = (byte*) (fillbuffer + 1);
+    fillbuffer->cursor = fillbuffer->bytes;
+    return fillbuffer;
+}
+
+// -- Allocation --
 typedef struct {
     usize size;
     usize alignment;

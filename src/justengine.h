@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stdlib.h"
+#include "string.h"
 
 #include "raylib.h"
 #include "raymath.h"
@@ -30,8 +31,8 @@ void JUST_LOG_PANIC(const char* format, ...);
 
 #endif // __HEAEDER_LOGGING
 
-#define __HEADER_BASE
-#ifdef __HEADER_BASE
+#define __HEADER_CORE
+#ifdef __HEADER_CORE
 
 typedef     unsigned char           uint8;
 typedef     unsigned short          uint16;
@@ -69,12 +70,47 @@ DECLARE__Option(usize);
 DECLARE__Option(byte);
 DECLARE__Option(char);
 
-#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
-
 #define STRUCT_ZERO_INIT {0}
 #define LAZY_INIT {0}
 #define LATER_INIT {0}
 #define UNINIT {0}
+
+// Memory is owned
+typedef struct {
+    byte* bytes;
+    usize length;
+} Buffer;
+
+// Memory is only viewed
+typedef Buffer BufferSlice;
+
+typedef struct {
+    byte* bytes;
+    byte* cursor;
+    usize length;
+} FillBuffer;
+
+static inline BufferSlice buffer_as_slice(Buffer buffer, usize start, usize length) {
+    return (BufferSlice) {
+        .bytes = buffer.bytes + start,
+        .length = length,
+    };
+}
+
+static inline BufferSlice buffer_into_slice(Buffer buffer) {
+    return buffer_as_slice(buffer, 0, buffer.length);
+}
+
+static inline usize filled_length(FillBuffer* buffer) {
+    return buffer->cursor - buffer->bytes;
+}
+
+#endif // __HEADER_CORE
+
+#define __HEADER_BASE
+#ifdef __HEADER_BASE
+
+#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
 
 #define MAX(a, b) ((a >= b) ? a : b)
 #define MIN(a, b) ((a <= b) ? a : b)
@@ -328,6 +364,40 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 #define __HEADER_MEMORY_MEMORY
 #ifdef __HEADER_MEMORY_MEMORY
 
+#define DYNARRAY_INITIAL_CAPACITY 2
+#define DYNARRAY_GROWTH_FACTOR 2
+
+#define dynarray_push_back(arr, item) \
+    do { \
+        if (arr->capacity == 0) { \
+            arr->capacity = DYNARRAY_INITIAL_CAPACITY; \
+            arr->sprites = malloc(arr->capacity * sizeof(item)); \
+        } \
+        else if (arr->length == arr->capacity) { \
+            arr->capacity = DYNARRAY_GROWTH_FACTOR * arr->capacity; \
+            arr->items = realloc(arr->items, arr->capacity * sizeof(item)); \
+        } \
+        \
+        arr->items[render_sprites->length] = item; \
+        arr->length++; \
+    } while(0);\
+
+static inline Buffer* malloc_buffer(usize size) {
+    Buffer* buffer = malloc(sizeof(Buffer) + size); // Buffer + [bytes]
+    buffer->length = size;
+    buffer->bytes = (byte*) (buffer + 1);
+    return buffer;
+}
+
+static inline FillBuffer* malloc_fillbuffer(usize size) {
+    FillBuffer* fillbuffer = malloc(sizeof(FillBuffer) + size); // FillBuffer + [bytes]
+    fillbuffer->length = size;
+    fillbuffer->bytes = (byte*) (fillbuffer + 1);
+    fillbuffer->cursor = fillbuffer->bytes;
+    return fillbuffer;
+}
+
+// -- Allocation --
 typedef struct {
     usize size;
     usize alignment;
@@ -451,6 +521,35 @@ void example_async_task_print_int_arg(TaskArgVoid* arg);
 
 #endif // __HEADER_THREAD_THREADPOOL
 
+#define __HEADER_NETWORK_NETWORK
+#ifdef __HEADER_NETWORK_NETWORK
+
+typedef uint64 SOCKET;
+
+typedef void (*OnConnectFn)(SOCKET socket, void* arg);
+typedef bool (*OnReadFn)(SOCKET socket, BufferSlice read_buffer, void* arg);
+typedef void (*OnWriteFn)(SOCKET socket, void* arg);
+
+void init_network_thread();
+
+typedef enum {
+    SOCKET_TYPE_TCP = 0,
+    SOCKET_TYPE_UDP,
+} SocketTypeEnum;
+
+SOCKET make_socket(SocketTypeEnum socket_type);
+
+typedef struct {
+    char* host; // string
+    uint16 port;
+} SocketAddr;
+
+void network_connect(SOCKET socket, SocketAddr addr, OnConnectFn on_connect, void* arg);
+void network_start_read(SOCKET socket, OnReadFn on_read, void* arg);
+void network_write_buffer(SOCKET socket, BufferSlice buffer, OnWriteFn on_write, void* arg);
+
+#endif // __HEADER_NETWORK_NETWORK
+
 #define __HEADER_ASSET_ASSET
 #ifdef __HEADER_ASSET_ASSET
 
@@ -511,6 +610,342 @@ void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle
 
 #endif // __HEADER_ASSET_ASSET
 
+#define __HEADER_EVENTS_DECLMACRO
+#ifdef __HEADER_EVENTS_DECLMACRO
+
+/**
+ * Use matching versions of DECLARE and DEFINE_IMPL macros
+ * Both ACCESS_SINGLE_THREADED or ACCESS_MULTI_THREADED
+ * 
+ * Event types have these constraints:
+ * - Should define field "bool consumed"
+ */
+
+#define EventBuffer(TYPE_EVENT) EventBuffer_##TYPE_EVENT
+#define Events(TYPE_EVENT) Events_##TYPE_EVENT
+#define EventsIter(TYPE_EVENT) EventsIter_##TYPE_EVENT
+
+#define events_create(TYPE_EVENT) TYPE_EVENT##__events_create
+#define events_send_single(TYPE_EVENT) TYPE_EVENT##__events_send_single
+#define events_send_batch(TYPE_EVENT) TYPE_EVENT##__events_send_batch
+#define events_swap_buffers(TYPE_EVENT) TYPE_EVENT##__events_swap_buffers
+
+#define events_begin_iter(TYPE_EVENT) TYPE_EVENT##__events_begin_iter
+#define events_begin_iter_all(TYPE_EVENT) TYPE_EVENT##__events_begin_iter_all
+/**
+ * 
+ * @return offset for next frame
+ * 
+ */
+#define events_iter_end(TYPE_EVENT) TYPE_EVENT##__events_iter_end
+#define events_iter_has_next(TYPE_EVENT) TYPE_EVENT##__events_iter_has_next
+#define events_iter_read_next(TYPE_EVENT) TYPE_EVENT##__events_iter_read_next
+#define events_iter_consume_next(TYPE_EVENT) TYPE_EVENT##__events_iter_consume_next
+
+// -------------------------------------------------------------------------------------------------------------------
+
+#define DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
+\
+    typedef struct {\
+        usize count;\
+        usize capacity;\
+        TYPE_EVENT* items;\
+    } EventBuffer_##TYPE_EVENT;\
+\
+    typedef struct {\
+        EventBuffer_##TYPE_EVENT event_buffers[2];\
+        uint8 this_frame_ind;\
+    } Events_##TYPE_EVENT;\
+\
+    Events_##TYPE_EVENT TYPE_EVENT##__events_create();\
+    void TYPE_EVENT##__events_send_single(Events_##TYPE_EVENT* events, TYPE_EVENT event);\
+    void TYPE_EVENT##__events_send_batch(Events_##TYPE_EVENT* events, TYPE_EVENT* event_list, usize count);\
+    void TYPE_EVENT##__events_swap_buffers(Events_##TYPE_EVENT* events);\
+\
+    typedef struct {\
+        usize index;\
+        Events_##TYPE_EVENT* events;\
+    } EventsIter_##TYPE_EVENT;\
+\
+    EventsIter_##TYPE_EVENT TYPE_EVENT##__events_begin_iter(Events_##TYPE_EVENT* events, usize offset);\
+    EventsIter_##TYPE_EVENT TYPE_EVENT##__events_begin_iter_all(Events_##TYPE_EVENT* events);\
+    usize TYPE_EVENT##__events_iter_end(EventsIter_##TYPE_EVENT* iter);\
+    bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
+    TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
+    TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
+
+// -------------------------------------------------------------------------------------------------------------------
+
+#define DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
+\
+    typedef struct {\
+        usize count;\
+        usize capacity;\
+        TYPE_EVENT* items;\
+    } EventBuffer_##TYPE_EVENT;\
+\
+    typedef struct {\
+        SRWLock* rw_lock;\
+        EventBuffer_##TYPE_EVENT event_buffers[2];\
+        uint8 this_frame_ind;\
+    } Events_##TYPE_EVENT;\
+\
+    Events_##TYPE_EVENT TYPE_EVENT##__events_create();\
+    void TYPE_EVENT##__events_send_single(Events_##TYPE_EVENT* events, TYPE_EVENT event);\
+    void TYPE_EVENT##__events_send_batch(Events_##TYPE_EVENT* events, TYPE_EVENT* event_list, usize count);\
+    void TYPE_EVENT##__events_swap_buffers(Events_##TYPE_EVENT* events);\
+\
+    typedef struct {\
+        usize index;\
+        Events_##TYPE_EVENT* events;\
+    } EventsIter_##TYPE_EVENT;\
+\
+    EventsIter_##TYPE_EVENT TYPE_EVENT##__events_begin_iter(Events_##TYPE_EVENT* events, usize offset);\
+    EventsIter_##TYPE_EVENT TYPE_EVENT##__events_begin_iter_all(Events_##TYPE_EVENT* events);\
+    usize TYPE_EVENT##__events_iter_end(EventsIter_##TYPE_EVENT* iter);\
+    bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
+    TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
+    TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
+
+// -------------------------------------------------------------------------------------------------------------------
+
+#define DEFINE_IMPL__EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
+\
+    void TYPE_EVENT##__event_buffer_push_back(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT item) {\
+        const uint32 INITIAL_CAPACITY = 32;\
+        const uint32 GROWTH_FACTOR = 2;\
+\
+        if (buffer->capacity == 0) {\
+            buffer->capacity = INITIAL_CAPACITY;\
+            buffer->items = malloc(buffer->capacity * sizeof(*&item));\
+        }\
+        else if (buffer->count == buffer->capacity) {\
+            buffer->capacity = GROWTH_FACTOR * buffer->capacity;\
+            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*&item));\
+        }\
+\
+        buffer->items[buffer->count] = item;\
+        buffer->count++;\
+\
+    }\
+\
+    void TYPE_EVENT##__event_buffer_push_back_batch(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT* items, usize count) {\
+        const uint32 INITIAL_CAPACITY = 32;\
+        const uint32 GROWTH_FACTOR = 2;\
+\
+        if (buffer->capacity == 0) {\
+            buffer->capacity = __max(INITIAL_CAPACITY, count);\
+            buffer->items = malloc(buffer->capacity * sizeof(*items));\
+        }\
+        else if (buffer->count + count > buffer->capacity) {\
+            buffer->capacity = __max(GROWTH_FACTOR * buffer->capacity, buffer->count + count);\
+            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*items));\
+        }\
+\
+        memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
+        buffer->count += count;\
+\
+    }\
+\
+    void TYPE_EVENT##__event_buffer_clear(EventBuffer_##TYPE_EVENT* buffer) {\
+        buffer->count = 0;\
+    }\
+\
+    Events_##TYPE_EVENT TYPE_EVENT##__events_create() {\
+        Events_##TYPE_EVENT events = {0};\
+        return events;\
+    }\
+\
+    void TYPE_EVENT##__events_send_single(Events_##TYPE_EVENT* events, TYPE_EVENT event) {\
+        TYPE_EVENT##__event_buffer_push_back(&events->event_buffers[events->this_frame_ind], event);\
+    }\
+\
+    void TYPE_EVENT##__events_send_batch(Events_##TYPE_EVENT* events, TYPE_EVENT* event_list, usize count) {\
+        TYPE_EVENT##__event_buffer_push_back_batch(&events->event_buffers[events->this_frame_ind], event_list, count);\
+    }\
+\
+    void TYPE_EVENT##__events_swap_buffers(Events_##TYPE_EVENT* events) {\
+        events->this_frame_ind = !events->this_frame_ind;\
+        TYPE_EVENT##__event_buffer_clear(&events->event_buffers[events->this_frame_ind]);\
+    }\
+\
+    EventsIter_##TYPE_EVENT TYPE_EVENT##__events_begin_iter(Events_##TYPE_EVENT* events, usize offset) {\
+        return (EventsIter_##TYPE_EVENT) {\
+            .index = offset,\
+            .events = events,\
+        };\
+    }\
+\
+    EventsIter_##TYPE_EVENT TYPE_EVENT##__events_begin_iter_all(Events_##TYPE_EVENT* events) {\
+        return TYPE_EVENT##__events_begin_iter(events, 0);\
+    }\
+\
+    usize TYPE_EVENT##__events_iter_end(EventsIter_##TYPE_EVENT* iter) {\
+        usize count = iter->events->event_buffers[iter->events->this_frame_ind].count;\
+        return count;\
+    }\
+\
+    bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter) {\
+            return iter->index < iter->events->event_buffers[0].count + iter->events->event_buffers[1].count;\
+    }\
+\
+    TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter) {\
+        EventBuffer_##TYPE_EVENT events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];\
+        EventBuffer_##TYPE_EVENT events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];\
+\
+        usize index = iter->index;\
+        iter->index++;\
+\
+        if (index < events_this_frame.count) {\
+            return events_this_frame.items[index];\
+        }\
+        return events_last_frame.items[index - events_this_frame.count];\
+    }\
+\
+    TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter) {\
+        EventBuffer_##TYPE_EVENT events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];\
+        EventBuffer_##TYPE_EVENT events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];\
+\
+        usize index = iter->index;\
+        iter->index++;\
+\
+        TYPE_EVENT* event;\
+        if (index < events_this_frame.count) {\
+            event = &events_this_frame.items[index];\
+        }\
+        else {\
+            event = &events_last_frame.items[index - events_this_frame.count];\
+        }\
+\
+        event->consumed = true;\
+        return *event;\
+    }\
+
+// -------------------------------------------------------------------------------------------------------------------
+
+#define DEFINE_IMPL__EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
+\
+    void TYPE_EVENT##__event_buffer_push_back(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT item) {\
+        const uint32 INITIAL_CAPACITY = 32;\
+        const uint32 GROWTH_FACTOR = 2;\
+\
+        if (buffer->capacity == 0) {\
+            buffer->capacity = INITIAL_CAPACITY;\
+            buffer->items = malloc(buffer->capacity * sizeof(*&item));\
+        }\
+        else if (buffer->count == buffer->capacity) {\
+            buffer->capacity = GROWTH_FACTOR * buffer->capacity;\
+            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*&item));\
+        }\
+\
+        buffer->items[buffer->count] = item;\
+        buffer->count++;\
+\
+    }\
+\
+    void TYPE_EVENT##__event_buffer_push_back_batch(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT* items, usize count) {\
+        const uint32 INITIAL_CAPACITY = 32;\
+        const uint32 GROWTH_FACTOR = 2;\
+\
+        if (buffer->capacity == 0) {\
+            buffer->capacity = __max(INITIAL_CAPACITY, count);\
+            buffer->items = malloc(buffer->capacity * sizeof(*items));\
+        }\
+        else if (buffer->count + count > buffer->capacity) {\
+            buffer->capacity = __max(GROWTH_FACTOR * buffer->capacity, buffer->count + count);\
+            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*items));\
+        }\
+\
+        memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
+        buffer->count += count;\
+\
+    }\
+\
+    void TYPE_EVENT##__event_buffer_clear(EventBuffer_##TYPE_EVENT* buffer) {\
+        buffer->count = 0;\
+    }\
+\
+    Events_##TYPE_EVENT TYPE_EVENT##__events_create() {\
+        Events_##TYPE_EVENT events = {0};\
+        events.rw_lock = alloc_create_srw_lock();\
+        return events;\
+    }\
+\
+    void TYPE_EVENT##__events_send_single(Events_##TYPE_EVENT* events, TYPE_EVENT event) {\
+        srw_lock_acquire_exclusive(events->rw_lock);\
+            TYPE_EVENT##__event_buffer_push_back(&events->event_buffers[events->this_frame_ind], event);\
+        srw_lock_release_exclusive(events->rw_lock);\
+    }\
+\
+    void TYPE_EVENT##__events_send_batch(Events_##TYPE_EVENT* events, TYPE_EVENT* event_list, usize count) {\
+        srw_lock_acquire_exclusive(events->rw_lock);\
+            TYPE_EVENT##__event_buffer_push_back_batch(&events->event_buffers[events->this_frame_ind], event_list, count);\
+        srw_lock_release_exclusive(events->rw_lock);\
+    }\
+\
+    void TYPE_EVENT##__events_swap_buffers(Events_##TYPE_EVENT* events) {\
+        srw_lock_acquire_exclusive(events->rw_lock);\
+            events->this_frame_ind = !events->this_frame_ind;\
+            TYPE_EVENT##__event_buffer_clear(&events->event_buffers[events->this_frame_ind]);\
+        srw_lock_release_exclusive(events->rw_lock);\
+    }\
+\
+    EventsIter_##TYPE_EVENT TYPE_EVENT##__events_begin_iter(Events_##TYPE_EVENT* events, usize offset) {\
+        srw_lock_acquire_shared(events->rw_lock);\
+        return (EventsIter_##TYPE_EVENT) {\
+            .index = offset,\
+            .events = events,\
+        };\
+    }\
+\
+    EventsIter_##TYPE_EVENT TYPE_EVENT##__events_begin_iter_all(Events_##TYPE_EVENT* events) {\
+        return TYPE_EVENT##__events_begin_iter(events, 0);\
+    }\
+\
+    usize TYPE_EVENT##__events_iter_end(EventsIter_##TYPE_EVENT* iter) {\
+        usize count = iter->events->event_buffers[iter->events->this_frame_ind].count;\
+        srw_lock_release_shared(iter->events->rw_lock);\
+        return count;\
+    }\
+\
+    bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter) {\
+            return iter->index < iter->events->event_buffers[0].count + iter->events->event_buffers[1].count;\
+    }\
+\
+    TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter) {\
+        EventBuffer_##TYPE_EVENT events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];\
+        EventBuffer_##TYPE_EVENT events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];\
+\
+        usize index = iter->index;\
+        iter->index++;\
+\
+        if (index < events_this_frame.count) {\
+            return events_this_frame.items[index];\
+        }\
+        return events_last_frame.items[index - events_this_frame.count];\
+    }\
+\
+    TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter) {\
+        EventBuffer_##TYPE_EVENT events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];\
+        EventBuffer_##TYPE_EVENT events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];\
+\
+        usize index = iter->index;\
+        iter->index++;\
+\
+        TYPE_EVENT* event;\
+        if (index < events_this_frame.count) {\
+            event = &events_this_frame.items[index];\
+        }\
+        else {\
+            event = &events_last_frame.items[index - events_this_frame.count];\
+        }\
+\
+        event->consumed = true;\
+        return *event;\
+    }\
+
+#endif // __HEADER_EVENTS_DECLMACRO
+
 #define __HEADER_EVENTS_EVENTS
 #ifdef __HEADER_EVENTS_EVENTS
 
@@ -527,8 +962,8 @@ typedef struct {
 } TextureAssetEvent;
 
 typedef struct {
-    uint32 count;
-    uint32 capacity;
+    usize count;
+    usize capacity;
     TextureAssetEvent* items;
 } EventBuffer_TextureAssetEvent;
 
@@ -538,26 +973,26 @@ typedef struct {
     uint8 this_frame_ind;
 } Events_TextureAssetEvent;
 
-Events_TextureAssetEvent just_engine_events_texture_asset_event_create();
-void just_engine_events_texture_asset_event_send_single(Events_TextureAssetEvent* events, TextureAssetEvent event);
-void just_engine_events_texture_asset_event_send_batch(Events_TextureAssetEvent* events, TextureAssetEvent* event_list, uint32 count);
-void just_engine_events_texture_asset_event_swap_buffers(Events_TextureAssetEvent* events);
+Events_TextureAssetEvent TextureAssetEvent__events_create();
+void TextureAssetEvent__events_send_single(Events_TextureAssetEvent* events, TextureAssetEvent event);
+void TextureAssetEvent__events_send_batch(Events_TextureAssetEvent* events, TextureAssetEvent* event_list, usize count);
+void TextureAssetEvent__events_swap_buffers(Events_TextureAssetEvent* events);
 
 typedef struct {
-    uint32 index;
+    usize index;
     Events_TextureAssetEvent* events;
 } EventsIter_TextureAssetEvent;
 
-EventsIter_TextureAssetEvent just_engine_events_iter_texture_asset_events_begin_iter(Events_TextureAssetEvent* events, uint32 offset);
-EventsIter_TextureAssetEvent just_engine_events_iter_texture_asset_events_begin_iter_all(Events_TextureAssetEvent* events);
+EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter(Events_TextureAssetEvent* events, usize offset);
+EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter_all(Events_TextureAssetEvent* events);
 /**
  * 
  * @return offset for next frame
  */
-uint32 just_engine_events_iter_texture_asset_events_end_iter(EventsIter_TextureAssetEvent* iter);
-bool just_engine_events_iter_texture_asset_events_has_next(EventsIter_TextureAssetEvent* iter);
-TextureAssetEvent just_engine_events_iter_texture_asset_events_read_next(EventsIter_TextureAssetEvent* iter);
-TextureAssetEvent just_engine_events_iter_texture_asset_events_consume_next(EventsIter_TextureAssetEvent* iter);
+usize TextureAssetEvent__events_iter_end(EventsIter_TextureAssetEvent* iter);
+bool TextureAssetEvent__events_iter_has_next(EventsIter_TextureAssetEvent* iter);
+TextureAssetEvent TextureAssetEvent__events_iter_read_next(EventsIter_TextureAssetEvent* iter);
+TextureAssetEvent TextureAssetEvent__events_iter_consume_next(EventsIter_TextureAssetEvent* iter);
 
 #endif // __HEADER_EVENTS_EVENTS
 

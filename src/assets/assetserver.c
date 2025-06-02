@@ -44,7 +44,7 @@ void asyncio_file_load_image_task(TaskArgVoid* arg) {
         .type = AssetEvent_Loaded,
         .consumed = false,
     };
-    just_engine_events_texture_asset_event_send_single(
+    TextureAssetEvent__events_send_single(
         this_arg->RES_texture_assets_events,
         event
     );

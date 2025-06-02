@@ -20,6 +20,8 @@ set COMPILE=^
     %SRC_DIR%/thread/threadsync.c^
     %SRC_DIR%/thread/threadpool.c^
     ^
+    %SRC_DIR%/network/network.c^
+    ^
     %SRC_DIR%/assets/asset.c^
     %SRC_DIR%/assets/assetserver.c^
     ^

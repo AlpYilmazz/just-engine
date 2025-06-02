@@ -42,6 +42,10 @@
         "raymath.h": "c",
         "atomic": "cpp",
         "optional": "cpp",
-        "xtr1common": "cpp"
+        "xtr1common": "cpp",
+        "istream": "c",
+        "algorithm": "c",
+        "stdbool.h": "c",
+        "stdatomic.h": "c"
     }
 }
