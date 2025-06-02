@@ -153,10 +153,8 @@ typedef struct {
     bool consumed;
 } ServerMessageEvent;
 
-// _DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED(ServerMessageEvent);
-// _IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED
-DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED(ServerMessageEvent);
-DEFINE_IMPL__EVENT_SYSTEM__ACCESS_MULTI_THREADED(ServerMessageEvent);
+_DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED(ServerMessageEvent);
+_IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED(ServerMessageEvent);
 
 typedef struct {
     usize count;

@@ -31,7 +31,7 @@
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
+#define __DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
 \
     typedef struct {\
         usize count;\
@@ -63,7 +63,7 @@
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
+#define __DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
 \
     typedef struct {\
         usize count;\
@@ -96,7 +96,7 @@
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define DEFINE_IMPL__EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
+#define _IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
 \
     void TYPE_EVENT##__event_buffer_push_back(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT item) {\
         const uint32 INITIAL_CAPACITY = 32;\
@@ -210,7 +210,7 @@
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define DEFINE_IMPL__EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
+#define _IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
 \
     void TYPE_EVENT##__event_buffer_push_back(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT item) {\
         const uint32 INITIAL_CAPACITY = 32;\
