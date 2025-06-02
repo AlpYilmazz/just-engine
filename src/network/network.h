@@ -28,3 +28,11 @@ typedef struct {
 void network_connect(SOCKET socket, SocketAddr addr, OnConnectFn on_connect, void* arg);
 void network_start_read(SOCKET socket, OnReadFn on_read, void* arg);
 void network_write_buffer(SOCKET socket, BufferSlice buffer, OnWriteFn on_write, void* arg);
+
+uint16 just_htons(uint16 hostnum);
+uint32 just_htonl(uint32 hostnum);
+uint64 just_htonll(uint64 hostnum);
+
+uint16 just_ntohs(uint16 netnum);
+uint32 just_ntohl(uint32 netnum);
+uint64 just_ntohll(uint64 netnum);

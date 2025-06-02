@@ -77,17 +77,17 @@ DECLARE__Option(char);
 
 // Memory is owned
 typedef struct {
-    byte* bytes;
     usize length;
+    byte* bytes;
 } Buffer;
 
 // Memory is only viewed
 typedef Buffer BufferSlice;
 
 typedef struct {
-    byte* bytes;
-    byte* cursor;
     usize length;
+    byte* cursor;
+    byte* bytes;
 } FillBuffer;
 
 static inline BufferSlice buffer_as_slice(Buffer buffer, usize start, usize length) {
@@ -364,22 +364,22 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 #define __HEADER_MEMORY_MEMORY
 #ifdef __HEADER_MEMORY_MEMORY
 
-#define DYNARRAY_INITIAL_CAPACITY 2
-#define DYNARRAY_GROWTH_FACTOR 2
-
 #define dynarray_push_back(arr, item) \
     do { \
-        if (arr->capacity == 0) { \
-            arr->capacity = DYNARRAY_INITIAL_CAPACITY; \
-            arr->sprites = malloc(arr->capacity * sizeof(item)); \
+        const uint32 DYNARRAY_INITIAL_CAPACITY = 2;\
+        const uint32 DYNARRAY_GROWTH_FACTOR = 2;\
+\
+        if ((arr)->capacity == 0) { \
+            (arr)->capacity = DYNARRAY_INITIAL_CAPACITY; \
+            (arr)->items = malloc((arr)->capacity * sizeof((item))); \
         } \
-        else if (arr->length == arr->capacity) { \
-            arr->capacity = DYNARRAY_GROWTH_FACTOR * arr->capacity; \
-            arr->items = realloc(arr->items, arr->capacity * sizeof(item)); \
+        else if ((arr)->count == (arr)->capacity) { \
+            (arr)->capacity = DYNARRAY_GROWTH_FACTOR * (arr)->capacity; \
+            (arr)->items = realloc((arr)->items, (arr)->capacity * sizeof((item))); \
         } \
         \
-        arr->items[render_sprites->length] = item; \
-        arr->length++; \
+        (arr)->items[(arr)->count] = (item); \
+        (arr)->count++; \
     } while(0);\
 
 static inline Buffer* malloc_buffer(usize size) {
@@ -547,6 +547,14 @@ typedef struct {
 void network_connect(SOCKET socket, SocketAddr addr, OnConnectFn on_connect, void* arg);
 void network_start_read(SOCKET socket, OnReadFn on_read, void* arg);
 void network_write_buffer(SOCKET socket, BufferSlice buffer, OnWriteFn on_write, void* arg);
+
+uint16 just_htons(uint16 hostnum);
+uint32 just_htonl(uint32 hostnum);
+uint64 just_htonll(uint64 hostnum);
+
+uint16 just_ntohs(uint16 netnum);
+uint32 just_ntohl(uint32 netnum);
+uint64 just_ntohll(uint64 netnum);
 
 #endif // __HEADER_NETWORK_NETWORK
 

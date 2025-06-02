@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <stdlib.h>
 #include <process.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -274,15 +275,19 @@ void cleanup_write_sockets() {
 }
 
 void handle_read(fd_set* read_sockets, BufferSlice buffer) {
-    JUST_LOG_DEBUG("handle_read\n");
+    JUST_LOG_DEBUG("handle_read: %d\n", read_sockets->fd_count);
     int32 received_count;
     for (uint32 i = 0; i < read_sockets->fd_count; i++) {
         SOCKET socket = read_sockets->fd_array[i];
+        JUST_LOG_DEBUG("1\n");
         if (socket == interrupt_socket) continue;
+        JUST_LOG_DEBUG("2\n");
 
         ReadSocket* read_socket = get_as_read_socket(socket);
+        JUST_LOG_DEBUG("3\n");
 
         if (read_socket != NULL) {
+            JUST_LOG_DEBUG("4\n");
             received_count = recv(socket, buffer.bytes, buffer.length, 0);
             if (received_count == SOCKET_ERROR) {
                 int32 err = WSAGetLastError();
@@ -290,10 +295,16 @@ void handle_read(fd_set* read_sockets, BufferSlice buffer) {
                     continue;
                 }
                 // TODO: handle err
+                JUST_LOG_DEBUG("read err: %d\n", err);
                 continue;
             }
+            JUST_LOG_DEBUG("received count: %d\n", received_count);
             
             BufferSlice read_buffer = buffer_as_slice(buffer, 0, received_count);
+            JUST_LOG_DEBUG("---- buffer.bytes: %p\n", buffer.bytes);
+            JUST_LOG_DEBUG("---- buffer.length: %d\n", buffer.length);
+            JUST_LOG_DEBUG("---- read_buffer.bytes: %p\n", read_buffer.bytes);
+            JUST_LOG_DEBUG("---- read_buffer.length: %d\n", read_buffer.length);
             bool should_remove = read_socket->on_read(socket, read_buffer, read_socket->arg);
             read_socket->should_remove = should_remove;
         }
@@ -338,7 +349,7 @@ void handle_write(fd_set* write_sockets) {
 
 void spin_network_worker() {
     #define NETWORK_BUFFER_LEN 10000
-    byte NETWORK_BUFFER_MEMORY[NETWORK_BUFFER_LEN] = {0};
+    byte* NETWORK_BUFFER_MEMORY = malloc(NETWORK_BUFFER_LEN);
     Buffer NETWORK_BUFFER = {
         .bytes = NETWORK_BUFFER_MEMORY,
         .length = NETWORK_BUFFER_LEN,
@@ -601,4 +612,36 @@ void network_write_buffer(SOCKET socket, BufferSlice buffer, OnWriteFn on_write,
 
         srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
     }
+}
+
+/**
+ * return 0 (false) for big endian, 1 (true) for little endian.
+*/
+bool check_system_endianness() {
+    volatile static uint32 val = 1;
+    return (*((uint8*)(&val)));
+}
+
+uint16 just_htons(uint16 hostnum) {
+    return htons(hostnum);
+}
+uint32 just_htonl(uint32 hostnum) {
+    return htonl((unsigned long) hostnum);
+}
+uint64 just_htonll(uint64 hostnum) {
+    return check_system_endianness()
+        ? _byteswap_uint64(hostnum) // system little -> need swap
+        : hostnum; // system big -> no swap
+}
+
+uint16 just_ntohs(uint16 netnum) {
+    return ntohs(netnum);
+}
+uint32 just_ntohl(uint32 netnum) {
+    return ntohl(netnum);
+}
+uint64 just_ntohll(uint64 netnum) {
+    return check_system_endianness()
+        ? _byteswap_uint64(netnum) // system little -> need swap
+        : netnum; // system big -> no swap
 }

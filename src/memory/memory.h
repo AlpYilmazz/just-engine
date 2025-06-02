@@ -2,22 +2,22 @@
 
 #include "base.h"
 
-#define DYNARRAY_INITIAL_CAPACITY 2
-#define DYNARRAY_GROWTH_FACTOR 2
-
 #define dynarray_push_back(arr, item) \
     do { \
-        if (arr->capacity == 0) { \
-            arr->capacity = DYNARRAY_INITIAL_CAPACITY; \
-            arr->sprites = malloc(arr->capacity * sizeof(item)); \
+        const uint32 DYNARRAY_INITIAL_CAPACITY = 2;\
+        const uint32 DYNARRAY_GROWTH_FACTOR = 2;\
+\
+        if ((arr)->capacity == 0) { \
+            (arr)->capacity = DYNARRAY_INITIAL_CAPACITY; \
+            (arr)->items = malloc((arr)->capacity * sizeof((item))); \
         } \
-        else if (arr->length == arr->capacity) { \
-            arr->capacity = DYNARRAY_GROWTH_FACTOR * arr->capacity; \
-            arr->items = realloc(arr->items, arr->capacity * sizeof(item)); \
+        else if ((arr)->count == (arr)->capacity) { \
+            (arr)->capacity = DYNARRAY_GROWTH_FACTOR * (arr)->capacity; \
+            (arr)->items = realloc((arr)->items, (arr)->capacity * sizeof((item))); \
         } \
         \
-        arr->items[render_sprites->length] = item; \
-        arr->length++; \
+        (arr)->items[(arr)->count] = (item); \
+        (arr)->count++; \
     } while(0);\
 
 static inline Buffer* malloc_buffer(usize size) {
