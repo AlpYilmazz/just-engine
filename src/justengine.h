@@ -496,6 +496,16 @@ void srw_lock_acquire_shared(SRWLock* lock);
 void srw_lock_release_exclusive(SRWLock* lock);
 void srw_lock_release_shared(SRWLock* lock);
 
+#define SRW_LOCK_EXCLUSIVE_ZONE(SRW_LOCK, CodeBlock) \
+    srw_lock_acquire_exclusive(SRW_LOCK);\
+        CodeBlock\
+    srw_lock_release_exclusive(SRW_LOCK);
+
+#define SRW_LOCK_SHARED_ZONE(SRW_LOCK, CodeBlock) \
+    srw_lock_acquire_shared(SRW_LOCK);\
+        CodeBlock\
+    srw_lock_release_shared(SRW_LOCK);
+
 #endif // __HEADER_THREAD_THREADSYNC
 
 #define __HEADER_THREAD_THREADPOOL
@@ -526,27 +536,33 @@ void example_async_task_print_int_arg(TaskArgVoid* arg);
 
 typedef uint64 SOCKET;
 
-typedef void (*OnConnectFn)(SOCKET socket, void* arg);
-typedef bool (*OnReadFn)(SOCKET socket, BufferSlice read_buffer, void* arg);
-typedef void (*OnWriteFn)(SOCKET socket, void* arg);
-
-void init_network_thread();
-
 typedef enum {
-    SOCKET_TYPE_TCP = 0,
-    SOCKET_TYPE_UDP,
+    SOCKET_TYPE_STREAM = 1,
+    SOCKET_TYPE_DATAGRAM = 2,
 } SocketTypeEnum;
-
-SOCKET make_socket(SocketTypeEnum socket_type);
 
 typedef struct {
     char* host; // string
     uint16 port;
 } SocketAddr;
 
-void network_connect(SOCKET socket, SocketAddr addr, OnConnectFn on_connect, void* arg);
-void network_start_read(SOCKET socket, OnReadFn on_read, void* arg);
-void network_write_buffer(SOCKET socket, BufferSlice buffer, OnWriteFn on_write, void* arg);
+typedef void (*OnConnectFnStream)(SOCKET socket, bool success, void* arg);
+typedef bool (*OnReadFnStream)(SOCKET socket, BufferSlice read_buffer, void* arg);
+typedef void (*OnWriteFnStream)(SOCKET socket, void* arg);
+
+typedef bool (*OnReadFnDatagram)(SOCKET socket, SocketAddr addr, BufferSlice datagram, void* arg);
+typedef void (*OnWriteFnDatagram)(SOCKET socket, SocketAddr addr, void* arg);
+
+void init_network_thread();
+
+SOCKET make_socket(SocketTypeEnum socket_type);
+
+void network_connect(SOCKET socket, SocketAddr addr, OnConnectFnStream on_connect, void* arg);
+void network_start_read_stream(SOCKET socket, OnReadFnStream on_read, void* arg);
+void network_write_stream(SOCKET socket, BufferSlice buffer, OnWriteFnStream on_write, void* arg);
+
+void network_start_read_datagram(SOCKET socket, OnReadFnDatagram on_read, void* arg);
+void network_write_datagram(SOCKET socket, SocketAddr addr, BufferSlice datagram, OnWriteFnDatagram on_write, void* arg);
 
 uint16 just_htons(uint16 hostnum);
 uint32 just_htonl(uint32 hostnum);
@@ -638,7 +654,13 @@ void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle
 #define events_send_batch(TYPE_EVENT) TYPE_EVENT##__events_send_batch
 #define events_swap_buffers(TYPE_EVENT) TYPE_EVENT##__events_swap_buffers
 
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 #define events_begin_iter(TYPE_EVENT) TYPE_EVENT##__events_begin_iter
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 #define events_begin_iter_all(TYPE_EVENT) TYPE_EVENT##__events_begin_iter_all
 /**
  * 
@@ -991,7 +1013,13 @@ typedef struct {
     Events_TextureAssetEvent* events;
 } EventsIter_TextureAssetEvent;
 
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter(Events_TextureAssetEvent* events, usize offset);
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter_all(Events_TextureAssetEvent* events);
 /**
  * 

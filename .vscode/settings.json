@@ -46,6 +46,9 @@
         "istream": "c",
         "algorithm": "c",
         "stdbool.h": "c",
-        "stdatomic.h": "c"
+        "stdatomic.h": "c",
+        "windows.h": "c",
+        "winsock.h": "c",
+        "winsock2.h": "c"
     }
 }

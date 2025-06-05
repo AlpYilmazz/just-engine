@@ -79,6 +79,9 @@ void TextureAssetEvent__events_swap_buffers(Events_TextureAssetEvent* events) {
 
 // TextureAssetEventsIter
 
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter(Events_TextureAssetEvent* events, usize offset) {
     srw_lock_acquire_shared(events->rw_lock);
     return (EventsIter_TextureAssetEvent) {
@@ -87,6 +90,9 @@ EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter(Events_Texture
     };
 }
 
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter_all(Events_TextureAssetEvent* events) {
     return TextureAssetEvent__events_begin_iter(events, 0);
 }

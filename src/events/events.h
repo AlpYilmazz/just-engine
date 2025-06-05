@@ -38,7 +38,13 @@ typedef struct {
     Events_TextureAssetEvent* events;
 } EventsIter_TextureAssetEvent;
 
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter(Events_TextureAssetEvent* events, usize offset);
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 EventsIter_TextureAssetEvent TextureAssetEvent__events_begin_iter_all(Events_TextureAssetEvent* events);
 /**
  * 

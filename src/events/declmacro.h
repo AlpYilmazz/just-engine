@@ -17,7 +17,13 @@
 #define events_send_batch(TYPE_EVENT) TYPE_EVENT##__events_send_batch
 #define events_swap_buffers(TYPE_EVENT) TYPE_EVENT##__events_swap_buffers
 
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 #define events_begin_iter(TYPE_EVENT) TYPE_EVENT##__events_begin_iter
+/**
+ * SHOULD ALWAYS BE PAIRED WITH A `events_iter_end` CALL TO RELEASE THE LOCK
+ */
 #define events_begin_iter_all(TYPE_EVENT) TYPE_EVENT##__events_begin_iter_all
 /**
  * 

@@ -1,3 +1,4 @@
+#include <winsock2.h>
 #include <windows.h>
 #include <stdlib.h>
 #include <process.h>
@@ -8,6 +9,8 @@
 #include "logging.h"
 #include "thread/threadsync.h"
 
+HANDLE NETWORK_THREAD;
+uint32 NETWORK_THREAD_ID;
 SRWLock* NETWORK_THREAD_LOCK;
 
 atomic_bool interrupted = ATOMIC_VAR_INIT(1);
@@ -17,18 +20,17 @@ bool is_interrupted() {
     return atomic_load(&interrupted);
 }
 
-void set_interrupted(bool value) {
-    atomic_store(&interrupted, value ? 1 : 0);
+bool maybe_flip_interrupted(bool enter_cond) {
+    bool noncond = !enter_cond;
+    return atomic_compare_exchange_strong(&interrupted, &enter_cond, noncond);
 }
 
 void init_interrupt() {
-    if (is_interrupted()) {
-        set_interrupted(false);
-
+    if (maybe_flip_interrupted(true)) {
         interrupt_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (interrupt_socket == INVALID_SOCKET) {
             // TODO: handle err
-            JUST_LOG_DEBUG("interrupt_socket INVALID_SOCKET\n");
+            JUST_LOG_ERROR("interrupt_socket INVALID_SOCKET\n");
             exit(1);
         }
 
@@ -36,48 +38,55 @@ void init_interrupt() {
         int32 result = ioctlsocket(interrupt_socket, FIONBIO, &non_blocking_mode);
         if (result != NO_ERROR) {
             // TODO: handle err
-            JUST_LOG_DEBUG("interrupt_socket setup failed\n");
+            JUST_LOG_ERROR("interrupt_socket setup failed\n");
             exit(1);
         }
-
-        // int yes = 1;
-        // int setsockopt_result = setsockopt(interrupt_socket, SOL_SOCKET, SO_REUSEADDR, (char*) &yes, sizeof(yes));
-        // if (setsockopt_result == SOCKET_ERROR) {
-        //     JUST_LOG_DEBUG("setsockopt error: %d\n", WSAGetLastError());
-        //     exit(1);
-        // }
-
-        // SOCKADDR_IN sockaddr = {0};
-        // sockaddr.sin_family = AF_INET;
-        // sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        // sockaddr.sin_port = htons(0);
-
-        // int bind_result = bind(interrupt_socket, (SOCKADDR*) &sockaddr, sizeof(sockaddr));
-        // if (bind_result == SOCKET_ERROR) {
-        //     JUST_LOG_DEBUG("bind error: %d\n", WSAGetLastError());
-        //     exit(1);
-        // }
     }
 }
 
 void interrupt_network_wait(uint64 _arg) {
-    if (!is_interrupted()) {
-        set_interrupted(true);
+    if (maybe_flip_interrupted(false)) {
         closesocket(interrupt_socket);
         JUST_LOG_DEBUG("Interrupted\n");
     }
 }
 
-typedef void (*OnConnectFn)(SOCKET socket, void* arg);
-typedef bool (*OnReadFn)(SOCKET socket, BufferSlice read_buffer, void* arg);
-typedef void (*OnWriteFn)(SOCKET socket, void* arg);
+void issue_interrupt_apc() {
+    bool success = QueueUserAPC(
+        interrupt_network_wait,
+        NETWORK_THREAD,
+        0
+    );
+    if (!success) {
+        int32 err = GetLastError();
+        // TODO: handle err
+        JUST_LOG_WARN("Interrupt APC failed: %d\n", err);
+    }
+}
+
+typedef enum {
+    SOCKET_TYPE_STREAM = SOCK_STREAM,
+    SOCKET_TYPE_DATAGRAM = SOCK_DGRAM,
+} SocketTypeEnum;
+
+typedef struct {
+    char* host; // string
+    uint16 port;
+} SocketAddr;
+
+typedef void (*OnConnectFnStream)(SOCKET socket, bool success, void* arg);
+typedef bool (*OnReadFnStream)(SOCKET socket, BufferSlice read_buffer, void* arg);
+typedef void (*OnWriteFnStream)(SOCKET socket, void* arg);
+typedef bool (*OnReadFnDatagram)(SOCKET socket, SocketAddr addr, BufferSlice datagram, void* arg);
+typedef void (*OnWriteFnDatagram)(SOCKET socket, SocketAddr addr, void* arg);
 
 typedef struct {
     SOCKET socket;
-    OnConnectFn on_connect;
+    void* on_connect_fn;
     void* arg;
     // --
-    bool is_connected;
+    bool connected;
+    bool failed;
 } ConnectSocket;
 
 /**
@@ -85,8 +94,9 @@ typedef struct {
  * return value of the .on_read function determines .should_remove 
  */
 typedef struct {
+    SocketTypeEnum type;
     SOCKET socket;
-    OnReadFn on_read;
+    void* on_read_fn;
     void* arg;
     // --
     bool should_remove;
@@ -97,11 +107,13 @@ typedef struct {
  * if you want to write again you should create again
  */
 typedef struct {
+    SocketTypeEnum type;
     SOCKET socket;
+    SocketAddr write_addr; // datagram
     BufferSlice buffer;
     usize offset;
     // --
-    OnWriteFn on_write;
+    void* on_write_fn;
     void* arg;
 } WriteSocket;
 
@@ -129,70 +141,65 @@ ConnectSocketList QUEUE_CONNECT_SOCKETS = {0};
 ReadSocketList QUEUE_READ_SOCKETS = {0};
 WriteSocketList QUEUE_WRITE_SOCKETS = {0};
 
-void queue_add_connect_socket(SOCKET socket, OnConnectFn on_connect, void* arg) {
+void queue_add_connect_socket(SOCKET socket, OnConnectFnStream on_connect, void* arg) {
     QUEUE_CONNECT_SOCKETS.sockets[QUEUE_CONNECT_SOCKETS.length++] = (ConnectSocket) {
         .socket = socket,
-        .on_connect = on_connect,
+        .on_connect_fn = on_connect,
         .arg = arg,
-        .is_connected = false,
+        .connected = false,
+        .failed = false,
     };
 }
-void queue_add_read_socket(SOCKET socket, OnReadFn on_read, void* arg) {
+void queue_add_read_socket(SOCKET socket, OnReadFnStream on_read, void* arg) {
     QUEUE_READ_SOCKETS.sockets[QUEUE_READ_SOCKETS.length++] = (ReadSocket) {
+        .type = SOCKET_TYPE_STREAM,
         .socket = socket,
-        .on_read = on_read,
+        .on_read_fn = on_read,
         .arg = arg,
         .should_remove = false,
     };
 }
-void queue_add_write_socket(SOCKET socket, BufferSlice buffer, OnWriteFn on_write, void* arg) {
+void queue_add_write_socket(SOCKET socket, BufferSlice buffer, OnWriteFnStream on_write, void* arg) {
     QUEUE_WRITE_SOCKETS.sockets[QUEUE_WRITE_SOCKETS.length++] = (WriteSocket) {
+        .type = SOCKET_TYPE_STREAM,
         .socket = socket,
+        .write_addr = {0},
         .buffer = buffer,
         .offset = 0,
-        .on_write = on_write,
+        .on_write_fn = on_write,
         .arg = arg,
     };
 }
-
-void add_connect_socket(SOCKET socket, OnConnectFn on_connect, void* arg) {
-    CONNECT_SOCKETS.sockets[CONNECT_SOCKETS.length++] = (ConnectSocket) {
+void queue_add_read_socket_datagram(SOCKET socket, OnReadFnDatagram on_read, void* arg) {
+    QUEUE_READ_SOCKETS.sockets[QUEUE_READ_SOCKETS.length++] = (ReadSocket) {
+        .type = SOCKET_TYPE_DATAGRAM,
         .socket = socket,
-        .on_connect = on_connect,
-        .arg = arg,
-        .is_connected = false,
-    };
-}
-void add_read_socket(SOCKET socket, OnReadFn on_read, void* arg) {
-    READ_SOCKETS.sockets[READ_SOCKETS.length++] = (ReadSocket) {
-        .socket = socket,
-        .on_read = on_read,
+        .on_read_fn = on_read,
         .arg = arg,
         .should_remove = false,
     };
 }
-void add_write_socket(SOCKET socket, BufferSlice buffer, OnWriteFn on_write, void* arg) {
-    WRITE_SOCKETS.sockets[WRITE_SOCKETS.length++] = (WriteSocket) {
+void queue_add_write_socket_datagram(SOCKET socket, SocketAddr addr, BufferSlice datagram, OnWriteFnDatagram on_write, void* arg) {
+    QUEUE_WRITE_SOCKETS.sockets[QUEUE_WRITE_SOCKETS.length++] = (WriteSocket) {
+        .type = SOCKET_TYPE_DATAGRAM,
         .socket = socket,
-        .buffer = buffer,
+        .write_addr = addr,
+        .buffer = datagram,
         .offset = 0,
-        .on_write = on_write,
+        .on_write_fn = on_write,
         .arg = arg,
     };
 }
 
 void handle_queued_sockets() {
     for (uint32 i = 0; i < QUEUE_CONNECT_SOCKETS.length; i++) {
-        ConnectSocket* queued_socket = &QUEUE_CONNECT_SOCKETS.sockets[i];
-        add_connect_socket(queued_socket->socket, queued_socket->on_connect, queued_socket->arg);
+        CONNECT_SOCKETS.sockets[CONNECT_SOCKETS.length++] = QUEUE_CONNECT_SOCKETS.sockets[i];
     }
     for (uint32 i = 0; i < QUEUE_READ_SOCKETS.length; i++) {
-        ReadSocket* queued_socket = &QUEUE_READ_SOCKETS.sockets[i];
-        add_read_socket(queued_socket->socket, queued_socket->on_read, queued_socket->arg);
+        READ_SOCKETS.sockets[READ_SOCKETS.length++] = QUEUE_READ_SOCKETS.sockets[i];
     }
     for (uint32 i = 0; i < QUEUE_WRITE_SOCKETS.length; i++) {
-        WriteSocket* queued_socket = &QUEUE_WRITE_SOCKETS.sockets[i];
-        add_write_socket(queued_socket->socket, queued_socket->buffer, queued_socket->on_write, queued_socket->arg);
+        WRITE_SOCKETS.sockets[WRITE_SOCKETS.length++] = QUEUE_WRITE_SOCKETS.sockets[i];
     }
     QUEUE_CONNECT_SOCKETS.length = 0;
     QUEUE_READ_SOCKETS.length = 0;
@@ -232,10 +239,10 @@ WriteSocket* get_as_write_socket(SOCKET socket) {
 void cleanup_connect_sockets() {
     for (uint32 i = 0; i < CONNECT_SOCKETS.length; i++) {
         ConnectSocket connect_socket = CONNECT_SOCKETS.sockets[i];
-        if (connect_socket.is_connected) {
-            // connection done
-            if (connect_socket.on_connect != NULL) {
-                connect_socket.on_connect(connect_socket.socket, connect_socket.arg);
+        if (connect_socket.connected || connect_socket.failed) {
+            // connection done or failed
+            if (connect_socket.on_connect_fn != NULL) {
+                ((OnConnectFnStream) connect_socket.on_connect_fn)(connect_socket.socket, connect_socket.connected, connect_socket.arg);
             }
             // swap remove
             CONNECT_SOCKETS.sockets[i] = CONNECT_SOCKETS.sockets[CONNECT_SOCKETS.length];
@@ -263,8 +270,16 @@ void cleanup_write_sockets() {
         WriteSocket write_socket = WRITE_SOCKETS.sockets[i];
         if (write_socket.offset == write_socket.buffer.length) {
             // write complete
-            if (write_socket.on_write != NULL) {
-                write_socket.on_write(write_socket.socket, write_socket.arg);
+            if (write_socket.on_write_fn != NULL) {
+                switch (write_socket.type) {
+                case SOCKET_TYPE_STREAM:
+                    ((OnWriteFnStream) write_socket.on_write_fn)(write_socket.socket, write_socket.arg);
+                    break;
+                
+                case SOCKET_TYPE_DATAGRAM:
+                    ((OnWriteFnDatagram) write_socket.on_write_fn)(write_socket.socket, write_socket.write_addr, write_socket.arg);
+                    break;
+                }
             }
             // swap remove
             WRITE_SOCKETS.sockets[i] = WRITE_SOCKETS.sockets[WRITE_SOCKETS.length];
@@ -275,44 +290,78 @@ void cleanup_write_sockets() {
 }
 
 void handle_read(fd_set* read_sockets, BufferSlice buffer) {
-    JUST_LOG_DEBUG("handle_read: %d\n", read_sockets->fd_count);
+    JUST_LOG_TRACE("handle_read: %d\n", read_sockets->fd_count);
     int32 received_count;
     for (uint32 i = 0; i < read_sockets->fd_count; i++) {
         SOCKET socket = read_sockets->fd_array[i];
-        JUST_LOG_DEBUG("1\n");
         if (socket == interrupt_socket) continue;
-        JUST_LOG_DEBUG("2\n");
 
         ReadSocket* read_socket = get_as_read_socket(socket);
-        JUST_LOG_DEBUG("3\n");
 
         if (read_socket != NULL) {
-            JUST_LOG_DEBUG("4\n");
-            received_count = recv(socket, buffer.bytes, buffer.length, 0);
-            if (received_count == SOCKET_ERROR) {
-                int32 err = WSAGetLastError();
-                if (err == WSAEWOULDBLOCK) {
-                    continue;
+            switch (read_socket->type) {
+            case SOCKET_TYPE_STREAM:
+                JUST_LOG_TRACE("Read Stream Socket\n");
+
+                received_count = recv(socket, buffer.bytes, buffer.length, 0);
+                if (received_count == SOCKET_ERROR) {
+                    int32 err = WSAGetLastError();
+                    switch (err) {
+                    case WSAEWOULDBLOCK:
+                        // Fine
+                        continue;
+                    default:
+                        // TODO: handle err
+                        JUST_LOG_WARN("read err: %d\n", err);
+                        continue;
+                    }
                 }
-                // TODO: handle err
-                JUST_LOG_DEBUG("read err: %d\n", err);
-                continue;
-            }
-            JUST_LOG_DEBUG("received count: %d\n", received_count);
+                JUST_LOG_DEBUG("received count: %d\n", received_count);
+                
+                BufferSlice read_buffer = buffer_as_slice(buffer, 0, received_count);
+                read_socket->should_remove = ((OnReadFnStream) read_socket->on_read_fn)(socket, read_buffer, read_socket->arg);
+
+                break;
             
-            BufferSlice read_buffer = buffer_as_slice(buffer, 0, received_count);
-            JUST_LOG_DEBUG("---- buffer.bytes: %p\n", buffer.bytes);
-            JUST_LOG_DEBUG("---- buffer.length: %d\n", buffer.length);
-            JUST_LOG_DEBUG("---- read_buffer.bytes: %p\n", read_buffer.bytes);
-            JUST_LOG_DEBUG("---- read_buffer.length: %d\n", read_buffer.length);
-            bool should_remove = read_socket->on_read(socket, read_buffer, read_socket->arg);
-            read_socket->should_remove = should_remove;
+            case SOCKET_TYPE_DATAGRAM:
+                JUST_LOG_TRACE("Read Datagram Socket\n");
+
+                SOCKADDR_IN sockaddr = {0};
+                int sockaddr_size = sizeof(sockaddr);
+                received_count = recvfrom(socket, buffer.bytes, buffer.length, 0, (SOCKADDR*) &sockaddr, &sockaddr_size);
+                if (received_count == SOCKET_ERROR) {
+                    int32 err = WSAGetLastError();
+                    switch (err) {
+                    case WSAEWOULDBLOCK:
+                        // Fine
+                        continue;
+                    case WSAEMSGSIZE:
+                        // TODO: Partial Read
+                        break;
+                    default:
+                        // TODO: handle err
+                        JUST_LOG_WARN("read err: %d\n", err);
+                        continue;
+                    }
+                }
+                JUST_LOG_DEBUG("received count: %d\n", received_count);
+
+                SocketAddr addr = {
+                    .host = inet_ntoa(sockaddr.sin_addr),
+                    .port = ntohs(sockaddr.sin_port),
+                };
+
+                BufferSlice datagram = buffer_as_slice(buffer, 0, received_count);
+                read_socket->should_remove = ((OnReadFnDatagram) read_socket->on_read_fn)(socket, addr, datagram, read_socket->arg);
+
+                break;
+            }
         }
     }
 }
 
 void handle_write(fd_set* write_sockets) {
-    JUST_LOG_DEBUG("handle_write\n");
+    JUST_LOG_TRACE("handle_write\n");
     int32 sent_count;
     for (uint32 i = 0; i < write_sockets->fd_count; i++) {
         SOCKET socket = write_sockets->fd_array[i];
@@ -322,27 +371,94 @@ void handle_write(fd_set* write_sockets) {
 
         // Write
         if (write_socket != NULL) {
-            sent_count = send(
-                write_socket->socket,
-                write_socket->buffer.bytes + write_socket->offset,
-                write_socket->buffer.length - write_socket->offset,
-                0
-            );
-            if (sent_count == SOCKET_ERROR) {
-                int32 err = WSAGetLastError();
-                if (err == WSAEWOULDBLOCK) {
-                    continue;
+            switch (write_socket->type) {
+            case SOCKET_TYPE_STREAM:
+                JUST_LOG_TRACE("Write Stream Socket\n");
+                
+                sent_count = send(
+                    write_socket->socket,
+                    write_socket->buffer.bytes + write_socket->offset,
+                    write_socket->buffer.length - write_socket->offset,
+                    0
+                );
+                if (sent_count == SOCKET_ERROR) {
+                    int32 err = WSAGetLastError();
+                    switch (err) {
+                    case WSAEWOULDBLOCK:
+                        // Fine
+                        continue;
+                    default:
+                        // TODO: handle err
+                        JUST_LOG_WARN("write err: %d\n", err);
+                        continue;
+                    }
                 }
-                // TODO: handle err
-                continue;
+        
+                write_socket->offset += sent_count;
+
+                break;
+            
+            case SOCKET_TYPE_DATAGRAM:
+                JUST_LOG_TRACE("Write Datagram Socket\n");
+
+                SOCKADDR_IN sockaddr = {0};
+                sockaddr.sin_family = AF_INET;
+                sockaddr.sin_addr.s_addr = inet_addr(write_socket->write_addr.host);
+                sockaddr.sin_port = htons(write_socket->write_addr.port);
+
+                sent_count = sendto(
+                    socket,
+                    write_socket->buffer.bytes + write_socket->offset,
+                    write_socket->buffer.length - write_socket->offset,
+                    0,
+                    (SOCKADDR*) &sockaddr,
+                    sizeof(sockaddr)
+                );
+                if (sent_count == SOCKET_ERROR) {
+                    int32 err = WSAGetLastError();
+                    switch (err) {
+                    case WSAEWOULDBLOCK:
+                        // Fine
+                        continue;
+                    case WSAEMSGSIZE:
+                        // TODO: Partial Write
+                        // no data is transmitted
+                        write_socket->offset = write_socket->buffer.length;
+                        continue;
+                    default:
+                        // TODO: handle err
+                        JUST_LOG_WARN("write err: %d\n", err);
+                        continue;
+                    }
+                }
+                
+                write_socket->offset += sent_count;
+
+                break;
             }
-    
-            write_socket->offset += sent_count;
         }
         // Connection
         else {
             ConnectSocket* connect_socket = get_as_connect_socket(socket);
-            connect_socket->is_connected = true;
+            if (connect_socket != NULL) {
+                connect_socket->connected = true;
+            }
+        }
+    }
+}
+
+void handle_except(fd_set* except_sockets) {
+    JUST_LOG_TRACE("handle_write\n");
+    int32 sent_count;
+    for (uint32 i = 0; i < except_sockets->fd_count; i++) {
+        SOCKET socket = except_sockets->fd_array[i];
+        if (socket == interrupt_socket) continue;
+
+        ConnectSocket* connect_socket = get_as_connect_socket(socket);
+
+        if (connect_socket != NULL) {
+            // TODO: call connect once more to get error code
+            connect_socket->failed = true;
         }
     }
 }
@@ -354,6 +470,7 @@ void spin_network_worker() {
         .bytes = NETWORK_BUFFER_MEMORY,
         .length = NETWORK_BUFFER_LEN,
     };
+    #undef NETWORK_BUFFER_LEN
 
     fd_set read_sockets = {0};
     fd_set write_sockets = {0};
@@ -368,8 +485,6 @@ void spin_network_worker() {
 
         init_interrupt();
         FD_SET(interrupt_socket, &read_sockets);
-        // FD_SET(interrupt_socket, &write_sockets);
-        FD_SET(interrupt_socket, &except_sockets);
 
         for (uint32 i = 0; i < READ_SOCKETS.length; i++) {
             FD_SET(READ_SOCKETS.sockets[i].socket, &read_sockets);
@@ -378,13 +493,14 @@ void spin_network_worker() {
             FD_SET(WRITE_SOCKETS.sockets[i].socket, &write_sockets);
         }
         for (uint32 i = 0; i < CONNECT_SOCKETS.length; i++) {
-            FD_SET(CONNECT_SOCKETS.sockets[i].socket, &write_sockets);
+            FD_SET(CONNECT_SOCKETS.sockets[i].socket, &write_sockets); // success
+            FD_SET(CONNECT_SOCKETS.sockets[i].socket, &except_sockets); // fail
         }
-        // fd_set_extend(&EXCEPT_SOCKETS, &except_sockets);
         
         srw_lock_release_shared(NETWORK_THREAD_LOCK);
 
-        JUST_LOG_DEBUG("select started\n");
+        JUST_LOG_TRACE("START: select\n");
+
         int ready_count = select(
             0,
             &read_sockets,
@@ -392,44 +508,42 @@ void spin_network_worker() {
             &except_sockets,
             NULL
         );
-        JUST_LOG_DEBUG("select ended\n");
+
+        JUST_LOG_TRACE("END: select\n");
     
         if (ready_count == SOCKET_ERROR) {
             int err = WSAGetLastError();
-            JUST_LOG_DEBUG("select error: %d\n", err);
+            JUST_LOG_WARN("select error: %d\n", err);
             continue;
+        }
+
+        if (is_interrupted()) {
+            JUST_LOG_TRACE("select was interrupted\n");
         }
 
         srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
 
-        if (!is_interrupted()) {
-            JUST_LOG_DEBUG("handling ready sockets\n");
-            handle_read(&read_sockets, NETWORK_BUFFER);
-            handle_write(&write_sockets);
-            // handle_except(&except_sockets);
-        }
-        else {
-            JUST_LOG_DEBUG("select was interrupted\n");
-        }
+        JUST_LOG_TRACE("START: handle ready sockets\n");
 
-        JUST_LOG_DEBUG("cleanup started\n");
+        handle_read(&read_sockets, NETWORK_BUFFER);
+        handle_write(&write_sockets);
+        handle_except(&except_sockets);
+        
+        JUST_LOG_TRACE("START: cleanup\n");
 
         cleanup_connect_sockets();
         cleanup_read_sockets();
         cleanup_write_sockets();
         
-        JUST_LOG_DEBUG("cleanup ended\n");
+        JUST_LOG_TRACE("START: handle socket queue\n");
 
         handle_queued_sockets();
 
+        JUST_LOG_TRACE("END: ---\n");
+        
         srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
     }
-
-    #undef NETWORK_BUFFER_LEN
 }
-
-HANDLE NETWORK_THREAD;
-uint32 NETWORK_THREAD_ID;
 
 // DWORD WINAPI thread_pool_worker_thread(LPVOID lpParam);
 uint32 __stdcall network_thread_main(void* thread_param) {
@@ -447,15 +561,12 @@ uint32 __stdcall network_thread_main(void* thread_param) {
  * TO INTERRACT WITH THE NETWORK THREAD
  */
 
-#include <stdio.h>
-
 void init_network_thread() {
-    //----------------------
     // Initialize Winsock
-    WSADATA wsaData;
-    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != NO_ERROR) {
-        printf("WSAStartup function failed with error: %d\n", iResult);
+    WSADATA wsa_data;
+    int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+    if (result != NO_ERROR) {
+        JUST_LOG_ERROR("WSAStartup function failed with error: %d\n", result);
         exit(1);
     }
 
@@ -470,49 +581,40 @@ void init_network_thread() {
     );
 }
 
-typedef enum {
-    SOCKET_TYPE_TCP = 0,
-    SOCKET_TYPE_UDP,
-} SocketTypeEnum;
-
 SOCKET make_socket(SocketTypeEnum socket_type) {
-    SOCKET new_socket;
+    SOCKET sock;
     switch (socket_type) {
-        case SOCKET_TYPE_TCP:
-            new_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        case SOCKET_TYPE_STREAM:
+            sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
             break;
-        case SOCKET_TYPE_UDP:
-            new_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        case SOCKET_TYPE_DATAGRAM:
+            sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
             break;
         default:
             // Unsupported
-            JUST_LOG_DEBUG("Unsupported Socket Type\n");
+            JUST_LOG_WARN("Unsupported Socket Type\n");
             return INVALID_SOCKET;
     }
 
-    if (new_socket == INVALID_SOCKET) {
+    if (sock == INVALID_SOCKET) {
         // TODO: handle err
-        JUST_LOG_DEBUG("Socket creation failed\n");
+        JUST_LOG_WARN("Socket creation failed\n");
         return INVALID_SOCKET;
     }
 
     unsigned long non_blocking_mode = 1;
-    int32 result = ioctlsocket(new_socket, FIONBIO, &non_blocking_mode);
+    int32 result = ioctlsocket(sock, FIONBIO, &non_blocking_mode);
     if (result != NO_ERROR) {
         // TODO: handle err
-        JUST_LOG_DEBUG("Socket setup failed\n");
+        JUST_LOG_WARN("Socket setup failed\n");
+        closesocket(sock);
         return INVALID_SOCKET;
     }
 
-    return new_socket;
+    return sock;
 }
 
-typedef struct {
-    char* host; // string
-    uint16 port;
-} SocketAddr;
-
-void network_connect(SOCKET socket, SocketAddr addr, OnConnectFn on_connect, void* arg) {
+void network_connect(SOCKET socket, SocketAddr addr, OnConnectFnStream on_connect, void* arg) {
     SOCKADDR_IN sockaddr = {0};
     sockaddr.sin_family = AF_INET;
     sockaddr.sin_addr.s_addr = inet_addr(addr.host);
@@ -521,11 +623,11 @@ void network_connect(SOCKET socket, SocketAddr addr, OnConnectFn on_connect, voi
     int32 result = connect(socket, (SOCKADDR*) &sockaddr, sizeof(sockaddr));
     if (result == SOCKET_ERROR) {
         int32 err = WSAGetLastError();
-        if (err == WSAEWOULDBLOCK) {
-            // Good
+        switch (err) {
+        case WSAEWOULDBLOCK:
+            // Fine
             JUST_LOG_INFO("Connection started\n");
-        }
-        else {
+        default:
             // TODO: handle err
             JUST_LOG_DEBUG("Connection failed: %d\n", err);
         }
@@ -539,26 +641,14 @@ void network_connect(SOCKET socket, SocketAddr addr, OnConnectFn on_connect, voi
     }
     else {
         // Called from another thread
-        srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
-
-        add_connect_socket(socket, on_connect, arg);
-
-        bool success = QueueUserAPC(
-            interrupt_network_wait,
-            NETWORK_THREAD,
-            0
-        );
-        if (!success) {
-            int32 err = GetLastError();
-            // TODO: handle err
-            JUST_LOG_DEBUG("Interrupt APC failed: %d\n", err);
-        }
-
-        srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_add_connect_socket(socket, on_connect, arg);
+        });
+        issue_interrupt_apc();
     }
 }
 
-void network_start_read(SOCKET socket, OnReadFn on_read, void* arg) {
+void network_start_read_stream(SOCKET socket, OnReadFnStream on_read, void* arg) {
     uint32 current_thread_id = GetCurrentThreadId();
     if (current_thread_id == NETWORK_THREAD_ID) {
         // Called within network thread
@@ -567,26 +657,14 @@ void network_start_read(SOCKET socket, OnReadFn on_read, void* arg) {
     }
     else {
         // Called from another thread
-        srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
-    
-        add_read_socket(socket, on_read, arg);
-    
-        bool success = QueueUserAPC(
-            interrupt_network_wait,
-            NETWORK_THREAD,
-            0
-        );
-        if (!success) {
-            int32 err = GetLastError();
-            // TODO: handle err
-            JUST_LOG_DEBUG("Interrupt APC failed: %d\n", err);
-        }
-    
-        srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_add_read_socket(socket, on_read, arg);
+        });
+        issue_interrupt_apc();
     }
 }
 
-void network_write_buffer(SOCKET socket, BufferSlice buffer, OnWriteFn on_write, void* arg) {
+void network_write_stream(SOCKET socket, BufferSlice buffer, OnWriteFnStream on_write, void* arg) {
     uint32 current_thread_id = GetCurrentThreadId();
     if (current_thread_id == NETWORK_THREAD_ID) {
         // Called within network thread
@@ -595,29 +673,49 @@ void network_write_buffer(SOCKET socket, BufferSlice buffer, OnWriteFn on_write,
     }
     else {
         // Called from another thread
-        srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_add_write_socket(socket, buffer, on_write, arg);
+        });
+        issue_interrupt_apc();
+    }
+}
 
-        add_write_socket(socket, buffer, on_write, arg);
+void network_start_read_datagram(SOCKET socket, OnReadFnDatagram on_read, void* arg) {
+    uint32 current_thread_id = GetCurrentThreadId();
+    if (current_thread_id == NETWORK_THREAD_ID) {
+        // Called within network thread
+        // probably from on_connect, on_read or on_write
+        queue_add_read_socket_datagram(socket, on_read, arg);
+    }
+    else {
+        // Called from another thread
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_add_read_socket_datagram(socket, on_read, arg);
+        });
+        issue_interrupt_apc();
+    }
+}
 
-        bool success = QueueUserAPC(
-            interrupt_network_wait,
-            NETWORK_THREAD,
-            0
-        );
-        if (!success) {
-            int32 err = GetLastError();
-            // TODO: handle err
-            JUST_LOG_DEBUG("Interrupt APC failed: %d\n", err);
-        }
-
-        srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
+void network_write_datagram(SOCKET socket, SocketAddr addr, BufferSlice datagram, OnWriteFnDatagram on_write, void* arg) {
+    uint32 current_thread_id = GetCurrentThreadId();
+    if (current_thread_id == NETWORK_THREAD_ID) {
+        // Called within network thread
+        // probably from on_connect, on_read or on_write
+        queue_add_write_socket_datagram(socket, addr, datagram, on_write, arg);
+    }
+    else {
+        // Called from another thread
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_add_write_socket_datagram(socket, addr, datagram, on_write, arg);
+        });
+        issue_interrupt_apc();
     }
 }
 
 /**
  * return 0 (false) for big endian, 1 (true) for little endian.
 */
-bool check_system_endianness() {
+static inline bool check_system_endianness() {
     volatile static uint32 val = 1;
     return (*((uint8*)(&val)));
 }
@@ -630,8 +728,8 @@ uint32 just_htonl(uint32 hostnum) {
 }
 uint64 just_htonll(uint64 hostnum) {
     return check_system_endianness()
-        ? _byteswap_uint64(hostnum) // system little -> need swap
-        : hostnum; // system big -> no swap
+        ? _byteswap_uint64(hostnum) // system little -> needs swap
+        : hostnum;                  // system big    -> no swap
 }
 
 uint16 just_ntohs(uint16 netnum) {
@@ -642,6 +740,6 @@ uint32 just_ntohl(uint32 netnum) {
 }
 uint64 just_ntohll(uint64 netnum) {
     return check_system_endianness()
-        ? _byteswap_uint64(netnum) // system little -> need swap
-        : netnum; // system big -> no swap
+        ? _byteswap_uint64(netnum)  // system little -> needs swap
+        : netnum;                   // system big    -> no swap
 }
