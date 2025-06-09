@@ -1,0 +1,36 @@
+CC = gcc
+CFLAGS = -std=c11 -MMD -MP
+CINCLUDE = -Ivendor/raylib-5.0/include -Isrc
+CLIB = 
+CLINK = 
+
+SRC_DIR = src
+BUILD_DIR = target
+
+# Recursive find for .c files with directory structure preservation
+rwildcard = $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
+SRC = $(call rwildcard,$(SRC_DIR)/,*.c)
+OBJ = $(SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+DEP = $(OBJ:.o=.d)
+LIBRARY = $(BUILD_DIR)/libjustengine.a
+
+.PHONY: all clean
+
+all: $(LIBRARY)
+
+# Include auto-generated dependencies
+-include $(DEP)
+
+$(LIBRARY): $(OBJ)
+	@echo Archiving $@
+	ar -rcs $@ $^
+
+# Compilation with directory creation and dependency generation
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	@echo Compiling $<
+	@mkdir "$(@D)" 2>nul || exit 0
+	@$(CC) $(CFLAGS) $(CINCLUDE) $(CLIB) $(CLINK) -c $< -o $@
+
+clean:
+	@echo Cleaning build artifacts
+	@rmdir /s /q $(BUILD_DIR) 2>nul || exit 0

@@ -51,6 +51,8 @@ typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
 
+#define branchless_if(cond, on_true, on_false) ( ( ((cond) != 0) * (on_true) ) + ( ((cond) == 0) * (on_false) ) )
+
 #define Option(Type) DeclType_Option_##Type
 #define Option_None {0}
 #define Option_Some(val) { .is_some = true, .value = val, }
@@ -671,10 +673,11 @@ void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle
 #define events_iter_has_next(TYPE_EVENT) TYPE_EVENT##__events_iter_has_next
 #define events_iter_read_next(TYPE_EVENT) TYPE_EVENT##__events_iter_read_next
 #define events_iter_consume_next(TYPE_EVENT) TYPE_EVENT##__events_iter_consume_next
+#define events_iter_maybe_consume_next(TYPE_EVENT) TYPE_EVENT##__events_iter_maybe_consume_next
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define _DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
+#define __DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
 \
     typedef struct {\
         usize count;\
@@ -703,10 +706,11 @@ void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle
     bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed);\
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define _DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
+#define __DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
 \
     typedef struct {\
         usize count;\
@@ -736,10 +740,11 @@ void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle
     bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed);\
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define _IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
+#define __IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
 \
     void TYPE_EVENT##__event_buffer_push_back(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT item) {\
         const uint32 INITIAL_CAPACITY = 32;\
@@ -850,10 +855,29 @@ void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle
         event->consumed = true;\
         return *event;\
     }\
+\
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed) {\
+        EventBuffer_##TYPE_EVENT events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];\
+        EventBuffer_##TYPE_EVENT events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];\
+\
+        usize index = iter->index;\
+        iter->index++;\
+\
+        TYPE_EVENT* event;\
+        if (index < events_this_frame.count) {\
+            event = &events_this_frame.items[index];\
+        }\
+        else {\
+            event = &events_last_frame.items[index - events_this_frame.count];\
+        }\
+\
+        *set_consumed = &event->consumed;\
+        return *event;\
+    }\
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define _IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
+#define __IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
 \
     void TYPE_EVENT##__event_buffer_push_back(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT item) {\
         const uint32 INITIAL_CAPACITY = 32;\
@@ -973,6 +997,25 @@ void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle
         event->consumed = true;\
         return *event;\
     }\
+\
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed) {\
+        EventBuffer_##TYPE_EVENT events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];\
+        EventBuffer_##TYPE_EVENT events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];\
+\
+        usize index = iter->index;\
+        iter->index++;\
+\
+        TYPE_EVENT* event;\
+        if (index < events_this_frame.count) {\
+            event = &events_this_frame.items[index];\
+        }\
+        else {\
+            event = &events_last_frame.items[index - events_this_frame.count];\
+        }\
+\
+        *set_consumed = &event->consumed;\
+        return *event;\
+    }\
 
 #endif // __HEADER_EVENTS_DECLMACRO
 
@@ -1029,8 +1072,57 @@ usize TextureAssetEvent__events_iter_end(EventsIter_TextureAssetEvent* iter);
 bool TextureAssetEvent__events_iter_has_next(EventsIter_TextureAssetEvent* iter);
 TextureAssetEvent TextureAssetEvent__events_iter_read_next(EventsIter_TextureAssetEvent* iter);
 TextureAssetEvent TextureAssetEvent__events_iter_consume_next(EventsIter_TextureAssetEvent* iter);
+TextureAssetEvent TextureAssetEvent__events_iter_maybe_consume_next(EventsIter_TextureAssetEvent* iter, bool** set_consumed);
 
 #endif // __HEADER_EVENTS_EVENTS
+
+#define __HEADER_INPUT_INPUT
+#ifdef __HEADER_INPUT_INPUT
+
+// same MAX definitions as in raylib
+#define MAX_KEYBOARD_KEYS 512
+// #define MAX_GAMEPADS 4
+#define MAX_GAMEPAD_BUTTONS 32
+#define MAX_GAMEPAD_AXES 10
+
+typedef enum {
+    KEY_STATE_NULL = 0,
+    KEY_STATE_RELEASED = 1,
+    KEY_STATE_PRESSED = 2,
+    KEY_STATE_REPEATED = 3,
+} KeyState;
+
+typedef struct {
+    KeyState keys[MAX_KEYBOARD_KEYS];
+} KeyInputs;
+
+bool key_just_pressed(KeyInputs* key_inputs, uint32 key);
+bool key_is_repeated(KeyInputs* key_inputs, uint32 key);
+bool key_is_released(KeyInputs* key_inputs, uint32 key);
+bool key_is_up(KeyInputs* key_inputs, uint32 key);
+bool key_is_down(KeyInputs* key_inputs, uint32 key);
+
+void update_key_state(KeyInputs* key_inputs, uint32 key, bool state);
+void set_key_repeated(KeyInputs* key_inputs, uint32 key);
+
+typedef struct {
+    KeyState buttons[MAX_GAMEPAD_BUTTONS];
+    float32 axis_values[MAX_GAMEPAD_AXES];
+    float32 prev_axis_values[MAX_GAMEPAD_AXES];
+} GamepadInputs;
+
+bool gamepad_button_just_pressed(GamepadInputs* gamepad_inputs, uint32 button);
+bool gamepad_button_is_repeated(GamepadInputs* gamepad_inputs, uint32 button);
+bool gamepad_button_is_released(GamepadInputs* gamepad_inputs, uint32 button);
+bool gamepad_button_is_up(GamepadInputs* gamepad_inputs, uint32 button);
+bool gamepad_button_is_down(GamepadInputs* gamepad_inputs, uint32 button);
+float32 gamepad_axis_value(GamepadInputs* gamepad_inputs, uint32 axis);
+float32 gamepad_axis_delta(GamepadInputs* gamepad_inputs, uint32 axis);
+
+void update_gamepad_button_state(GamepadInputs* gamepad_inputs, uint32 button, bool state);
+void update_gamepad_axis_value(GamepadInputs* gamepad_inputs, uint32 axis, float32 value);
+
+#endif // __HEADER_INPUT_INPUT
 
 #define __HEADER_ASSET_ASSETSERVER
 #ifdef __HEADER_ASSET_ASSETSERVER

@@ -1,5 +1,6 @@
 #include "stdlib.h"
 #include "stdio.h"
+#include "stdbool.h"
 
 typedef     unsigned int            uint32;
 typedef     unsigned long long      uint64;
@@ -32,6 +33,26 @@ void* ptr_align_up(void* ptr, usize align) {
 }
 
 int main() {
+
+    #define branchless_if(cond, on_true, on_false) ( ( ((cond) != 0) * (on_true) ) + ( ((cond) == 0) * (on_false) ) )
+
+    int val_on_true = 10;
+    int val_on_false = 53;
+
+    int on_true = branchless_if(true, val_on_true, val_on_false);
+    int on_true_2 = branchless_if(102, val_on_true, val_on_false);
+    int on_true_3 = branchless_if(-178, val_on_true, val_on_false);
+    
+    int on_false = branchless_if(false, val_on_true, val_on_false);
+    int on_false_2 = branchless_if(0, val_on_true, val_on_false);
+
+    printf("on_true: %d\n", on_true);
+    printf("on_true_2: %d\n", on_true_2);
+    printf("on_true_3: %d\n", on_true_3);
+    printf("on_false: %d\n", on_false);
+    printf("on_false_2: %d\n", on_false_2);
+
+    return 0;
 
     printf("Auto padded   - Size: %d, Align: %d\n", sizeof(Test), _Alignof(Test));
     printf("Manual padded - Size: %d, Align: %d\n", sizeof(TestPadded), _Alignof(TestPadded));

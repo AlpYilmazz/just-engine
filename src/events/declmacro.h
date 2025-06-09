@@ -34,6 +34,7 @@
 #define events_iter_has_next(TYPE_EVENT) TYPE_EVENT##__events_iter_has_next
 #define events_iter_read_next(TYPE_EVENT) TYPE_EVENT##__events_iter_read_next
 #define events_iter_consume_next(TYPE_EVENT) TYPE_EVENT##__events_iter_consume_next
+#define events_iter_maybe_consume_next(TYPE_EVENT) TYPE_EVENT##__events_iter_maybe_consume_next
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -66,6 +67,7 @@
     bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed);
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -99,10 +101,11 @@
     bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed);
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define _IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
+#define __IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED(TYPE_EVENT) \
 \
     void TYPE_EVENT##__event_buffer_push_back(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT item) {\
         const uint32 INITIAL_CAPACITY = 32;\
@@ -213,10 +216,29 @@
         event->consumed = true;\
         return *event;\
     }\
+\
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed) {\
+        EventBuffer_##TYPE_EVENT events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];\
+        EventBuffer_##TYPE_EVENT events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];\
+\
+        usize index = iter->index;\
+        iter->index++;\
+\
+        TYPE_EVENT* event;\
+        if (index < events_this_frame.count) {\
+            event = &events_this_frame.items[index];\
+        }\
+        else {\
+            event = &events_last_frame.items[index - events_this_frame.count];\
+        }\
+\
+        *set_consumed = &event->consumed;\
+        return *event;\
+    }
 
 // -------------------------------------------------------------------------------------------------------------------
 
-#define _IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
+#define __IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED(TYPE_EVENT) \
 \
     void TYPE_EVENT##__event_buffer_push_back(EventBuffer_##TYPE_EVENT* buffer, TYPE_EVENT item) {\
         const uint32 INITIAL_CAPACITY = 32;\
@@ -336,4 +358,23 @@
         event->consumed = true;\
         return *event;\
     }\
+\
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed) {\
+        EventBuffer_##TYPE_EVENT events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];\
+        EventBuffer_##TYPE_EVENT events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];\
+\
+        usize index = iter->index;\
+        iter->index++;\
+\
+        TYPE_EVENT* event;\
+        if (index < events_this_frame.count) {\
+            event = &events_this_frame.items[index];\
+        }\
+        else {\
+            event = &events_last_frame.items[index - events_this_frame.count];\
+        }\
+\
+        *set_consumed = &event->consumed;\
+        return *event;\
+    }
 

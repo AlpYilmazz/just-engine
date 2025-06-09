@@ -19,6 +19,8 @@ typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
 
+#define branchless_if(cond, on_true, on_false) ( ( ((cond) != 0) * (on_true) ) + ( ((cond) == 0) * (on_false) ) )
+
 #define Option(Type) DeclType_Option_##Type
 #define Option_None {0}
 #define Option_Some(val) { .is_some = true, .value = val, }

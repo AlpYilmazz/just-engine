@@ -54,3 +54,4 @@ usize TextureAssetEvent__events_iter_end(EventsIter_TextureAssetEvent* iter);
 bool TextureAssetEvent__events_iter_has_next(EventsIter_TextureAssetEvent* iter);
 TextureAssetEvent TextureAssetEvent__events_iter_read_next(EventsIter_TextureAssetEvent* iter);
 TextureAssetEvent TextureAssetEvent__events_iter_consume_next(EventsIter_TextureAssetEvent* iter);
+TextureAssetEvent TextureAssetEvent__events_iter_maybe_consume_next(EventsIter_TextureAssetEvent* iter, bool** set_consumed);

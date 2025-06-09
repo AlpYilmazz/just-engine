@@ -143,6 +143,25 @@ TextureAssetEvent TextureAssetEvent__events_iter_consume_next(EventsIter_Texture
     return *event;
 }
 
+TextureAssetEvent TextureAssetEvent__events_iter_maybe_consume_next(EventsIter_TextureAssetEvent* iter, bool** set_consumed) {
+    EventBuffer_TextureAssetEvent events_this_frame = iter->events->event_buffers[iter->events->this_frame_ind];
+    EventBuffer_TextureAssetEvent events_last_frame = iter->events->event_buffers[!iter->events->this_frame_ind];
+
+    usize index = iter->index;
+    iter->index++;
+
+    TextureAssetEvent* event;
+    if (index < events_this_frame.count) {
+        event = &events_this_frame.items[index];
+    }
+    else {
+        event = &events_last_frame.items[index - events_this_frame.count];
+    }
+
+    *set_consumed = &event->consumed;
+    return *event;
+}
+
 
 // TEST SYSTEM
 #if 0
