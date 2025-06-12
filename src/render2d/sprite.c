@@ -213,7 +213,7 @@ void SYSTEM_RENDER_sorted_sprites(
 
         for (uint32 i = 0; i < render_sprites->count; i++) {
             sprite = render_sprites->sprites[i];
-            texture = just_engine_texture_assets_get_texture_or_default(RES_texture_assets, sprite.texture);
+            texture = texture_assets_get_texture_or_default(RES_texture_assets, sprite.texture);
             transform = sprite.transform;
             source = sprite.use_custom_source
                 ? sprite.source

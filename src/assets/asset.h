@@ -35,26 +35,28 @@ typedef struct {
     Texture textures[TEXTURE_SLOTS];
 } TextureAssets;
 
-TextureAssets just_engine_new_texture_assets();
+TextureAssets new_texture_assets();
 
-TextureHandle just_engine_texture_assets_reserve_texture_slot(TextureAssets* assets);
+TextureHandle texture_assets_reserve_texture_slot(TextureAssets* assets);
 
-void just_engine_texture_assets_put_image(TextureAssets* assets, TextureHandle handle, Image image);
-void just_engine_texture_assets_load_image_unchecked(TextureAssets* assets, TextureHandle handle);
-void just_engine_texture_assets_load_texture_uncheched(TextureAssets* assets, TextureHandle handle);
-void just_engine_texture_assets_update_texture_unchecked(TextureAssets* assets, TextureHandle handle);
-void just_engine_texture_assets_update_texture_rec_unchecked(TextureAssets* assets, TextureHandle handle, Rectangle rec);
-void just_engine_texture_assets_put_image_and_load_texture(TextureAssets* assets, TextureHandle handle, Image image);
-void just_engine_texture_assets_load_texture_then_unload_image(TextureAssets* assets, TextureHandle handle, Image image);
+void texture_assets_put_image(TextureAssets* assets, TextureHandle handle, Image image);
+void texture_assets_load_image_unchecked(TextureAssets* assets, TextureHandle handle);
+void texture_assets_load_texture_uncheched(TextureAssets* assets, TextureHandle handle);
+void texture_assets_update_texture_unchecked(TextureAssets* assets, TextureHandle handle);
+void texture_assets_update_texture_rec_unchecked(TextureAssets* assets, TextureHandle handle, Rectangle rec);
+void texture_assets_put_image_and_load_texture(TextureAssets* assets, TextureHandle handle, Image image);
+void texture_assets_load_texture_then_unload_image(TextureAssets* assets, TextureHandle handle, Image image);
 
-ImageResponse just_engine_texture_assets_get_image(TextureAssets* assets, TextureHandle handle);
-Image* just_engine_texture_assets_get_image_or_default(TextureAssets* assets, TextureHandle handle);
-Image* just_engine_texture_assets_get_image_unchecked(TextureAssets* assets, TextureHandle handle);
+ImageResponse texture_assets_get_image(TextureAssets* assets, TextureHandle handle);
+Image* texture_assets_get_image_or_default(TextureAssets* assets, TextureHandle handle);
+Image* texture_assets_get_image_unchecked(TextureAssets* assets, TextureHandle handle);
+ImageResponse texture_assets_get_image_mut(TextureAssets* assets, TextureHandle handle);
+Image* texture_assets_get_image_unchecked_mut(TextureAssets* assets, TextureHandle handle);
 
-TextureResponse just_engine_texture_assets_get_texture(TextureAssets* assets, TextureHandle handle);
-Texture* just_engine_texture_assets_get_texture_or_default(TextureAssets* assets, TextureHandle handle);
-Texture* just_engine_texture_assets_get_texture_unchecked(TextureAssets* assets, TextureHandle handle);
+TextureResponse texture_assets_get_texture(TextureAssets* assets, TextureHandle handle);
+Texture* texture_assets_get_texture_or_default(TextureAssets* assets, TextureHandle handle);
+Texture* texture_assets_get_texture_unchecked(TextureAssets* assets, TextureHandle handle);
 
-void just_engine_texture_assets_unload_image(TextureAssets* assets, TextureHandle handle);
-void just_engine_texture_assets_unload_texture(TextureAssets* assets, TextureHandle handle);
-void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
+void texture_assets_unload_image(TextureAssets* assets, TextureHandle handle);
+void texture_assets_unload_texture(TextureAssets* assets, TextureHandle handle);
+void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);

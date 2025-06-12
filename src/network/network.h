@@ -29,6 +29,7 @@ typedef void (*OnWriteFnDatagram)(SOCKET socket, SocketAddr addr, void* arg);
 void init_network_thread();
 
 SOCKET make_socket(SocketTypeEnum socket_type);
+void bind_socket(SOCKET socket, SocketAddr addr);
 
 void network_connect(SOCKET socket, SocketAddr addr, OnConnectFnStream on_connect, void* arg);
 void network_start_read_stream(SOCKET socket, OnReadFnStream on_read, void* arg);

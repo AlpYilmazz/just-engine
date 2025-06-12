@@ -33,7 +33,7 @@ void asyncio_file_load_image_task(TaskArgVoid* arg) {
         goto CLEANUP;
     }
 
-    just_engine_texture_assets_put_image(
+    exture_assets_put_image(
         this_arg->RES_texture_assets,
         this_arg->handle,
         image
@@ -58,7 +58,7 @@ TextureHandle asyncio_file_load_image(
     FileImageServer* server,
     const char* filepath
 ) {
-    TextureHandle handle = just_engine_texture_assets_reserve_texture_slot(server->RES_texture_assets);
+    TextureHandle handle = texture_assets_reserve_texture_slot(server->RES_texture_assets);
 
     uint32 path_len =
         strlen(server->asset_folder)// "assets"

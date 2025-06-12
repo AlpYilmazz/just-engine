@@ -169,6 +169,17 @@ void handle_player_input(GamepadInputs* gamepad_inputs, PlayerInput input) {
     update_gamepad_axis_value(gamepad_inputs, GAMEPLAY_AXIS_INPUT_MOVE_Y, ((float32)input.move_stick_y)/127.0f);
 }
 
+void clone_sprite_from_into(SpriteStore* sprite_store, SpriteComponentId dst_id, SpriteComponentId src_id) {
+    SpriteTransform src_transform = RES.sprite_store.transforms[src_id.id];
+    Sprite src_sprite = RES.sprite_store.sprites[src_id.id];
+    
+    SpriteTransform* dst_transform = &RES.sprite_store.transforms[dst_id.id];
+    Sprite* dst_sprite = &RES.sprite_store.sprites[dst_id.id];
+
+    *dst_transform = src_transform;
+    *dst_sprite = src_sprite;
+}
+
 void set_network_input_for_game_state(GameState* game_state, PlayerInput input) {
     game_state->is_real = true;
     game_state->other_player_frame_input = input;
@@ -322,6 +333,14 @@ void SYSTEM_UPDATE_player_transform(
 
     float32 speed = 150.0;
     transform->position = Vector2Add(transform->position, Vector2Scale(velocity, speed * delta_time));
+
+    #if 0
+    // meta extension proposal
+    #define __MATH(...) {0}
+    transform->position = (Vector2) __MATH(
+        transform->position + (velocity * (speed * delta_time))
+    );
+    #endif
 
     // JUST_LOG_INFO("player[%d] transform->position: {%0.2f, %0.2f}\n", player.id, transform->position.x, transform->position.y);
 }
@@ -505,17 +524,6 @@ void run_this_frame(GameState* game_state) {
     );
 }
 
-void clone_sprite_from_into(SpriteStore* sprite_store, SpriteComponentId dst_id, SpriteComponentId src_id) {
-    SpriteTransform src_transform = RES.sprite_store.transforms[src_id.id];
-    Sprite src_sprite = RES.sprite_store.sprites[src_id.id];
-    
-    SpriteTransform* dst_transform = &RES.sprite_store.transforms[dst_id.id];
-    Sprite* dst_sprite = &RES.sprite_store.sprites[dst_id.id];
-
-    *dst_transform = src_transform;
-    *dst_sprite = src_sprite;
-}
-
 void simulate_game(uint32 simuation_start_frame) {
     uint32 real_current_frame = RES.__game_state.current_frame;
     uint32 goback_frames = real_current_frame - simuation_start_frame;
@@ -632,7 +640,7 @@ int main() {
 
     // LAZY INIT
     {
-        RES.texture_assets = just_engine_new_texture_assets();
+        RES.texture_assets = new_texture_assets();
         RES.input_packet_events = events_create(InputPacketEvent)();
 
         SpriteCamera primary_camera = {

@@ -32,7 +32,7 @@ TextureResponse valid_texture_response(Texture* texture) {
 
 // TextureAssets
 
-TextureAssets just_engine_new_texture_assets() {
+TextureAssets new_texture_assets() {
     TextureAssets texture_assets = {0};
 
     Image default_image = {
@@ -85,7 +85,7 @@ TextureAssets just_engine_new_texture_assets() {
     return texture_assets;
 }
 
-TextureHandle just_engine_texture_assets_reserve_texture_slot(TextureAssets* assets) {
+TextureHandle texture_assets_reserve_texture_slot(TextureAssets* assets) {
     if (assets->next_slot_available_bump < TEXTURE_SLOTS) {
         assets->slots[assets->next_slot_available_bump] = true;
         return new_texture_handle(assets->next_slot_available_bump++);
@@ -102,37 +102,37 @@ TextureHandle just_engine_texture_assets_reserve_texture_slot(TextureAssets* ass
 
 // -- LOAD IMAGE/TEXTURE --
 
-void just_engine_texture_assets_put_image(TextureAssets* assets, TextureHandle handle, Image image) {
+void texture_assets_put_image(TextureAssets* assets, TextureHandle handle, Image image) {
     assets->images[handle.id] = image;
     assets->image_ready[handle.id] = true;
 }
 
-void just_engine_texture_assets_load_image_unchecked(TextureAssets* assets, TextureHandle handle) {
+void texture_assets_load_image_unchecked(TextureAssets* assets, TextureHandle handle) {
     assets->images[handle.id] = LoadImageFromTexture(assets->textures[handle.id]);
     assets->image_ready[handle.id] = true;
 }
 
-void just_engine_texture_assets_load_texture_uncheched(TextureAssets* assets, TextureHandle handle) {
+void texture_assets_load_texture_uncheched(TextureAssets* assets, TextureHandle handle) {
     assets->textures[handle.id] = LoadTextureFromImage(assets->images[handle.id]);
     assets->texture_ready[handle.id] = true;
 }
 
-void just_engine_texture_assets_update_texture_unchecked(TextureAssets* assets, TextureHandle handle) {
+void texture_assets_update_texture_unchecked(TextureAssets* assets, TextureHandle handle) {
     UpdateTexture(assets->textures[handle.id], assets->images[handle.id].data);
 }
 
-void just_engine_texture_assets_update_texture_rec_unchecked(TextureAssets* assets, TextureHandle handle, Rectangle rec) {
+void texture_assets_update_texture_rec_unchecked(TextureAssets* assets, TextureHandle handle, Rectangle rec) {
     UpdateTextureRec(assets->textures[handle.id], rec, assets->images[handle.id].data);
 }
 
-void just_engine_texture_assets_put_image_and_load_texture(TextureAssets* assets, TextureHandle handle, Image image) {
-    just_engine_texture_assets_put_image(assets, handle, image);
-    just_engine_texture_assets_load_texture_uncheched(assets, handle);
+void texture_assets_put_image_and_load_texture(TextureAssets* assets, TextureHandle handle, Image image) {
+    texture_assets_put_image(assets, handle, image);
+    texture_assets_load_texture_uncheched(assets, handle);
 }
 
-void just_engine_texture_assets_load_texture_then_unload_image(TextureAssets* assets, TextureHandle handle, Image image) {
+void texture_assets_load_texture_then_unload_image(TextureAssets* assets, TextureHandle handle, Image image) {
     assets->images[handle.id] = image;
-    just_engine_texture_assets_load_texture_uncheched(assets, handle);
+    texture_assets_load_texture_uncheched(assets, handle);
     UnloadImage(image);
     // assets->images[handle.id] = (Image) {0};
 }
@@ -141,25 +141,25 @@ void just_engine_texture_assets_load_texture_then_unload_image(TextureAssets* as
 
 // -- GET IMAGE
 
-ImageResponse just_engine_texture_assets_get_image(TextureAssets* assets, TextureHandle handle) {
+ImageResponse texture_assets_get_image(TextureAssets* assets, TextureHandle handle) {
     if (assets->image_ready[handle.id]) {
         return valid_image_response(&assets->images[handle.id]);
     }
     return null_image_response();
 }
 
-Image* just_engine_texture_assets_get_image_or_default(TextureAssets* assets, TextureHandle handle) {
+Image* texture_assets_get_image_or_default(TextureAssets* assets, TextureHandle handle) {
     if (assets->image_ready[handle.id]) {
         return &assets->images[handle.id];
     }
     return &assets->images[DEFAULT_TEXTURE_HANDLE_ID];
 }
 
-Image* just_engine_texture_assets_get_image_unchecked(TextureAssets* assets, TextureHandle handle) {
+Image* texture_assets_get_image_unchecked(TextureAssets* assets, TextureHandle handle) {
     return &assets->images[handle.id];
 }
 
-ImageResponse just_engine_texture_assets_get_image_mut(TextureAssets* assets, TextureHandle handle) {
+ImageResponse texture_assets_get_image_mut(TextureAssets* assets, TextureHandle handle) {
     if (assets->image_ready[handle.id]) {
         assets->image_changed[handle.id] = true;
         return valid_image_response(&assets->images[handle.id]);
@@ -167,7 +167,7 @@ ImageResponse just_engine_texture_assets_get_image_mut(TextureAssets* assets, Te
     return null_image_response();
 }
 
-Image* just_engine_texture_assets_get_image_unchecked_mut(TextureAssets* assets, TextureHandle handle) {
+Image* texture_assets_get_image_unchecked_mut(TextureAssets* assets, TextureHandle handle) {
     assets->image_changed[handle.id] = true;
     return &assets->images[handle.id];
 }
@@ -176,21 +176,21 @@ Image* just_engine_texture_assets_get_image_unchecked_mut(TextureAssets* assets,
 
 // -- GET TEXTURE
 
-TextureResponse just_engine_texture_assets_get_texture(TextureAssets* assets, TextureHandle handle) {
+TextureResponse texture_assets_get_texture(TextureAssets* assets, TextureHandle handle) {
     if (assets->texture_ready[handle.id]) {
         return valid_texture_response(&assets->textures[handle.id]);
     }
     return null_texture_response();
 }
 
-Texture* just_engine_texture_assets_get_texture_or_default(TextureAssets* assets, TextureHandle handle) {
+Texture* texture_assets_get_texture_or_default(TextureAssets* assets, TextureHandle handle) {
     if (assets->texture_ready[handle.id]) {
         return &assets->textures[handle.id];
     }
     return &assets->textures[DEFAULT_TEXTURE_HANDLE_ID];
 }
 
-Texture* just_engine_texture_assets_get_texture_unchecked(TextureAssets* assets, TextureHandle handle) {
+Texture* texture_assets_get_texture_unchecked(TextureAssets* assets, TextureHandle handle) {
     return &assets->textures[handle.id];
 }
 
@@ -198,7 +198,7 @@ Texture* just_engine_texture_assets_get_texture_unchecked(TextureAssets* assets,
 
 // -- UNLOAD --
 
-void just_engine_texture_assets_unload_image(TextureAssets* assets, TextureHandle handle) {
+void texture_assets_unload_image(TextureAssets* assets, TextureHandle handle) {
     if (!assets->image_ready[handle.id]) {
         return;
     }
@@ -210,7 +210,7 @@ void just_engine_texture_assets_unload_image(TextureAssets* assets, TextureHandl
     // assets->images[handle.id] = (Image) {0};
 }
 
-void just_engine_texture_assets_unload_texture(TextureAssets* assets, TextureHandle handle) {
+void texture_assets_unload_texture(TextureAssets* assets, TextureHandle handle) {
     if (!assets->texture_ready[handle.id]) {
         return;
     }
@@ -222,7 +222,7 @@ void just_engine_texture_assets_unload_texture(TextureAssets* assets, TextureHan
     // assets->textures[handle.id] = (Texture) {0};
 }
 
-void just_engine_texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle) {
+void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle) {
     if (!assets->slots[handle.id]) {
         return;
     }

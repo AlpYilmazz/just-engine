@@ -62,7 +62,7 @@ void issue_interrupt_apc() {
     if (!success) {
         int32 err = GetLastError();
         // TODO: handle err
-        JUST_LOG_WARN("Interrupt APC failed: %d\n", err);
+        JUST_LOG_ERROR("Interrupt APC failed: %d\n", err);
     }
 }
 
@@ -689,13 +689,13 @@ SOCKET make_socket(SocketTypeEnum socket_type) {
             break;
         default:
             // Unsupported
-            JUST_LOG_WARN("Unsupported Socket Type\n");
+            JUST_LOG_ERROR("Unsupported Socket Type\n");
             return INVALID_SOCKET;
     }
 
     if (sock == INVALID_SOCKET) {
         // TODO: handle err
-        JUST_LOG_WARN("Socket creation failed\n");
+        JUST_LOG_ERROR("Socket creation failed\n");
         return INVALID_SOCKET;
     }
 
@@ -703,12 +703,30 @@ SOCKET make_socket(SocketTypeEnum socket_type) {
     int32 result = ioctlsocket(sock, FIONBIO, &non_blocking_mode);
     if (result != NO_ERROR) {
         // TODO: handle err
-        JUST_LOG_WARN("Socket setup failed\n");
+        JUST_LOG_ERROR("Socket setup failed\n");
         closesocket(sock);
         return INVALID_SOCKET;
     }
 
     return sock;
+}
+
+void bind_socket(SOCKET socket, SocketAddr addr) {
+    SOCKADDR_IN sockaddr = {0};
+    sockaddr.sin_family = AF_INET;
+    sockaddr.sin_addr.s_addr = inet_addr(addr.host);
+    sockaddr.sin_port = htons(addr.port);
+
+    int32 result = bind(socket, (SOCKADDR*) &sockaddr, sizeof(sockaddr));
+    if (result == SOCKET_ERROR) {
+        int32 err = WSAGetLastError();
+        switch (err) {
+        default:
+            // TODO: handle err
+            JUST_LOG_ERROR("Bind failed: %d\n", err);
+            break;
+        }
+    }
 }
 
 void network_connect(SOCKET socket, SocketAddr addr, OnConnectFnStream on_connect, void* arg) {
@@ -727,7 +745,7 @@ void network_connect(SOCKET socket, SocketAddr addr, OnConnectFnStream on_connec
             break;
         default:
             // TODO: handle err
-            JUST_LOG_DEBUG("Connection failed: %d\n", err);
+            JUST_LOG_ERROR("Connection failed: %d\n", err);
             break;
         }
     }
