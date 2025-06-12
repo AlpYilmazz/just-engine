@@ -382,7 +382,25 @@ static inline Vector2 vector2_yx(Vector2 vec) {
         \
         (arr)->items[(arr)->count] = (item); \
         (arr)->count++; \
-    } while(0);\
+    } while(0);
+
+#define dynarray_push_back_custom(arr, items_field, item) \
+    do { \
+        const uint32 DYNARRAY_INITIAL_CAPACITY = 2;\
+        const uint32 DYNARRAY_GROWTH_FACTOR = 2;\
+\
+        if ((arr)->capacity == 0) { \
+            (arr)->capacity = DYNARRAY_INITIAL_CAPACITY; \
+            (arr)->items_field = malloc((arr)->capacity * sizeof((item))); \
+        } \
+        else if ((arr)->count == (arr)->capacity) { \
+            (arr)->capacity = DYNARRAY_GROWTH_FACTOR * (arr)->capacity; \
+            (arr)->items_field = realloc((arr)->items_field, (arr)->capacity * sizeof((item))); \
+        } \
+        \
+        (arr)->items_field[(arr)->count] = (item); \
+        (arr)->count++; \
+    } while(0);
 
 static inline Buffer* malloc_buffer(usize size) {
     Buffer* buffer = malloc(sizeof(Buffer) + size); // Buffer + [bytes]
@@ -1076,6 +1094,23 @@ TextureAssetEvent TextureAssetEvent__events_iter_maybe_consume_next(EventsIter_T
 
 #endif // __HEADER_EVENTS_EVENTS
 
+#define __HEADER_ASSET_ASSETSERVER
+#ifdef __HEADER_ASSET_ASSETSERVER
+
+typedef struct {
+    ThreadPool* RES_threadpool;
+    Events_TextureAssetEvent* RES_texture_assets_events;
+    TextureAssets* RES_texture_assets;
+    const char const* asset_folder;
+} FileImageServer;
+
+TextureHandle asyncio_file_load_image(
+    FileImageServer* server,
+    const char* filepath
+);
+
+#endif // __HEADER_ASSET_ASSETSERVER
+
 #define __HEADER_INPUT_INPUT
 #ifdef __HEADER_INPUT_INPUT
 
@@ -1123,23 +1158,6 @@ void update_gamepad_button_state(GamepadInputs* gamepad_inputs, uint32 button, b
 void update_gamepad_axis_value(GamepadInputs* gamepad_inputs, uint32 axis, float32 value);
 
 #endif // __HEADER_INPUT_INPUT
-
-#define __HEADER_ASSET_ASSETSERVER
-#ifdef __HEADER_ASSET_ASSETSERVER
-
-typedef struct {
-    const char const* asset_folder;
-} FileAssetServer;
-
-TextureHandle just_engine_asyncio_file_load_image(
-    ThreadPool* RES_threadpool,
-    Events_TextureAssetEvent* RES_texture_assets_events,
-    TextureAssets* RES_texture_assets,
-    FileAssetServer* server,
-    const char* filepath
-);
-
-#endif // __HEADER_ASSET_ASSETSERVER
 
 #define __HEADER_ANIMATION_ANIMATION
 #ifdef __HEADER_ANIMATION_ANIMATION
@@ -1276,22 +1294,32 @@ typedef struct {
     float32 y_bottom;
 } AABBCollider;
 
+typedef struct {
+    uint32 count; // collider count
+    uint32 capacity;
+    AABBCollider bounding_box;
+    AABBCollider* colliders;
+} AABBColliderSet;
+
 // TODO: FreeRectangleCollider: arbitrarily rotated rectangle
 
-float32 just_engine_collider_dist_circle_circle(CircleCollider c1, CircleCollider c2);
-bool just_engine_check_point_inside_aabb(AABBCollider a1, Vector2 p);
+float32 collider_dist_circle_circle(CircleCollider c1, CircleCollider c2);
+bool check_point_inside_aabb(AABBCollider a1, Vector2 p);
 
-bool just_engine_check_collision_line_line(LineSegmentCollider l1, LineSegmentCollider l2);
-bool just_engine_check_collision_line_circle(LineSegmentCollider l1, CircleCollider c2);
-bool just_engine_check_collision_line_aabb(LineSegmentCollider l1, AABBCollider a2);
+bool check_collision_line_line(LineSegmentCollider l1, LineSegmentCollider l2);
+bool check_collision_line_circle(LineSegmentCollider l1, CircleCollider c2);
+bool check_collision_line_aabb(LineSegmentCollider l1, AABBCollider a2);
 
-bool just_engine_check_collision_circle_circle(CircleCollider c1, CircleCollider c2);
-bool just_engine_check_collision_circle_aabb(CircleCollider c1, AABBCollider a2);
+bool check_collision_circle_circle(CircleCollider c1, CircleCollider c2);
+bool check_collision_circle_aabb(CircleCollider c1, AABBCollider a2);
 
-bool just_engine_check_collision_aabb_aabb(AABBCollider a1, AABBCollider a2);
+bool check_collision_aabb_aabb(AABBCollider a1, AABBCollider a2);
 
-bool just_engine_check_rayhit_circle(Ray2 ray, CircleCollider c1, float32 max_dist);
-bool just_engine_check_rayhit_aabb(Ray2 ray, AABBCollider a1, float32 max_dist);
+bool check_rayhit_circle(Ray2 ray, CircleCollider c1, float32 max_dist);
+bool check_rayhit_aabb(Ray2 ray, AABBCollider a1, float32 max_dist);
+
+bool check_collision_aabb_collider_sets(AABBColliderSet* s1, AABBColliderSet* s2);
+void recalculate_bounding_box(AABBColliderSet* set);
 
 #endif // __HEADER_PHYSICS_COLLISION
 
@@ -1713,6 +1741,7 @@ SpriteComponentId spawn_sprite(
     Sprite sprite
 );
 void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId sprite_id);
+bool sprite_is_valid(SpriteStore* sprite_store, SpriteComponentId sprite_id);
 
 void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteCameraStore* sprite_camera_store,

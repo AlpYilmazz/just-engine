@@ -54,14 +54,11 @@ void asyncio_file_load_image_task(TaskArgVoid* arg) {
     free(this_arg);
 }
 
-TextureHandle just_engine_asyncio_file_load_image(
-    ThreadPool* RES_threadpool,
-    Events_TextureAssetEvent* RES_texture_assets_events,
-    TextureAssets* RES_texture_assets,
-    FileAssetServer* server,
+TextureHandle asyncio_file_load_image(
+    FileImageServer* server,
     const char* filepath
 ) {
-    TextureHandle handle = just_engine_texture_assets_reserve_texture_slot(RES_texture_assets);
+    TextureHandle handle = just_engine_texture_assets_reserve_texture_slot(server->RES_texture_assets);
 
     uint32 path_len =
         strlen(server->asset_folder)// "assets"
@@ -74,8 +71,8 @@ TextureHandle just_engine_asyncio_file_load_image(
 
     AsyncioFileLoadImageTaskArg* arg = malloc(sizeof(AsyncioFileLoadImageTaskArg));
     *arg = (AsyncioFileLoadImageTaskArg) {
-        .RES_texture_assets_events = RES_texture_assets_events,
-        .RES_texture_assets = RES_texture_assets,
+        .RES_texture_assets_events = server->RES_texture_assets_events,
+        .RES_texture_assets = server->RES_texture_assets,
         .handle = handle,
         .filepath = path,
     };
@@ -84,7 +81,7 @@ TextureHandle just_engine_asyncio_file_load_image(
         .handler = asyncio_file_load_image_task,
         .arg = arg
     };
-    thread_pool_add_task(RES_threadpool, asyncio_task);
+    thread_pool_add_task(server->RES_threadpool, asyncio_task);
 
     return handle;
 }

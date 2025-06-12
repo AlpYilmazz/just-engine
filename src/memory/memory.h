@@ -18,7 +18,25 @@
         \
         (arr)->items[(arr)->count] = (item); \
         (arr)->count++; \
-    } while(0);\
+    } while(0);
+
+#define dynarray_push_back_custom(arr, items_field, item) \
+    do { \
+        const uint32 DYNARRAY_INITIAL_CAPACITY = 2;\
+        const uint32 DYNARRAY_GROWTH_FACTOR = 2;\
+\
+        if ((arr)->capacity == 0) { \
+            (arr)->capacity = DYNARRAY_INITIAL_CAPACITY; \
+            (arr)->items_field = malloc((arr)->capacity * sizeof((item))); \
+        } \
+        else if ((arr)->count == (arr)->capacity) { \
+            (arr)->capacity = DYNARRAY_GROWTH_FACTOR * (arr)->capacity; \
+            (arr)->items_field = realloc((arr)->items_field, (arr)->capacity * sizeof((item))); \
+        } \
+        \
+        (arr)->items_field[(arr)->count] = (item); \
+        (arr)->count++; \
+    } while(0);
 
 static inline Buffer* malloc_buffer(usize size) {
     Buffer* buffer = malloc(sizeof(Buffer) + size); // Buffer + [bytes]

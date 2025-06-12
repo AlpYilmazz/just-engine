@@ -11,14 +11,10 @@ set LIB=-Ljustengine/lib
 set LINK=-ljustengine -lraylib -lgdi32 -lwinmm -lws2_32
 
 set SRC_DIR=.
-set TARGET_DIR=target
 
-set OUTPUT=main.exe
+set OUTPUT=game.exe
 set COMPILE=^
     %SRC_DIR%/main.c
-
-mkdir %TARGET_DIR%
-
 @echo on
 
 %CC% %COMPILER_FLAGS% %COMPILE% %INCLUDE% %LIB% %LINK% -o %OUTPUT%

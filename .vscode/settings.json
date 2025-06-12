@@ -49,6 +49,7 @@
         "stdatomic.h": "c",
         "windows.h": "c",
         "winsock.h": "c",
-        "winsock2.h": "c"
+        "winsock2.h": "c",
+        "assert.h": "c"
     }
 }

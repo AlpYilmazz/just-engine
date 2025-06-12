@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #include "raylib.h"
@@ -18,6 +19,8 @@ SpriteComponentId spawn_sprite(
 
     #define INITIAL_CAPACITY 100
     #define GROWTH_FACTOR 2
+
+    uint32 old_capacity = sprite_store->capacity;
 
     if (sprite_store->capacity == 0) {
         sprite_store->capacity = INITIAL_CAPACITY;
@@ -46,6 +49,11 @@ SpriteComponentId spawn_sprite(
         sprite_store->sprites = realloc(sprite_store->sprites, sprite_store->capacity * sizeof(Sprite));
     }
 
+    for (uint32 i = old_capacity; i < sprite_store->capacity; i++) {
+        sprite_store->slot_occupied[i] = false;
+        sprite_store->generations[i] = 0;
+    }
+
     sprite_id = sprite_store->count;
     sprite_store->count++;
 
@@ -54,7 +62,7 @@ SpriteComponentId spawn_sprite(
 
     SET_ENTITY_AND_RETURN:
     sprite_store->slot_occupied[sprite_id] = true;
-    const uint32 generation = sprite_store->generations[sprite_id]++;
+    const uint32 generation = sprite_store->generations[sprite_id];
     sprite_store->sprites[sprite_id] = sprite;
     sprite_store->transforms[sprite_id] = transform;
     return new_component_id(sprite_id, generation);
@@ -64,6 +72,10 @@ void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId sprite_id) {
     sprite_store->generations[sprite_id.id]++;
     sprite_store->slot_occupied[sprite_id.id] = false;
     sprite_store->free_count++;
+}
+
+bool sprite_is_valid(SpriteStore* sprite_store, SpriteComponentId sprite_id) {
+    return sprite_id.id < sprite_store->count && sprite_id.generation == sprite_store->generations[sprite_id.id];
 }
 
 void render_sprites_push_back(SortedRenderSprites* render_sprites, RenderSprite render_sprite) {

@@ -5,6 +5,8 @@
 #include "core.h"
 #include "thread/threadsync.h"
 
+#define SOCKET_WRITE_QUEUE_CAPACITY 10
+
 typedef uint64 SOCKET;
 
 typedef enum {

@@ -9,6 +9,8 @@
 #include "logging.h"
 #include "thread/threadsync.h"
 
+#define SOCKET_WRITE_QUEUE_CAPACITY 10
+
 HANDLE NETWORK_THREAD;
 uint32 NETWORK_THREAD_ID;
 SRWLock* NETWORK_THREAD_LOCK;
@@ -81,6 +83,54 @@ typedef bool (*OnReadFnDatagram)(SOCKET socket, SocketAddr addr, BufferSlice dat
 typedef void (*OnWriteFnDatagram)(SOCKET socket, SocketAddr addr, void* arg);
 
 typedef struct {
+    SocketAddr write_addr; // datagram
+    BufferSlice buffer;
+    usize offset;
+    // --
+    void* on_write_fn;
+    void* arg;
+} WriteCommand;
+
+typedef struct {
+    uint32 capacity;
+    uint32 count;
+    WriteCommand queue[SOCKET_WRITE_QUEUE_CAPACITY];
+    uint32 head; // pop position
+    uint32 tail; // push position
+} WriteCommandQueue;
+
+WriteCommandQueue write_queue_new_empty() {
+    WriteCommandQueue queue = {0};
+    queue.capacity = SOCKET_WRITE_QUEUE_CAPACITY;
+    return queue;
+}
+
+bool write_queue_is_full(WriteCommandQueue* queue) {
+    return queue->count == queue->capacity;
+}
+
+bool write_queue_is_empty(WriteCommandQueue* queue) {
+    return queue->count == 0;
+}
+
+bool write_queue_has_next(WriteCommandQueue* queue) {
+    return queue->count > 0;
+}
+
+void write_queue_push_command_unchecked(WriteCommandQueue* queue, WriteCommand command) {
+    queue->queue[queue->tail] = command;
+    queue->tail = (queue->tail + 1) % queue->capacity;
+    queue->count++;
+}
+
+WriteCommand write_queue_pop_command_unchecked(WriteCommandQueue* queue) {
+    WriteCommand command = queue->queue[queue->head];
+    queue->count--;
+    queue->head = (queue->head + 1) % queue->capacity;
+    return command;
+}
+
+typedef struct {
     SOCKET socket;
     void* on_connect_fn;
     void* arg;
@@ -109,12 +159,7 @@ typedef struct {
 typedef struct {
     SocketTypeEnum type;
     SOCKET socket;
-    SocketAddr write_addr; // datagram
-    BufferSlice buffer;
-    usize offset;
-    // --
-    void* on_write_fn;
-    void* arg;
+    WriteCommandQueue write_queue;
 } WriteSocket;
 
 typedef struct {
@@ -135,76 +180,6 @@ typedef struct {
 ConnectSocketList CONNECT_SOCKETS = {0};
 ReadSocketList READ_SOCKETS = {0};
 WriteSocketList WRITE_SOCKETS = {0};
-// fd_set EXCEPT_SOCKETS = {0};
-
-ConnectSocketList QUEUE_CONNECT_SOCKETS = {0};
-ReadSocketList QUEUE_READ_SOCKETS = {0};
-WriteSocketList QUEUE_WRITE_SOCKETS = {0};
-
-void queue_add_connect_socket(SOCKET socket, OnConnectFnStream on_connect, void* arg) {
-    QUEUE_CONNECT_SOCKETS.sockets[QUEUE_CONNECT_SOCKETS.length++] = (ConnectSocket) {
-        .socket = socket,
-        .on_connect_fn = on_connect,
-        .arg = arg,
-        .connected = false,
-        .failed = false,
-    };
-}
-void queue_add_read_socket(SOCKET socket, OnReadFnStream on_read, void* arg) {
-    QUEUE_READ_SOCKETS.sockets[QUEUE_READ_SOCKETS.length++] = (ReadSocket) {
-        .type = SOCKET_TYPE_STREAM,
-        .socket = socket,
-        .on_read_fn = on_read,
-        .arg = arg,
-        .should_remove = false,
-    };
-}
-void queue_add_write_socket(SOCKET socket, BufferSlice buffer, OnWriteFnStream on_write, void* arg) {
-    QUEUE_WRITE_SOCKETS.sockets[QUEUE_WRITE_SOCKETS.length++] = (WriteSocket) {
-        .type = SOCKET_TYPE_STREAM,
-        .socket = socket,
-        .write_addr = {0},
-        .buffer = buffer,
-        .offset = 0,
-        .on_write_fn = on_write,
-        .arg = arg,
-    };
-}
-void queue_add_read_socket_datagram(SOCKET socket, OnReadFnDatagram on_read, void* arg) {
-    QUEUE_READ_SOCKETS.sockets[QUEUE_READ_SOCKETS.length++] = (ReadSocket) {
-        .type = SOCKET_TYPE_DATAGRAM,
-        .socket = socket,
-        .on_read_fn = on_read,
-        .arg = arg,
-        .should_remove = false,
-    };
-}
-void queue_add_write_socket_datagram(SOCKET socket, SocketAddr addr, BufferSlice datagram, OnWriteFnDatagram on_write, void* arg) {
-    QUEUE_WRITE_SOCKETS.sockets[QUEUE_WRITE_SOCKETS.length++] = (WriteSocket) {
-        .type = SOCKET_TYPE_DATAGRAM,
-        .socket = socket,
-        .write_addr = addr,
-        .buffer = datagram,
-        .offset = 0,
-        .on_write_fn = on_write,
-        .arg = arg,
-    };
-}
-
-void handle_queued_sockets() {
-    for (uint32 i = 0; i < QUEUE_CONNECT_SOCKETS.length; i++) {
-        CONNECT_SOCKETS.sockets[CONNECT_SOCKETS.length++] = QUEUE_CONNECT_SOCKETS.sockets[i];
-    }
-    for (uint32 i = 0; i < QUEUE_READ_SOCKETS.length; i++) {
-        READ_SOCKETS.sockets[READ_SOCKETS.length++] = QUEUE_READ_SOCKETS.sockets[i];
-    }
-    for (uint32 i = 0; i < QUEUE_WRITE_SOCKETS.length; i++) {
-        WRITE_SOCKETS.sockets[WRITE_SOCKETS.length++] = QUEUE_WRITE_SOCKETS.sockets[i];
-    }
-    QUEUE_CONNECT_SOCKETS.length = 0;
-    QUEUE_READ_SOCKETS.length = 0;
-    QUEUE_WRITE_SOCKETS.length = 0;
-}
 
 ConnectSocket* get_as_connect_socket(SOCKET socket) {
     for (uint32 i = 0; i < CONNECT_SOCKETS.length; i++) {
@@ -234,6 +209,115 @@ WriteSocket* get_as_write_socket(SOCKET socket) {
         }
     }
     return NULL;
+}
+
+ConnectSocketList QUEUE_CONNECT_SOCKETS = {0};
+ReadSocketList QUEUE_READ_SOCKETS = {0};
+WriteSocketList QUEUE_WRITE_SOCKETS = {0};
+
+void queue_add_connect_socket(SOCKET socket, OnConnectFnStream on_connect, void* arg) {
+    QUEUE_CONNECT_SOCKETS.sockets[QUEUE_CONNECT_SOCKETS.length++] = (ConnectSocket) {
+        .socket = socket,
+        .on_connect_fn = on_connect,
+        .arg = arg,
+        .connected = false,
+        .failed = false,
+    };
+}
+void queue_add_read_socket(SOCKET socket, OnReadFnStream on_read, void* arg) {
+    QUEUE_READ_SOCKETS.sockets[QUEUE_READ_SOCKETS.length++] = (ReadSocket) {
+        .type = SOCKET_TYPE_STREAM,
+        .socket = socket,
+        .on_read_fn = on_read,
+        .arg = arg,
+        .should_remove = false,
+    };
+}
+void queue_add_write_socket(SOCKET socket, BufferSlice buffer, OnWriteFnStream on_write, void* arg) {
+    WriteCommand command = {
+        .write_addr = {0},
+        .buffer = buffer,
+        .offset = 0,
+        .on_write_fn = on_write,
+        .arg = arg,
+    };
+    for (uint32 i = 0; i < QUEUE_WRITE_SOCKETS.length; i++) {
+        WriteSocket* write_socket = &QUEUE_WRITE_SOCKETS.sockets[i];
+        if (socket == write_socket->socket) {
+            if (!write_queue_is_full(&write_socket->write_queue)) {
+                write_queue_push_command_unchecked(&write_socket->write_queue, command);
+            }
+            return;
+        }
+    }
+
+    WriteCommandQueue queue = write_queue_new_empty();
+    write_queue_push_command_unchecked(&queue, command);
+    QUEUE_WRITE_SOCKETS.sockets[QUEUE_WRITE_SOCKETS.length++] = (WriteSocket) {
+        .type = SOCKET_TYPE_STREAM,
+        .socket = socket,
+        .write_queue = queue,
+    };
+}
+void queue_add_read_socket_datagram(SOCKET socket, OnReadFnDatagram on_read, void* arg) {
+    QUEUE_READ_SOCKETS.sockets[QUEUE_READ_SOCKETS.length++] = (ReadSocket) {
+        .type = SOCKET_TYPE_DATAGRAM,
+        .socket = socket,
+        .on_read_fn = on_read,
+        .arg = arg,
+        .should_remove = false,
+    };
+}
+void queue_add_write_socket_datagram(SOCKET socket, SocketAddr addr, BufferSlice datagram, OnWriteFnDatagram on_write, void* arg) {
+    WriteCommand command = {
+        .write_addr = addr,
+        .buffer = datagram,
+        .offset = 0,
+        .on_write_fn = on_write,
+        .arg = arg,
+    };
+    for (uint32 i = 0; i < QUEUE_WRITE_SOCKETS.length; i++) {
+        WriteSocket* write_socket = &QUEUE_WRITE_SOCKETS.sockets[i];
+        if (socket == write_socket->socket) {
+            write_queue_push_command_unchecked(&write_socket->write_queue, command);
+            return;
+        }
+    }
+
+    WriteCommandQueue queue = write_queue_new_empty();
+    write_queue_push_command_unchecked(&queue, command);
+    QUEUE_WRITE_SOCKETS.sockets[QUEUE_WRITE_SOCKETS.length++] = (WriteSocket) {
+        .type = SOCKET_TYPE_DATAGRAM,
+        .socket = socket,
+        .write_queue = queue,
+    };
+}
+
+void handle_queued_sockets() {
+    for (uint32 i = 0; i < QUEUE_CONNECT_SOCKETS.length; i++) {
+        CONNECT_SOCKETS.sockets[CONNECT_SOCKETS.length++] = QUEUE_CONNECT_SOCKETS.sockets[i];
+    }
+    for (uint32 i = 0; i < QUEUE_READ_SOCKETS.length; i++) {
+        READ_SOCKETS.sockets[READ_SOCKETS.length++] = QUEUE_READ_SOCKETS.sockets[i];
+    }
+    for (uint32 i = 0; i < QUEUE_WRITE_SOCKETS.length; i++) {
+        WriteSocket queued_write_socket = QUEUE_WRITE_SOCKETS.sockets[i];
+        WriteSocket* write_socket = get_as_write_socket(QUEUE_WRITE_SOCKETS.sockets[i].socket);
+        if (write_socket != NULL) {
+            // Add to current queue
+            while (write_queue_has_next(&queued_write_socket.write_queue) && !write_queue_is_full(&write_socket->write_queue)) {
+                WriteCommand write_command = write_queue_pop_command_unchecked(&queued_write_socket.write_queue);
+                write_queue_push_command_unchecked(&write_socket->write_queue, write_command);
+            }
+        }
+        else {
+            // Create new write queue for socket
+            WRITE_SOCKETS.sockets[WRITE_SOCKETS.length++] = QUEUE_WRITE_SOCKETS.sockets[i];
+        }
+    }
+    QUEUE_CONNECT_SOCKETS.length = 0;
+    QUEUE_READ_SOCKETS.length = 0;
+    QUEUE_WRITE_SOCKETS.length = 0;
 }
 
 void cleanup_connect_sockets() {
@@ -268,23 +352,28 @@ void cleanup_read_sockets() {
 void cleanup_write_sockets() {
     for (uint32 i = 0; i < WRITE_SOCKETS.length; i++) {
         WriteSocket write_socket = WRITE_SOCKETS.sockets[i];
-        if (write_socket.offset == write_socket.buffer.length) {
+
+        WriteCommand this_write = write_socket.write_queue.queue[write_socket.write_queue.head];
+        if (this_write.offset == this_write.buffer.length) {
             // write complete
-            if (write_socket.on_write_fn != NULL) {
+            if (this_write.on_write_fn != NULL) {
                 switch (write_socket.type) {
                 case SOCKET_TYPE_STREAM:
-                    ((OnWriteFnStream) write_socket.on_write_fn)(write_socket.socket, write_socket.arg);
+                    ((OnWriteFnStream) this_write.on_write_fn)(write_socket.socket, this_write.arg);
                     break;
                 
                 case SOCKET_TYPE_DATAGRAM:
-                    ((OnWriteFnDatagram) write_socket.on_write_fn)(write_socket.socket, write_socket.write_addr, write_socket.arg);
+                    ((OnWriteFnDatagram) this_write.on_write_fn)(write_socket.socket, this_write.write_addr, this_write.arg);
                     break;
                 }
             }
-            // swap remove
-            WRITE_SOCKETS.sockets[i] = WRITE_SOCKETS.sockets[WRITE_SOCKETS.length];
-            WRITE_SOCKETS.length--;
-            i--;
+            write_queue_pop_command_unchecked(&write_socket.write_queue);
+            if (write_queue_is_empty(&write_socket.write_queue)) {
+                // swap remove
+                WRITE_SOCKETS.sockets[i] = WRITE_SOCKETS.sockets[WRITE_SOCKETS.length];
+                WRITE_SOCKETS.length--;
+                i--;
+            }
         }
     }
 }
@@ -316,7 +405,7 @@ void handle_read(fd_set* read_sockets, BufferSlice buffer) {
                         continue;
                     }
                 }
-                JUST_LOG_DEBUG("received count: %d\n", received_count);
+                JUST_LOG_TRACE("received count: %d\n", received_count);
                 
                 BufferSlice read_buffer = buffer_as_slice(buffer, 0, received_count);
                 read_socket->should_remove = ((OnReadFnStream) read_socket->on_read_fn)(socket, read_buffer, read_socket->arg);
@@ -344,7 +433,7 @@ void handle_read(fd_set* read_sockets, BufferSlice buffer) {
                         continue;
                     }
                 }
-                JUST_LOG_DEBUG("received count: %d\n", received_count);
+                JUST_LOG_TRACE("received count: %d\n", received_count);
 
                 SocketAddr addr = {
                     .host = inet_ntoa(sockaddr.sin_addr),
@@ -361,7 +450,7 @@ void handle_read(fd_set* read_sockets, BufferSlice buffer) {
 }
 
 void handle_write(fd_set* write_sockets) {
-    JUST_LOG_TRACE("handle_write\n");
+    JUST_LOG_TRACE("handle_write: %d\n", write_sockets->fd_count);
     int32 sent_count;
     for (uint32 i = 0; i < write_sockets->fd_count; i++) {
         SOCKET socket = write_sockets->fd_array[i];
@@ -371,14 +460,16 @@ void handle_write(fd_set* write_sockets) {
 
         // Write
         if (write_socket != NULL) {
+            WriteCommand* this_write = &write_socket->write_queue.queue[write_socket->write_queue.head];
+
             switch (write_socket->type) {
             case SOCKET_TYPE_STREAM:
                 JUST_LOG_TRACE("Write Stream Socket\n");
                 
                 sent_count = send(
                     write_socket->socket,
-                    write_socket->buffer.bytes + write_socket->offset,
-                    write_socket->buffer.length - write_socket->offset,
+                    this_write->buffer.bytes + this_write->offset,
+                    this_write->buffer.length - this_write->offset,
                     0
                 );
                 if (sent_count == SOCKET_ERROR) {
@@ -394,7 +485,7 @@ void handle_write(fd_set* write_sockets) {
                     }
                 }
         
-                write_socket->offset += sent_count;
+                this_write->offset += sent_count;
 
                 break;
             
@@ -403,13 +494,13 @@ void handle_write(fd_set* write_sockets) {
 
                 SOCKADDR_IN sockaddr = {0};
                 sockaddr.sin_family = AF_INET;
-                sockaddr.sin_addr.s_addr = inet_addr(write_socket->write_addr.host);
-                sockaddr.sin_port = htons(write_socket->write_addr.port);
+                sockaddr.sin_addr.s_addr = inet_addr(this_write->write_addr.host);
+                sockaddr.sin_port = htons(this_write->write_addr.port);
 
                 sent_count = sendto(
                     socket,
-                    write_socket->buffer.bytes + write_socket->offset,
-                    write_socket->buffer.length - write_socket->offset,
+                    this_write->buffer.bytes + this_write->offset,
+                    this_write->buffer.length - this_write->offset,
                     0,
                     (SOCKADDR*) &sockaddr,
                     sizeof(sockaddr)
@@ -423,16 +514,18 @@ void handle_write(fd_set* write_sockets) {
                     case WSAEMSGSIZE:
                         // TODO: Partial Write
                         // no data is transmitted
-                        write_socket->offset = write_socket->buffer.length;
+                        this_write->offset = this_write->buffer.length;
                         continue;
                     default:
                         // TODO: handle err
                         JUST_LOG_WARN("write err: %d\n", err);
+                        JUST_LOG_WARN("write_addr.host: %s\n", this_write->write_addr.host);
+                        JUST_LOG_WARN("write_addr.port: %d\n", this_write->write_addr.port);
                         continue;
                     }
                 }
                 
-                write_socket->offset += sent_count;
+                this_write->offset += sent_count;
 
                 break;
             }
@@ -448,7 +541,7 @@ void handle_write(fd_set* write_sockets) {
 }
 
 void handle_except(fd_set* except_sockets) {
-    JUST_LOG_TRACE("handle_write\n");
+    JUST_LOG_TRACE("handle_except: %d\n", except_sockets->fd_count);
     int32 sent_count;
     for (uint32 i = 0; i < except_sockets->fd_count; i++) {
         SOCKET socket = except_sockets->fd_array[i];
@@ -496,6 +589,10 @@ void spin_network_worker() {
             FD_SET(CONNECT_SOCKETS.sockets[i].socket, &write_sockets); // success
             FD_SET(CONNECT_SOCKETS.sockets[i].socket, &except_sockets); // fail
         }
+
+        JUST_LOG_TRACE("read_sockets: %d\n", read_sockets.fd_count);
+        JUST_LOG_TRACE("write_sockets: %d\n", write_sockets.fd_count);
+        JUST_LOG_TRACE("except_sockets: %d\n", except_sockets.fd_count);
         
         srw_lock_release_shared(NETWORK_THREAD_LOCK);
 
@@ -503,9 +600,9 @@ void spin_network_worker() {
 
         int ready_count = select(
             0,
-            &read_sockets,
-            &write_sockets,
-            &except_sockets,
+            read_sockets.fd_count == 0 ? NULL : &read_sockets,
+            write_sockets.fd_count == 0 ? NULL : &write_sockets,
+            except_sockets.fd_count == 0 ? NULL : &except_sockets,
             NULL
         );
 
@@ -627,9 +724,11 @@ void network_connect(SOCKET socket, SocketAddr addr, OnConnectFnStream on_connec
         case WSAEWOULDBLOCK:
             // Fine
             JUST_LOG_INFO("Connection started\n");
+            break;
         default:
             // TODO: handle err
             JUST_LOG_DEBUG("Connection failed: %d\n", err);
+            break;
         }
     }
 
