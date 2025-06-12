@@ -169,6 +169,22 @@ void handle_player_input(GamepadInputs* gamepad_inputs, PlayerInput input) {
     update_gamepad_axis_value(gamepad_inputs, GAMEPLAY_AXIS_INPUT_MOVE_Y, ((float32)input.move_stick_y)/127.0f);
 }
 
+void set_network_input_for_game_state(GameState* game_state, PlayerInput input) {
+    game_state->is_real = true;
+    game_state->other_player_frame_input = input;
+}
+
+void reset_game_state(GameState* this_game_state, GameState* prev_game_state) {
+    this_game_state->other_player_inputs = this_game_state->other_player_inputs;
+    if (!this_game_state->is_real) {
+        this_game_state->other_player_frame_input = prev_game_state->other_player_frame_input;
+    }
+    handle_player_input(&this_game_state->other_player_inputs, this_game_state->other_player_frame_input);
+    
+    clone_sprite_from_into(&RES.sprite_store, this_game_state->this_player, prev_game_state->this_player);
+    clone_sprite_from_into(&RES.sprite_store, this_game_state->other_player, prev_game_state->other_player);
+}
+
 Option(uint32) SYSTEM_INPUT_read_input_packets(
     GameState* RES_game_state,
     GameState* RES_saved_game_states,
@@ -205,18 +221,18 @@ Option(uint32) SYSTEM_INPUT_read_input_packets(
 
             if (goback_amount == 0) {
                 JUST_LOG_INFO("2\n");
-                RES_game_state->is_real = true;
-                RES_game_state->other_player_frame_input = input;
+                set_network_input_for_game_state(RES_game_state, input);
             }
             else if (!RES_saved_game_states[goback_amount].is_real) {
                 JUST_LOG_INFO("3\n");
-                RES_saved_game_states[goback_amount].is_real = true;
                 PlayerInput* saved_input = &RES_saved_game_states[goback_amount].other_player_frame_input;
                 bool correct_prediction = (
                     saved_input->buttons == input.buttons
                     && saved_input->move_stick_x == input.move_stick_x
                     && saved_input->move_stick_y == input.move_stick_y
                 );
+
+                set_network_input_for_game_state(&RES_saved_game_states[goback_amount], input);
                 if (!correct_prediction) {
                     JUST_LOG_INFO("4\n");
                     any_simulation = true;
@@ -512,17 +528,9 @@ void simulate_game(uint32 simuation_start_frame) {
         // JUST_LOG_INFO("this_game_state->current_frame: %d\n", this_game_state->current_frame);
 
         // Reset frame
-        {
-            this_game_state->other_player_inputs = prev_game_state->other_player_inputs;
-            if (!this_game_state->is_real) {
-                this_game_state->other_player_frame_input = prev_game_state->other_player_frame_input;
-            }
-            handle_player_input(&this_game_state->other_player_inputs, this_game_state->other_player_frame_input);
-            
-            clone_sprite_from_into(&RES.sprite_store, this_game_state->this_player, prev_game_state->this_player);
-            clone_sprite_from_into(&RES.sprite_store, this_game_state->other_player, prev_game_state->other_player);
-        }
+        reset_game_state(this_game_state, prev_game_state);
 
+        // Simulate frame
         run_this_frame(this_game_state);
     }
     RES.sprite_store.sprites[RES.__game_state.this_player.id].visible = true;
