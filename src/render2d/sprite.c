@@ -10,7 +10,7 @@
 
 #include "sprite.h"
 
-SpriteComponentId spawn_sprite(
+SpriteEntityId spawn_sprite(
     SpriteStore* sprite_store,
     SpriteTransform transform,
     Sprite sprite
@@ -65,16 +65,16 @@ SpriteComponentId spawn_sprite(
     const uint32 generation = sprite_store->generations[sprite_id];
     sprite_store->sprites[sprite_id] = sprite;
     sprite_store->transforms[sprite_id] = transform;
-    return new_component_id(sprite_id, generation);
+    return new_entity_id(sprite_id, generation);
 }
 
-void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId sprite_id) {
+void despawn_sprite(SpriteStore* sprite_store, SpriteEntityId sprite_id) {
     sprite_store->generations[sprite_id.id]++;
     sprite_store->slot_occupied[sprite_id.id] = false;
     sprite_store->free_count++;
 }
 
-bool sprite_is_valid(SpriteStore* sprite_store, SpriteComponentId sprite_id) {
+bool sprite_is_valid(SpriteStore* sprite_store, SpriteEntityId sprite_id) {
     return sprite_id.id < sprite_store->count && sprite_id.generation == sprite_store->generations[sprite_id.id];
 }
 

@@ -12,6 +12,8 @@
 #include "events/events.h"
 #include "render2d/sprite.h"
 
+#include "lib.h"
+
 
 // TODO:
 //  - Game Base Thread
@@ -21,31 +23,49 @@
 //      - gpu bus io
 //      - draw calls
 
-/**
- * -- STAGES --
- * 
- * PREPARE
- *      PRE_PREPARE
- *      PREAPRE
- *      POST_PREPARE
- * 
- * UPDATE
- *      PRE_UPDATE
- *      UPDATE
- *      POST_UPDATE
- * 
- * RENDER
- *      QUEUE_RENDER
- *      EXTRACT_RENDER
- *      RENDER
- * 
- * FRAME_BOUNDARY
- * 
- */
 
-void SYSTEM_UPDATE_camera_visibility(
-    SpriteStore* RES_sprite_store,
-    Camera2D camera
+JustEngineGlobalResources JUST_GLOBAL = LAZY_INIT;
+JustEngineGlobalRenderResources JUST_RENDER_GLOBAL = LAZY_INIT;
+
+void just_engine_init(JustEngineInit init) {
+    JUST_GLOBAL = (JustEngineGlobalResources) {
+        .delta_time = 0.0,
+        .screen_size = init.screen_size,
+        .temporary_storage = make_bump_allocator(),
+        .threadpool = thread_pool_create(init.threadpool_nthreads, init.threadpool_taskqueuecapacity),
+        .file_image_server = LAZY_INIT,
+        .texture_assets = new_texture_assets(),
+        .texture_asset_events = TextureAssetEvent__events_create(),
+        .camera_store = STRUCT_ZERO_INIT,
+        .sprite_store = STRUCT_ZERO_INIT,
+        .ui_store = ui_element_store_new(),
+    };
+
+    JUST_GLOBAL.file_image_server = (FileImageServer) {
+        .RES_threadpool = JUST_GLOBAL.threadpool,
+        .RES_texture_assets = &JUST_GLOBAL.texture_assets,
+        .RES_texture_assets_events = &JUST_GLOBAL.texture_asset_events,
+        .asset_folder = init.asset_folder,
+    };
+
+    set_primary_camera(&JUST_GLOBAL.camera_store, init.primary_camera);
+}
+
+void just_engine_deinit(JustEngineDeinit deinit) {
+    thread_pool_shutdown(&JUST_GLOBAL.threadpool, deinit.threadpool_shutdown);
+}
+
+// ---------------------------
+
+void SYSTEM_PRE_PREPARE_set_delta_time(
+    float32* RES_delta_time
+) {
+    *RES_delta_time = GetFrameTime();
+}
+
+void SYSTEM_POST_UPDATE_camera_visibility(
+    SpriteCameraStore* sprite_camera_store,
+    SpriteStore* RES_sprite_store
 ) {
     // TODO
 }
@@ -101,4 +121,146 @@ void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
     TemporaryStorage* RES_temporary_storage
 ) {
     reset_bump_allocator(RES_temporary_storage);
+}
+
+// ---------------------------
+
+// -- INPUT --
+
+void JUST_SYSTEM_INPUT_handle_input_for_ui_store() {
+    SYSTEM_INPUT_handle_input_for_ui_store(
+        &JUST_GLOBAL.ui_store
+    );
+}
+
+// -- PREPARE --
+// -- -- PRE_PREPARE --
+
+void JUST_SYSTEM_PRE_PREPARE_set_delta_time() {
+    SYSTEM_PRE_PREPARE_set_delta_time(
+        &JUST_GLOBAL.delta_time
+    );
+}
+
+// -- -- PREPARE --
+// -- -- POST_PREPARE --
+
+// -- UPDATE --
+// -- -- PRE_UPDATE --
+// -- -- UPDATE --
+
+void JUST_SYSTEM_UPDATE_update_ui_elements() {
+    SYSTEM_UPDATE_update_ui_elements(
+        &JUST_GLOBAL.ui_store,
+        JUST_GLOBAL.delta_time
+    );
+}
+
+// -- -- POST_UPDATE --
+
+void JUST_SYSTEM_POST_UPDATE_check_mutated_images() {
+    SYSTEM_POST_UPDATE_check_mutated_images(
+        &JUST_GLOBAL.texture_assets,
+        &JUST_GLOBAL.texture_asset_events
+    );
+}
+
+void JUST_SYSTEM_POST_UPDATE_camera_visibility() {
+    SYSTEM_POST_UPDATE_camera_visibility(
+        &JUST_GLOBAL.camera_store,
+        &JUST_GLOBAL.sprite_store
+    );
+}
+
+// -- RENDER --
+// -- -- QUEUE_RENDER --
+// -- -- EXTRACT_RENDER --
+
+void JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images() {
+    SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
+        &JUST_GLOBAL.texture_assets,
+        &JUST_GLOBAL.texture_asset_events
+    );
+}
+
+void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites() {
+    SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
+        &JUST_GLOBAL.camera_store,
+        &JUST_GLOBAL.sprite_store,
+        &JUST_RENDER_GLOBAL.prepared_render_sprites
+    );
+}
+
+// -- -- RENDER --
+
+void JUST_SYSTEM_RENDER_sorted_sprites() {
+    SYSTEM_RENDER_sorted_sprites(
+        &JUST_GLOBAL.texture_assets,
+        &JUST_GLOBAL.camera_store,
+        &JUST_RENDER_GLOBAL.prepared_render_sprites
+    );
+}
+
+void JUST_SYSTEM_RENDER_draw_ui_elements() {
+    SYSTEM_RENDER_draw_ui_elements(
+        &JUST_GLOBAL.ui_store
+    );
+}
+
+// -- FRAME_BOUNDARY --
+
+void JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers() {
+    SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
+        &JUST_GLOBAL.texture_asset_events
+    );
+}
+
+void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage() {
+    SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
+        &JUST_GLOBAL.temporary_storage
+    );
+}
+
+// ---------------------------
+
+void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage) {
+    switch (stage) {
+    case STAGE__INPUT:
+        JUST_SYSTEM_INPUT_handle_input_for_ui_store();
+        break;
+
+    case STAGE__PREPARE__PRE_PREPARE:
+        JUST_SYSTEM_PRE_PREPARE_set_delta_time();
+        break;
+    case STAGE__PREPARE__PREPARE:
+        break;
+    case STAGE__PREPARE__POST_PREPARE:
+        break;
+
+    case STAGE__UPDATE__PRE_UPDATE:
+        break;
+    case STAGE__UPDATE__UPDATE:
+        JUST_SYSTEM_UPDATE_update_ui_elements();
+        break;
+    case STAGE__UPDATE__POST_UPDATE:
+        JUST_SYSTEM_POST_UPDATE_check_mutated_images();
+        JUST_SYSTEM_POST_UPDATE_camera_visibility();
+        break;
+        
+    case STAGE__RENDER__QUEUE_RENDER:
+        break;
+    case STAGE__RENDER__EXTRACT_RENDER:
+        JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images();
+        JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites();
+        break;
+    case STAGE__RENDER__RENDER:
+        JUST_SYSTEM_RENDER_sorted_sprites();
+        JUST_SYSTEM_RENDER_draw_ui_elements();
+        break;
+    
+    case STAGE__FRAME_BOUNDARY:
+        JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers();
+        JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage();
+        break;
+    }
 }

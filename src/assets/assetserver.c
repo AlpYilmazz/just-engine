@@ -33,7 +33,7 @@ void asyncio_file_load_image_task(TaskArgVoid* arg) {
         goto CLEANUP;
     }
 
-    exture_assets_put_image(
+    texture_assets_put_image(
         this_arg->RES_texture_assets,
         this_arg->handle,
         image

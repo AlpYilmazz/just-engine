@@ -8,6 +8,8 @@
 #define MAX_GAMEPAD_BUTTONS 32
 #define MAX_GAMEPAD_AXES 10
 
+#define MAX_CONTROLS 512
+
 typedef enum {
     KEY_STATE_NULL = 0,
     KEY_STATE_RELEASED = 1,
@@ -44,3 +46,12 @@ float32 gamepad_axis_delta(GamepadInputs* gamepad_inputs, uint32 axis);
 
 void update_gamepad_button_state(GamepadInputs* gamepad_inputs, uint32 button, bool state);
 void update_gamepad_axis_value(GamepadInputs* gamepad_inputs, uint32 axis, float32 value);
+
+typedef struct {
+    uint32 map[MAX_CONTROLS];       // input -> control
+    uint32 invmap[MAX_CONTROLS];    // control -> input
+} ControlsMap;
+
+void controls_map_set_control(ControlsMap* controls, uint32 input, uint32 control);
+uint32 controls_map_get_input(ControlsMap* controls, uint32 control);
+uint32 controls_map_get_control(ControlsMap* controls, uint32 input);

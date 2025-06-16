@@ -45,6 +45,15 @@ DECLARE__Option(char);
 #define LATER_INIT {0}
 #define UNINIT {0}
 
+typedef struct {
+    uint32 id;
+    uint32 generation;
+} EntityId;
+
+static inline EntityId new_entity_id(uint32 id, uint32 generation) {
+    return (EntityId) { id, generation };
+}
+
 // Memory is owned
 typedef struct {
     usize length;

@@ -77,6 +77,15 @@ DECLARE__Option(char);
 #define LATER_INIT {0}
 #define UNINIT {0}
 
+typedef struct {
+    uint32 id;
+    uint32 generation;
+} EntityId;
+
+static inline EntityId new_entity_id(uint32 id, uint32 generation) {
+    return (EntityId) { id, generation };
+}
+
 // Memory is owned
 typedef struct {
     usize length;
@@ -294,15 +303,6 @@ static inline Layers on_single_layer(uint32 layer) {
 
 static inline Layers on_primary_layer() {
     return on_single_layer(PRIMARY_LAYER);
-}
-
-typedef struct {
-    uint32 id;
-    uint32 generation;
-} ComponentId;
-
-static inline ComponentId new_component_id(uint32 id, uint32 generation) {
-    return (ComponentId) { id, generation };
 }
 
 #define Vector2_From(val) ((Vector2) {val, val})
@@ -1102,8 +1102,8 @@ TextureAssetEvent TextureAssetEvent__events_iter_maybe_consume_next(EventsIter_T
 
 typedef struct {
     ThreadPool* RES_threadpool;
-    Events_TextureAssetEvent* RES_texture_assets_events;
     TextureAssets* RES_texture_assets;
+    Events_TextureAssetEvent* RES_texture_assets_events;
     const char const* asset_folder;
 } FileImageServer;
 
@@ -1122,6 +1122,8 @@ TextureHandle asyncio_file_load_image(
 // #define MAX_GAMEPADS 4
 #define MAX_GAMEPAD_BUTTONS 32
 #define MAX_GAMEPAD_AXES 10
+
+#define MAX_CONTROLS 512
 
 typedef enum {
     KEY_STATE_NULL = 0,
@@ -1159,6 +1161,15 @@ float32 gamepad_axis_delta(GamepadInputs* gamepad_inputs, uint32 axis);
 
 void update_gamepad_button_state(GamepadInputs* gamepad_inputs, uint32 button, bool state);
 void update_gamepad_axis_value(GamepadInputs* gamepad_inputs, uint32 axis, float32 value);
+
+typedef struct {
+    uint32 map[MAX_CONTROLS];       // input -> control
+    uint32 invmap[MAX_CONTROLS];    // control -> input
+} ControlsMap;
+
+void controls_map_set_control(ControlsMap* controls, uint32 input, uint32 control);
+uint32 controls_map_get_input(ControlsMap* controls, uint32 control);
+uint32 controls_map_get_control(ControlsMap* controls, uint32 input);
 
 #endif // __HEADER_INPUT_INPUT
 
@@ -1629,7 +1640,7 @@ UIElementId put_ui_element_choice_list(UIElementStore* store, ChoiceList choice_
 UIElementId put_ui_element_panel(UIElementStore* store, Panel panel);
 // ----------------
 
-void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
+void SYSTEM_INPUT_handle_input_for_ui_store(
     UIElementStore* store
 );
 
@@ -1736,15 +1747,15 @@ typedef struct {
     Sprite* sprites;
 } SpriteStore;
 
-typedef ComponentId SpriteComponentId;
+typedef EntityId SpriteEntityId;
 
-SpriteComponentId spawn_sprite(
+SpriteEntityId spawn_sprite(
     SpriteStore* sprite_store,
     SpriteTransform transform,
     Sprite sprite
 );
-void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId sprite_id);
-bool sprite_is_valid(SpriteStore* sprite_store, SpriteComponentId sprite_id);
+void despawn_sprite(SpriteStore* sprite_store, SpriteEntityId sprite_id);
+bool sprite_is_valid(SpriteStore* sprite_store, SpriteEntityId sprite_id);
 
 void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteCameraStore* sprite_camera_store,
@@ -1763,6 +1774,104 @@ void SYSTEM_RENDER_sorted_sprites(
 #define __HEADER_LIB
 #ifdef __HEADER_LIB
 
+typedef struct {
+    URectSize screen_size;
+    uint32 threadpool_nthreads;
+    uint32 threadpool_taskqueuecapacity;
+    const char* asset_folder;
+    SpriteCamera primary_camera;
+} JustEngineInit;
+
+typedef struct {
+    ThreadPoolShutdown threadpool_shutdown;
+} JustEngineDeinit;
+
+typedef struct {
+    float32 delta_time;
+    // --------
+    URectSize screen_size;
+    BumpAllocator temporary_storage;
+    ThreadPool* threadpool;
+    // -- Image/Texture
+    FileImageServer file_image_server;
+    TextureAssets texture_assets;
+    Events_TextureAssetEvent texture_asset_events;
+    // -- Render2D
+    SpriteCameraStore camera_store;
+    SpriteStore sprite_store;
+    // -- UI
+    UIElementStore ui_store;
+    // --------
+} JustEngineGlobalResources;
+
+typedef struct {
+    // --------
+    // -- Render2D
+    PreparedRenderSprites prepared_render_sprites;
+    // --------
+} JustEngineGlobalRenderResources;
+
+void just_engine_init(JustEngineInit init);
+void just_engine_deinit(JustEngineDeinit deinit);
+
+// ---------------------------
+
+/**
+ * -- STAGES --
+ * 
+ * INITIALIZE
+ * ----------
+ * 
+ * INPUT
+ * 
+ * PREPARE
+ *      PRE_PREPARE
+ *      PREAPRE
+ *      POST_PREPARE
+ * 
+ * UPDATE
+ *      PRE_UPDATE
+ *      UPDATE
+ *      POST_UPDATE
+ * 
+ * RENDER
+ *      QUEUE_RENDER
+ *      EXTRACT_RENDER
+ *      RENDER
+ * 
+ * FRAME_BOUNDARY
+ * 
+ */
+
+typedef enum {
+    STAGE__INPUT,
+    //
+    STAGE__PREPARE__PRE_PREPARE,
+    STAGE__PREPARE__PREPARE,
+    STAGE__PREPARE__POST_PREPARE,
+    //
+    STAGE__UPDATE__PRE_UPDATE,
+    STAGE__UPDATE__UPDATE,
+    STAGE__UPDATE__POST_UPDATE,
+    //
+    STAGE__RENDER__QUEUE_RENDER,
+    STAGE__RENDER__EXTRACT_RENDER,
+    STAGE__RENDER__RENDER,
+    //
+    STAGE__FRAME_BOUNDARY
+} JustEngineSystemStage;
+
+// ---------------------------
+
+void SYSTEM_PRE_PREPARE_set_delta_time(
+    float32* RES_delta_time
+);
+
+void SYSTEM_POST_UPDATE_camera_visibility(
+    SpriteCameraStore* sprite_camera_store,
+    SpriteStore* RES_sprite_store
+);
+
 void SYSTEM_POST_UPDATE_check_mutated_images(
     TextureAssets* RES_texture_assets,
     Events_TextureAssetEvent* RES_texture_asset_events
@@ -1780,5 +1889,51 @@ void SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
 void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
     TemporaryStorage* RES_temporary_storage
 );
+
+// ---------------------------
+
+// -- INPUT --
+
+void JUST_SYSTEM_INPUT_handle_input_for_ui_store();
+
+// -- PREPARE --
+// -- -- PRE_PREPARE --
+
+void JUST_SYSTEM_PRE_PREPARE_set_delta_time();
+
+// -- -- PREPARE --
+// -- -- POST_PREPARE --
+
+// -- UPDATE --
+// -- -- PRE_UPDATE --
+// -- -- UPDATE --
+
+void JUST_SYSTEM_UPDATE_update_ui_elements();
+
+// -- -- POST_UPDATE --
+
+void JUST_SYSTEM_POST_UPDATE_check_mutated_images();
+void JUST_SYSTEM_POST_UPDATE_camera_visibility();
+
+// -- RENDER --
+// -- -- QUEUE_RENDER --
+// -- -- EXTRACT_RENDER --
+
+void JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images();
+void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites();
+
+// -- -- RENDER --
+
+void JUST_SYSTEM_RENDER_sorted_sprites();
+void JUST_SYSTEM_RENDER_draw_ui_elements();
+
+// -- FRAME_BOUNDARY --
+
+void JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers();
+void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage();
+
+// ---------------------------
+
+void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage);
 
 #endif // __HEADER_LIB

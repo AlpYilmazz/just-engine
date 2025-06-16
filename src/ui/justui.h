@@ -235,7 +235,7 @@ UIElementId put_ui_element_choice_list(UIElementStore* store, ChoiceList choice_
 UIElementId put_ui_element_panel(UIElementStore* store, Panel panel);
 // ----------------
 
-void SYSTEM_PRE_UPDATE_handle_input_for_ui_store(
+void SYSTEM_INPUT_handle_input_for_ui_store(
     UIElementStore* store
 );
 

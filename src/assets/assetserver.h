@@ -5,8 +5,8 @@
 
 typedef struct {
     ThreadPool* RES_threadpool;
-    Events_TextureAssetEvent* RES_texture_assets_events;
     TextureAssets* RES_texture_assets;
+    Events_TextureAssetEvent* RES_texture_assets_events;
     const char const* asset_folder;
 } FileImageServer;
 

@@ -192,15 +192,6 @@ static inline Layers on_primary_layer() {
     return on_single_layer(PRIMARY_LAYER);
 }
 
-typedef struct {
-    uint32 id;
-    uint32 generation;
-} ComponentId;
-
-static inline ComponentId new_component_id(uint32 id, uint32 generation) {
-    return (ComponentId) { id, generation };
-}
-
 #define Vector2_From(val) ((Vector2) {val, val})
 #define Vector2_Ones ((Vector2) {1.0, 1.0})
 #define Vector2_Unit_X ((Vector2) {1.0, 0.0})

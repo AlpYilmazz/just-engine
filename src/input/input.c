@@ -85,8 +85,22 @@ void update_gamepad_button_state(GamepadInputs* gamepad_inputs, uint32 button, b
     }
 }
 
-
 void update_gamepad_axis_value(GamepadInputs* gamepad_inputs, uint32 axis, float32 value) {
     gamepad_inputs->prev_axis_values[axis] = gamepad_inputs->axis_values[axis];
     gamepad_inputs->axis_values[axis] = value;
+}
+
+// -- ControlsMap
+
+void controls_map_set_control(ControlsMap* controls, uint32 input, uint32 control) {
+    controls->map[control] = input;
+    controls->invmap[input] = control;
+}
+
+uint32 controls_map_get_input(ControlsMap* controls, uint32 control) {
+    return controls->map[control];
+}
+
+uint32 controls_map_get_control(ControlsMap* controls, uint32 input) {
+    return controls->invmap[input];
 }

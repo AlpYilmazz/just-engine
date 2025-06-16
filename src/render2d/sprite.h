@@ -72,15 +72,15 @@ typedef struct {
     Sprite* sprites;
 } SpriteStore;
 
-typedef ComponentId SpriteComponentId;
+typedef EntityId SpriteEntityId;
 
-SpriteComponentId spawn_sprite(
+SpriteEntityId spawn_sprite(
     SpriteStore* sprite_store,
     SpriteTransform transform,
     Sprite sprite
 );
-void despawn_sprite(SpriteStore* sprite_store, SpriteComponentId sprite_id);
-bool sprite_is_valid(SpriteStore* sprite_store, SpriteComponentId sprite_id);
+void despawn_sprite(SpriteStore* sprite_store, SpriteEntityId sprite_id);
+bool sprite_is_valid(SpriteStore* sprite_store, SpriteEntityId sprite_id);
 
 void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteCameraStore* sprite_camera_store,
