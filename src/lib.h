@@ -44,6 +44,9 @@ typedef struct {
     // --------
 } JustEngineGlobalRenderResources;
 
+extern JustEngineGlobalResources JUST_GLOBAL;
+extern JustEngineGlobalRenderResources JUST_RENDER_GLOBAL;
+
 void just_engine_init(JustEngineInit init);
 void just_engine_deinit(JustEngineDeinit deinit);
 
