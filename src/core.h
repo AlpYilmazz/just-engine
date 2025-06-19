@@ -45,6 +45,11 @@ DECLARE__Option(char);
 #define LATER_INIT {0}
 #define UNINIT {0}
 
+#define MAX(a, b) ((a >= b) ? a : b)
+#define MIN(a, b) ((a <= b) ? a : b)
+
+#define SIGNOF(x) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
+
 typedef struct {
     uint32 id;
     uint32 generation;

@@ -10,11 +10,6 @@
 
 #define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
 
-#define MAX(a, b) ((a >= b) ? a : b)
-#define MIN(a, b) ((a <= b) ? a : b)
-
-#define SIGNOF(a) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
-
 static const uint32 ALL_SET_32 = 0b11111111111111111111111111111111;
 
 #define RECTANGLE_NICHE ( \
@@ -85,6 +80,11 @@ static inline Anchor make_anchor(AnchorType type) {
 static inline Anchor make_custom_anchor(Vector2 origin) {
     return (Anchor) { .origin = origin };
 }
+
+typedef struct {
+    Vector2 translation;
+    Vector2 scale;
+} SpaceShift;
 
 typedef struct {
     union {

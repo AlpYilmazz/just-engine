@@ -77,6 +77,11 @@ DECLARE__Option(char);
 #define LATER_INIT {0}
 #define UNINIT {0}
 
+#define MAX(a, b) ((a >= b) ? a : b)
+#define MIN(a, b) ((a <= b) ? a : b)
+
+#define SIGNOF(x) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
+
 typedef struct {
     uint32 id;
     uint32 generation;
@@ -122,11 +127,6 @@ static inline usize filled_length(FillBuffer* buffer) {
 #ifdef __HEADER_BASE
 
 #define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
-
-#define MAX(a, b) ((a >= b) ? a : b)
-#define MIN(a, b) ((a <= b) ? a : b)
-
-#define SIGNOF(a) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
 
 static const uint32 ALL_SET_32 = 0b11111111111111111111111111111111;
 
@@ -198,6 +198,11 @@ static inline Anchor make_anchor(AnchorType type) {
 static inline Anchor make_custom_anchor(Vector2 origin) {
     return (Anchor) { .origin = origin };
 }
+
+typedef struct {
+    Vector2 translation;
+    Vector2 scale;
+} SpaceShift;
 
 typedef struct {
     union {
@@ -1337,6 +1342,15 @@ typedef struct {
 
 // TODO: FreeRectangleCollider: arbitrarily rotated rectangle
 
+static inline AABBCollider shift_aabb(SpaceShift shift, AABBCollider aabb) {
+    return (AABBCollider) {
+        .x_left = shift.translation.x + (aabb.x_left * shift.scale.x),
+        .x_right = shift.translation.x + (aabb.x_right * shift.scale.x),
+        .y_top = shift.translation.y + (aabb.y_top * shift.scale.y),
+        .y_bottom = shift.translation.y + (aabb.y_bottom * shift.scale.y),
+    };
+}
+
 float32 collider_dist_circle_circle(CircleCollider c1, CircleCollider c2);
 bool check_point_inside_aabb(AABBCollider a1, Vector2 p);
 
@@ -1348,13 +1362,13 @@ bool check_collision_circle_circle(CircleCollider c1, CircleCollider c2);
 bool check_collision_circle_aabb(CircleCollider c1, AABBCollider a2);
 
 bool check_collision_aabb_aabb(AABBCollider a1, AABBCollider a2);
-bool check_shift_collision_aabb_aabb(Vector2 o1, AABBCollider a1, Vector2 o2, AABBCollider a2);
+bool check_shifted_collision_aabb_aabb(SpaceShift o1, AABBCollider a1, SpaceShift o2, AABBCollider a2);
 
 bool check_rayhit_circle(Ray2 ray, CircleCollider c1, float32 max_dist);
 bool check_rayhit_aabb(Ray2 ray, AABBCollider a1, float32 max_dist);
 
 bool check_collision_aabb_collider_sets(AABBColliderSet* s1, AABBColliderSet* s2);
-bool check_shift_collision_aabb_collider_sets(Vector2 o1, AABBColliderSet* s1, Vector2 o2, AABBColliderSet* s2);
+bool check_shifted_collision_aabb_collider_sets(SpaceShift o1, AABBColliderSet* s1, SpaceShift o2, AABBColliderSet* s2);
 void recalculate_bounding_box(AABBColliderSet* set);
 
 #endif // __HEADER_PHYSICS_COLLISION
