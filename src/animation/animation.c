@@ -152,6 +152,55 @@ bool sequence_timer_is_finished(SequenceTimer* stimer) {
     }
 }
 
+// FrameTimer
+
+FrameTimer new_frame_timer(uint32 count, TimerMode mode) {
+    return (FrameTimer) {
+        .mode = mode,
+        .count = count,
+        .current_frame = 0,
+        .finished = false,
+    };
+}
+
+void reset_frame_timer(FrameTimer* ftimer) {
+    ftimer->current_frame = 0;
+    ftimer->finished = false;
+}
+
+void tick_frame_timer(FrameTimer* ftimer) {
+    switch (ftimer->mode) {
+    case Timer_NonRepeating:
+        if (!ftimer->finished) {
+            ftimer->current_frame++;
+            if (ftimer->current_frame >= ftimer->count) {
+                ftimer->finished = true;
+            }
+        }
+        break;
+    case Timer_Repeating:
+        ftimer->current_frame++;
+        if (ftimer->current_frame >= ftimer->count) {
+            ftimer->current_frame = 0;
+            ftimer->finished = true;
+        }
+        break;
+    }
+}
+
+bool frame_timer_is_finished(FrameTimer* ftimer) {
+    switch (ftimer->mode) {
+    case Timer_NonRepeating:
+        return ftimer->finished;
+    case Timer_Repeating:
+        if (ftimer->finished) {
+            ftimer->finished = false;
+            return true;
+        }
+        return false;
+    }
+}
+
 // SpriteAnimation
 
 SpriteAnimation new_sprite_animation(SequenceTimer timer, TextureHandle* textures, int texture_count) {
@@ -276,21 +325,46 @@ FrameSpriteSheetAnimation new_frame_sprite_sheet_animation(
     uint32 frame_count
 ) {
     return (FrameSpriteSheetAnimation) {
+        .timer = new_frame_timer(1, Timer_Repeating),
         .sprite_size = sprite_size,
         .frame_count = frame_count,
         .current = 0,
+        .finished = false,
+    };
+}
+
+FrameSpriteSheetAnimation new_frame_sprite_sheet_animation_with_spacing(
+    RectSize sprite_size,
+    uint32 frame_count,
+    uint32 frame_spacing
+) {
+    return (FrameSpriteSheetAnimation) {
+        .timer = new_frame_timer(frame_spacing, Timer_Repeating),
+        .sprite_size = sprite_size,
+        .frame_count = frame_count,
+        .current = 0,
+        .finished = false,
     };
 }
 
 void reset_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim) {
+    reset_frame_timer(&anim->timer);
     anim->current = 0;
+    anim->finished = false;
 }
 
 void tick_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim) {
-    anim->current = (anim->current + 1) % anim->frame_count;
+    tick_frame_timer(&anim->timer);
+    if (frame_timer_is_finished(&anim->timer)) {
+        anim->current = (anim->current + 1) % anim->frame_count;
+        if (anim->current == 0) {
+            anim->finished = true;
+        }
+    }
 }
 
 void tick_back_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim) {
+    // TODO: is timer related
     anim->current = (anim->current + anim->frame_count - 1) % anim->frame_count;
 }
 
@@ -301,4 +375,12 @@ Rectangle sprite_sheet_get_current_frame(FrameSpriteSheetAnimation* anim) {
         .width = anim->sprite_size.width,
         .height = anim->sprite_size.height,
     };
+}
+
+bool frame_animation_is_finished(FrameSpriteSheetAnimation* anim) {
+    if (anim->finished) {
+        anim->finished = false;
+        return true;
+    }
+    return false;
 }

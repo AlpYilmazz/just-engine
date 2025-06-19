@@ -225,40 +225,51 @@ void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage() {
 
 void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage) {
     switch (stage) {
-    case STAGE__INPUT:
+        case STAGE__INPUT:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__INPUT --\n");
         JUST_SYSTEM_INPUT_handle_input_for_ui_store();
         break;
 
     case STAGE__PREPARE__PRE_PREPARE:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__PREPARE__PRE_PREPARE --\n");
         JUST_SYSTEM_PRE_PREPARE_set_delta_time();
         break;
     case STAGE__PREPARE__PREPARE:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__PREPARE__PREPARE --\n");
         break;
     case STAGE__PREPARE__POST_PREPARE:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__PREPARE__POST_PREPARE --\n");
         break;
 
     case STAGE__UPDATE__PRE_UPDATE:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__UPDATE__PRE_UPDATE --\n");
         break;
     case STAGE__UPDATE__UPDATE:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__UPDATE__UPDATE --\n");
         JUST_SYSTEM_UPDATE_update_ui_elements();
         break;
     case STAGE__UPDATE__POST_UPDATE:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__UPDATE__POST_UPDATE --\n");
         JUST_SYSTEM_POST_UPDATE_check_mutated_images();
         JUST_SYSTEM_POST_UPDATE_camera_visibility();
         break;
         
     case STAGE__RENDER__QUEUE_RENDER:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__RENDER__QUEUE_RENDER --\n");
         break;
     case STAGE__RENDER__EXTRACT_RENDER:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__RENDER__EXTRACT_RENDER --\n");
         JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images();
         JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites();
         break;
     case STAGE__RENDER__RENDER:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__RENDER__RENDER --\n");
         JUST_SYSTEM_RENDER_sorted_sprites();
         JUST_SYSTEM_RENDER_draw_ui_elements();
         break;
     
     case STAGE__FRAME_BOUNDARY:
+        JUST_LOG_TRACE("-- JustEngine -- Stage: STAGE__FRAME_BOUNDARY --\n");
         JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers();
         JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage();
         break;

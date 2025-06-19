@@ -129,6 +129,8 @@ RenderSprite extract_render_sprite(SpriteTransform* transform, Sprite* sprite) {
         .tint = sprite->tint,
         .use_custom_source = sprite->use_custom_source,
         .source = sprite->source,
+        .flip_x = sprite->flip_x,
+        .flip_y = sprite->flip_y,
         .transform = *transform,
         .z_index = sprite->z_index,
     };
@@ -198,6 +200,7 @@ void SYSTEM_RENDER_sorted_sprites(
     Texture* texture;
     SpriteTransform transform;
     Rectangle source;
+    Rectangle source_flip;
     Vector2 size;
     Rectangle destination;
     Vector2 origin;
@@ -212,12 +215,16 @@ void SYSTEM_RENDER_sorted_sprites(
         BeginMode2D(sprite_camera->camera);
 
         for (uint32 i = 0; i < render_sprites->count; i++) {
+            JUST_LOG_DEBUG("RENDER: camera [%d] sprite [%d]\n", camera_i, i);
             sprite = render_sprites->sprites[i];
             texture = texture_assets_get_texture_or_default(RES_texture_assets, sprite.texture);
             transform = sprite.transform;
             source = sprite.use_custom_source
                 ? sprite.source
                 : (Rectangle) {0, 0, texture->width, texture->height};
+            source_flip = source;
+            source_flip.width *= sprite.flip_x ? -1 : 1;
+            source_flip.height *= sprite.flip_y ? -1 : 1;
             size = transform.use_source_size
                 ? (Vector2) {source.width, source.height}
                 : transform.size;
@@ -233,7 +240,7 @@ void SYSTEM_RENDER_sorted_sprites(
 
             DrawTexturePro(
                 *texture,
-                source,
+                source_flip,
                 destination,
                 origin,
                 rotation,

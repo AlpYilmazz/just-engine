@@ -28,6 +28,8 @@ typedef struct {
     Color tint;
     bool use_custom_source;
     Rectangle source;
+    bool flip_x;
+    bool flip_y;
     uint32 z_index;
     // -- render end
     bool use_layer_system; // otherwise renders on the primary camera by default
@@ -41,6 +43,8 @@ typedef struct {
     Color tint;
     bool use_custom_source;
     Rectangle source;
+    bool flip_x;
+    bool flip_y;
     SpriteTransform transform;
     uint32 z_index;
 } RenderSprite;

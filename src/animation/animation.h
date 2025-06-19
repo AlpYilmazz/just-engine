@@ -38,6 +38,18 @@ bool sequence_timer_has_pulsed(SequenceTimer* stimer);
 bool sequence_timer_is_finished(SequenceTimer* stimer);
 
 typedef struct {
+    TimerMode mode;
+    uint32 count;
+    uint32 current_frame;
+    bool finished;
+} FrameTimer;
+
+FrameTimer new_frame_timer(uint32 count, TimerMode mode);
+void reset_frame_timer(FrameTimer* ftimer);
+void tick_frame_timer(FrameTimer* ftimer);
+bool frame_timer_is_finished(FrameTimer* ftimer);
+
+typedef struct {
     SequenceTimer timer;
     TextureHandle* textures;
     int texture_count;
@@ -90,9 +102,11 @@ typedef struct {
 SpriteSheetSprite sprite_sheet_get_current_sprite(SpriteSheetAnimation* anim);
 
 typedef struct {
+    FrameTimer timer;
     RectSize sprite_size;
     uint32 frame_count;
     uint32 current;
+    bool finished;
 } FrameSpriteSheetAnimation;
 
 /**
@@ -103,7 +117,13 @@ FrameSpriteSheetAnimation new_frame_sprite_sheet_animation(
     RectSize sprite_size,
     uint32 frame_count
 );
+FrameSpriteSheetAnimation new_frame_sprite_sheet_animation_with_spacing(
+    RectSize sprite_size,
+    uint32 frame_count,
+    uint32 frame_spacing
+);
 void reset_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
 void tick_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
 void tick_back_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
 Rectangle sprite_sheet_get_current_frame(FrameSpriteSheetAnimation* anim);
+bool frame_animation_is_finished(FrameSpriteSheetAnimation* anim);

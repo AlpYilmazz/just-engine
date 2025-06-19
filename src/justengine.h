@@ -145,7 +145,7 @@ static const uint32 ALL_SET_32 = 0b11111111111111111111111111111111;
 static inline bool bytewise_equals(byte* e1, byte* e2, uint32 count) {
     bool is_eq = 1;
     for (uint32 i = 0; i < count; i++) {
-        is_eq &= (e1[i] == e2[2]);
+        is_eq &= (e1[i] == e2[i]);
     }
     return is_eq;
 }
@@ -1211,6 +1211,18 @@ bool sequence_timer_has_pulsed(SequenceTimer* stimer);
 bool sequence_timer_is_finished(SequenceTimer* stimer);
 
 typedef struct {
+    TimerMode mode;
+    uint32 count;
+    uint32 current_frame;
+    bool finished;
+} FrameTimer;
+
+FrameTimer new_frame_timer(uint32 count, TimerMode mode);
+void reset_frame_timer(FrameTimer* ftimer);
+void tick_frame_timer(FrameTimer* ftimer);
+bool frame_timer_is_finished(FrameTimer* ftimer);
+
+typedef struct {
     SequenceTimer timer;
     TextureHandle* textures;
     int texture_count;
@@ -1263,9 +1275,11 @@ typedef struct {
 SpriteSheetSprite sprite_sheet_get_current_sprite(SpriteSheetAnimation* anim);
 
 typedef struct {
+    FrameTimer timer;
     RectSize sprite_size;
     uint32 frame_count;
     uint32 current;
+    bool finished;
 } FrameSpriteSheetAnimation;
 
 /**
@@ -1276,10 +1290,16 @@ FrameSpriteSheetAnimation new_frame_sprite_sheet_animation(
     RectSize sprite_size,
     uint32 frame_count
 );
+FrameSpriteSheetAnimation new_frame_sprite_sheet_animation_with_spacing(
+    RectSize sprite_size,
+    uint32 frame_count,
+    uint32 frame_spacing
+);
 void reset_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
 void tick_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
 void tick_back_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
 Rectangle sprite_sheet_get_current_frame(FrameSpriteSheetAnimation* anim);
+bool frame_animation_is_finished(FrameSpriteSheetAnimation* anim);
 
 #endif // __HEADER_ANIMATION_ANIMATION
 
@@ -1328,11 +1348,13 @@ bool check_collision_circle_circle(CircleCollider c1, CircleCollider c2);
 bool check_collision_circle_aabb(CircleCollider c1, AABBCollider a2);
 
 bool check_collision_aabb_aabb(AABBCollider a1, AABBCollider a2);
+bool check_shift_collision_aabb_aabb(Vector2 o1, AABBCollider a1, Vector2 o2, AABBCollider a2);
 
 bool check_rayhit_circle(Ray2 ray, CircleCollider c1, float32 max_dist);
 bool check_rayhit_aabb(Ray2 ray, AABBCollider a1, float32 max_dist);
 
 bool check_collision_aabb_collider_sets(AABBColliderSet* s1, AABBColliderSet* s2);
+bool check_shift_collision_aabb_collider_sets(Vector2 o1, AABBColliderSet* s1, Vector2 o2, AABBColliderSet* s2);
 void recalculate_bounding_box(AABBColliderSet* set);
 
 #endif // __HEADER_PHYSICS_COLLISION
@@ -1703,6 +1725,8 @@ typedef struct {
     Color tint;
     bool use_custom_source;
     Rectangle source;
+    bool flip_x;
+    bool flip_y;
     uint32 z_index;
     // -- render end
     bool use_layer_system; // otherwise renders on the primary camera by default
@@ -1716,6 +1740,8 @@ typedef struct {
     Color tint;
     bool use_custom_source;
     Rectangle source;
+    bool flip_x;
+    bool flip_y;
     SpriteTransform transform;
     uint32 z_index;
 } RenderSprite;

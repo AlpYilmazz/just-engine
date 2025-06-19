@@ -32,7 +32,7 @@ static const uint32 ALL_SET_32 = 0b11111111111111111111111111111111;
 static inline bool bytewise_equals(byte* e1, byte* e2, uint32 count) {
     bool is_eq = 1;
     for (uint32 i = 0; i < count; i++) {
-        is_eq &= (e1[i] == e2[2]);
+        is_eq &= (e1[i] == e2[i]);
     }
     return is_eq;
 }

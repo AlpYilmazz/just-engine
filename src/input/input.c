@@ -12,10 +12,10 @@ bool key_is_released(KeyInputs* key_inputs, uint32 key) {
     return key_inputs->keys[key] == KEY_STATE_RELEASED;
 }
 bool key_is_up(KeyInputs* key_inputs, uint32 key) {
-    return key_inputs->keys[key] >= KEY_STATE_PRESSED;
+    return key_inputs->keys[key] <= KEY_STATE_RELEASED; // KEY_STATE_NULL || KEY_STATE_RELEASED
 }
 bool key_is_down(KeyInputs* key_inputs, uint32 key) {
-    return key_inputs->keys[key] <= KEY_STATE_RELEASED;
+    return key_inputs->keys[key] >= KEY_STATE_PRESSED; // KEY_STATE_PRESSED || KEY_STATE_REPEATED
 }
 
 void update_key_state(KeyInputs* key_inputs, uint32 key, bool state) {
@@ -59,10 +59,10 @@ bool gamepad_button_is_released(GamepadInputs* gamepad_inputs, uint32 button) {
     return gamepad_inputs->buttons[button] == KEY_STATE_RELEASED;
 }
 bool gamepad_button_is_up(GamepadInputs* gamepad_inputs, uint32 button) {
-    return gamepad_inputs->buttons[button] >= KEY_STATE_PRESSED; // KEY_STATE_PRESSED || KEY_STATE_REPEATED
+    return gamepad_inputs->buttons[button] <= KEY_STATE_RELEASED; // KEY_STATE_NULL || KEY_STATE_RELEASED
 }
 bool gamepad_button_is_down(GamepadInputs* gamepad_inputs, uint32 button) {
-    return gamepad_inputs->buttons[button] <= KEY_STATE_RELEASED; // KEY_STATE_NULL || KEY_STATE_RELEASED
+    return gamepad_inputs->buttons[button] >= KEY_STATE_PRESSED; // KEY_STATE_PRESSED || KEY_STATE_REPEATED
 }
 float32 gamepad_axis_value(GamepadInputs* gamepad_inputs, uint32 axis) {
     return gamepad_inputs->axis_values[axis];
