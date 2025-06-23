@@ -720,10 +720,11 @@ UIElementStore ui_element_store_new_with_count_hint(uint32 count_hint) {
 
     store.layer_sort = bump_alloc_aligned(&store.memory, layer_sort_array_layout);
     store.elems = bump_alloc_aligned(&store.memory, elems_array_layout);
-
+    
     // store.layer_sort = bump_alloc(&store.memory, layer_sort_array_layout.size);
     // store.elems = bump_alloc(&store.memory, elems_array_layout.size);
-
+    
+    store.memory_reset_cursor = store.memory.cursor;
     return store;
 }
 
@@ -757,7 +758,7 @@ void ui_element_store_drop(UIElementStore* store) {
 
 void ui_element_store_clear(UIElementStore* store) {
     ui_element_store_drop_elements(store);
-    reset_bump_allocator(&store->memory);
+    store->memory.cursor = store->memory_reset_cursor;
     store->count = 0;
 }
 

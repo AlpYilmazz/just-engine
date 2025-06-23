@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "raylib.h"
 #include "raymath.h"
@@ -6,6 +7,21 @@
 #include "base.h"
 
 #include "collision.h"
+
+AABBColliderSet clone_aabb_collider_set(AABBColliderSet* set) {
+    usize size = sizeof(*set->colliders) * set->count;
+
+    AABBColliderSet set_clone = {0};
+    set_clone.count = set->count;
+    set_clone.capacity = set->count;
+    set_clone.colliders = malloc(size);
+
+    memcpy(set_clone.colliders, set->colliders, size);
+
+    return set_clone;
+}
+
+// -----
 
 float32 collider_dist_circle_circle(CircleCollider c1, CircleCollider c2) {
     return Vector2Distance(c1.center, c2.center) - c1.radius - c2.radius;

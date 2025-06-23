@@ -86,6 +86,8 @@ SpriteEntityId spawn_sprite(
 void despawn_sprite(SpriteStore* sprite_store, SpriteEntityId sprite_id);
 bool sprite_is_valid(SpriteStore* sprite_store, SpriteEntityId sprite_id);
 
+void destroy_sprite_store(SpriteStore* sprite_store);
+
 void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteCameraStore* sprite_camera_store,
     SpriteStore* sprite_store,

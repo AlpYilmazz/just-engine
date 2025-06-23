@@ -35,6 +35,8 @@ typedef struct {
 
 // TODO: FreeRectangleCollider: arbitrarily rotated rectangle
 
+AABBColliderSet clone_aabb_collider_set(AABBColliderSet* set);
+
 static inline AABBCollider shift_aabb(SpaceShift shift, AABBCollider aabb) {
     return (AABBCollider) {
         .x_left = shift.translation.x + (aabb.x_left * shift.scale.x),

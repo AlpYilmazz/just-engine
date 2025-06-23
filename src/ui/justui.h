@@ -92,6 +92,7 @@ typedef struct {
 
 typedef struct {
     BumpAllocator memory;
+    byte* memory_reset_cursor;
     uint32 count;
     UIElement** elems;
     ElementSort* layer_sort;
@@ -220,6 +221,7 @@ UIElementStore ui_element_store_new_active_with_count_hint(uint32 count_hint);
 UIElementStore ui_element_store_new_active();
 void ui_element_store_drop_elements(UIElementStore* store);
 void ui_element_store_drop(UIElementStore* store);
+void ui_element_store_clear(UIElementStore* store);
 
 void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id);
 UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id);

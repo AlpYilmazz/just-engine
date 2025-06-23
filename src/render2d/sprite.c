@@ -78,6 +78,13 @@ bool sprite_is_valid(SpriteStore* sprite_store, SpriteEntityId sprite_id) {
     return sprite_id.id < sprite_store->count && sprite_id.generation == sprite_store->generations[sprite_id.id];
 }
 
+void destroy_sprite_store(SpriteStore* sprite_store) {
+    free(sprite_store->slot_occupied);
+    free(sprite_store->generations);
+    free(sprite_store->transforms);
+    free(sprite_store->sprites);
+}
+
 void render_sprites_push_back(SortedRenderSprites* render_sprites, RenderSprite render_sprite) {
     #define INITIAL_CAPACITY 100
     #define GROWTH_FACTOR 2

@@ -2,6 +2,22 @@
 
 #include "base.h"
 
+#define dynarray_free(arr) \
+    do { \
+        if ((arr)->capacity > 0) { \
+            (arr)->count = 0; \
+            free((arr)->capacity); \
+        } \
+    } while(0);
+
+#define dynarray_free_custom(arr, items_field) \
+    do { \
+        if ((arr)->capacity > 0) { \
+            (arr)->count = 0; \
+            free((arr)->items_field); \
+        } \
+    } while(0);
+
 #define dynarray_push_back(arr, item) \
     do { \
         const uint32 DYNARRAY_INITIAL_CAPACITY = 2;\

@@ -97,8 +97,16 @@ typedef struct {
 } RectSize;
 
 typedef struct {
-    uint32 width;
-    uint32 height;
+    union {
+        struct {
+            uint32 width;
+            uint32 height;
+        };
+        struct {
+            uint32 x;
+            uint32 y;
+        };
+    };
 } URectSize;
 
 static inline Rectangle into_rectangle(Vector2 position, RectSize size) {

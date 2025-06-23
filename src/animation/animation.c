@@ -1,385 +1,87 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-
 #include "base.h"
-#include "assets/asset.h"
 
 #include "animation.h"
 
-// Timer
+// typedef struct {
+//     URectSize texture_offset;
+//     URectSize sprite_size;
+//     uint32 rows;
+//     uint32 cols;
+//     uint32 frame_count;
+//     StepTimer timer;
+//     uint32 current_frame;
+//     bool finished;
+// } SpriteSheetAnimationState;
 
-Timer new_timer(float setup_secs, TimerMode mode) {
-    return (Timer) {
-        .mode = mode,
-        .time_setup = setup_secs,
-        .time_elapsed = 0.0,
-        .finished = false,
-    };
-}
-
-void reset_timer(Timer* timer) {
-    timer->time_elapsed = 0.0;
-    timer->finished = false;
-}
-
-void tick_timer(Timer* timer, float delta_time_seconds) {
-    switch (timer->mode) {
-    case Timer_NonRepeating:
-        if (!timer->finished) {
-            timer->time_elapsed += delta_time_seconds;
-            if (timer->time_elapsed >= timer->time_setup) {
-                timer->finished = true;
-            }
-        }
-        break;
-    case Timer_Repeating:
-        timer->time_elapsed += delta_time_seconds;
-        if (timer->time_elapsed >= timer->time_setup) {
-            timer->time_elapsed = 0.0;
-            timer->finished = true;
-        }
-        break;
-    }
-}
-
-bool timer_is_finished(Timer* timer) {
-    switch (timer->mode) {
-    case Timer_NonRepeating:
-        return timer->finished;
-    case Timer_Repeating:
-        if (timer->finished) {
-            timer->finished = false;
-            return true;
-        }
-        return false;
-    }
-}
-
-// SequenceTimer
-
-SequenceTimer new_sequence_timer(float* checkpoints, int count, TimerMode mode) {
-    return (SequenceTimer) {
-        .mode = mode,
-        .checkpoint_count = count,
-        .index = 0,
-        .checkpoints = checkpoints,
-        .time_elapsed = 0.0,
-        .pulsed = false,
-        .finished = false,
-    };
-}
-
-// allocates
-SequenceTimer new_sequence_timer_evenly_spaced(float time_between, int count, TimerMode mode) {
-    float* checkpoints = malloc(count * sizeof(float));
-    for (int i = 0; i < count; i++) {
-        checkpoints[i] = time_between * (i+1);
-    }
-    return (SequenceTimer) {
-        .mode = mode,
-        .checkpoint_count = count,
-        .index = 0,
-        .checkpoints = checkpoints,
-        .time_elapsed = 0.0,
-        .pulsed = false,
-        .finished = false,
-    };
-}
-
-void reset_sequence_timer(SequenceTimer* stimer) {
-    stimer->index = 0;
-    stimer->time_elapsed = 0.0;
-    stimer->pulsed = false;
-    stimer->finished = false;
-}
-
-void tick_sequence_timer(SequenceTimer* stimer, float delta_time_seconds) {
-    if (stimer->checkpoint_count == 0) {
-        stimer->finished = true;
-        return;
-    }
-
-    switch (stimer->mode) {
-    case Timer_NonRepeating:
-        if (!stimer->finished) {
-            float checkpoint = stimer->checkpoints[stimer->index];
-            stimer->time_elapsed += delta_time_seconds;
-            if (stimer->time_elapsed >= checkpoint) {
-                stimer->pulsed = true;
-                stimer->index++;
-                stimer->index %= stimer->checkpoint_count;
-                if (stimer->index == 0) {
-                    stimer->finished = true;
-                }
-            }
-        }
-        break;
-    case Timer_Repeating:
-        float checkpoint = stimer->checkpoints[stimer->index];
-        stimer->time_elapsed += delta_time_seconds;
-        if (stimer->time_elapsed >= checkpoint) {
-            stimer->pulsed = true;
-            stimer->index++;
-            stimer->index %= stimer->checkpoint_count;
-            if (stimer->index == 0) {
-                stimer->time_elapsed = 0.0;
-            }
-        }
-        break;
-    }
-}
-
-bool sequence_timer_has_pulsed(SequenceTimer* stimer) {
-    if (stimer->pulsed) {
-        stimer->pulsed = false;
-        return true;
-    }
-    return false;
-}
-
-bool sequence_timer_is_finished(SequenceTimer* stimer) {
-    switch (stimer->mode) {
-    case Timer_NonRepeating:
-        return stimer->finished;
-    case Timer_Repeating:
-        if (stimer->finished) {
-            stimer->finished = false;
-            return true;
-        }
-        return false;
-    }
-}
-
-// FrameTimer
-
-FrameTimer new_frame_timer(uint32 count, TimerMode mode) {
-    return (FrameTimer) {
-        .mode = mode,
-        .count = count,
+SpriteSheetAnimationState new_animation_state_row(
+    URectSize sprite_size,
+    uint32 frame_count
+) {
+    return (SpriteSheetAnimationState) {
+        .texture_offset = {0, 0},
+        .sprite_size = sprite_size,
+        .rows = 1,
+        .cols = frame_count,
+        .frame_count = frame_count,
+        //
+        .timer = new_step_timer(1, Timer_Repeating),
         .current_frame = 0,
         .finished = false,
     };
 }
 
-void reset_frame_timer(FrameTimer* ftimer) {
-    ftimer->current_frame = 0;
-    ftimer->finished = false;
-}
-
-void tick_frame_timer(FrameTimer* ftimer) {
-    switch (ftimer->mode) {
-    case Timer_NonRepeating:
-        if (!ftimer->finished) {
-            ftimer->current_frame++;
-            if (ftimer->current_frame >= ftimer->count) {
-                ftimer->finished = true;
-            }
-        }
-        break;
-    case Timer_Repeating:
-        ftimer->current_frame++;
-        if (ftimer->current_frame >= ftimer->count) {
-            ftimer->current_frame = 0;
-            ftimer->finished = true;
-        }
-        break;
-    }
-}
-
-bool frame_timer_is_finished(FrameTimer* ftimer) {
-    switch (ftimer->mode) {
-    case Timer_NonRepeating:
-        return ftimer->finished;
-    case Timer_Repeating:
-        if (ftimer->finished) {
-            ftimer->finished = false;
-            return true;
-        }
-        return false;
-    }
-}
-
-// SpriteAnimation
-
-SpriteAnimation new_sprite_animation(SequenceTimer timer, TextureHandle* textures, int texture_count) {
-    return (SpriteAnimation) {
-        .timer = timer,
-        .textures = textures,
-        .texture_count = texture_count,
-        .current_texture_ind = 0,
-    };
-}
-
-void tick_animation_timer(SpriteAnimation* anim, float delta_time_seconds) {
-    if (anim->texture_count == 0) return;
-
-    tick_sequence_timer(&anim->timer, delta_time_seconds);
-    if (sequence_timer_has_pulsed(&anim->timer)) {
-        anim->current_texture_ind++;
-        anim->current_texture_ind %= anim->texture_count;
-    }
-}
-
-TextureHandle get_current_texture(SpriteAnimation* anim) {
-    if (anim->texture_count == 0) return new_texture_handle(DEFAULT_TEXTURE_HANDLE_ID);
-    return anim->textures[anim->current_texture_ind];
-}
-
-// SpriteSheetAnimation
-
-SpriteSheetAnimation new_sprite_sheet_animation(
-    SequenceTimer timer,
-    TextureHandle sprite_sheet_texture,
-    Vector2 sprite_size,
-    int rows,
-    int cols,
-    int count
+SpriteSheetAnimationState new_animation_state_grid(
+    URectSize sprite_size,
+    uint32 rows,
+    uint32 cols,
+    uint32 frame_count
 ) {
-    return (SpriteSheetAnimation) {
-        .timer = timer,
-        .sprite_sheet_texture = sprite_sheet_texture,
+    return (SpriteSheetAnimationState) {
+        .texture_offset = {0, 0},
         .sprite_size = sprite_size,
         .rows = rows,
         .cols = cols,
-        .count = count,
-        .current_sprite_ind = 0,
-    };
-}
-
-SpriteSheetAnimation new_sprite_sheet_animation_single_row(
-    SequenceTimer timer,
-    TextureHandle sprite_sheet_texture,
-    Vector2 sprite_size,
-    int count
-) {
-    return new_sprite_sheet_animation(
-        timer,
-        sprite_sheet_texture,
-        sprite_size,
-        1, count, count
-    );
-}
-
-SpriteSheetAnimation new_sprite_sheet_animation_single_row_even_timer(
-    TextureHandle sprite_sheet_texture,
-    Vector2 sprite_size,
-    int count,
-    float time_between,
-    TimerMode mode
-) {
-    return new_sprite_sheet_animation(
-        new_sequence_timer_evenly_spaced(time_between, count, mode),
-        sprite_sheet_texture,
-        sprite_size,
-        1, count, count
-    );
-}
-
-void reset_sprite_sheet_animation(SpriteSheetAnimation* anim) {
-    reset_sequence_timer(&anim->timer);
-    anim->current_sprite_ind = 0;
-}
-
-void tick_sprite_sheet_animation_timer(SpriteSheetAnimation* anim, float delta_time_seconds) {
-    if (anim->count == 0) return;
-
-    tick_sequence_timer(&anim->timer, delta_time_seconds);
-    if (sequence_timer_has_pulsed(&anim->timer)) {
-        anim->current_sprite_ind++;
-        anim->current_sprite_ind %= anim->count;
-    }
-}
-
-SpriteSheetSprite sprite_sheet_get_current_sprite(SpriteSheetAnimation* anim) {
-    if (anim->count == 0) {
-        return (SpriteSheetSprite) {
-            .texture_handle = new_texture_handle(DEFAULT_TEXTURE_HANDLE_ID),
-            .sprite = {0, 0, 1, 1},
-        };
-    }
-
-    int r = anim->current_sprite_ind / anim->cols;
-    int c = anim->current_sprite_ind % anim->cols;
-
-    return (SpriteSheetSprite) {
-        .texture_handle = anim->sprite_sheet_texture,
-        .sprite = (Rectangle) {
-            .x = c * anim->sprite_size.x,
-            .y = r * anim->sprite_size.y,
-            .width = anim->sprite_size.x,
-            .height = anim->sprite_size.y,
-        },
-    };
-}
-
-// FrameSpriteSheetAnimation
-
-/**
- * Requires single row sprite sheet
- * With frame_count number of frames
- */
-FrameSpriteSheetAnimation new_frame_sprite_sheet_animation(
-    RectSize sprite_size,
-    uint32 frame_count
-) {
-    return (FrameSpriteSheetAnimation) {
-        .timer = new_frame_timer(1, Timer_Repeating),
-        .sprite_size = sprite_size,
         .frame_count = frame_count,
-        .current = 0,
+        //
+        .timer = new_step_timer(1, Timer_Repeating),
+        .current_frame = 0,
         .finished = false,
     };
 }
 
-FrameSpriteSheetAnimation new_frame_sprite_sheet_animation_with_spacing(
-    RectSize sprite_size,
-    uint32 frame_count,
-    uint32 frame_spacing
-) {
-    return (FrameSpriteSheetAnimation) {
-        .timer = new_frame_timer(frame_spacing, Timer_Repeating),
-        .sprite_size = sprite_size,
-        .frame_count = frame_count,
-        .current = 0,
-        .finished = false,
-    };
+void reset_animation_state(SpriteSheetAnimationState* state) {
+    reset_step_timer(&state->timer);
+    state->current_frame = 0;
+    state->finished = false;
 }
 
-void reset_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim) {
-    reset_frame_timer(&anim->timer);
-    anim->current = 0;
-    anim->finished = false;
-}
-
-void tick_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim) {
-    tick_frame_timer(&anim->timer);
-    if (frame_timer_is_finished(&anim->timer)) {
-        anim->current = (anim->current + 1) % anim->frame_count;
-        if (anim->current == 0) {
-            anim->finished = true;
-        }
+void tick_animation_state(SpriteSheetAnimationState* state) {
+    tick_step_timer(&state->timer);
+    if (step_timer_is_finished(&state->timer)) {
+        state->current_frame = (state->current_frame + 1) % state->frame_count;
+        state->finished = !state->current_frame; // if 0
     }
 }
 
-void tick_back_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim) {
-    // TODO: is timer related
-    anim->current = (anim->current + anim->frame_count - 1) % anim->frame_count;
+void tick_back_animation_state(SpriteSheetAnimationState* state) {
+    state->current_frame = (state->current_frame - 1 + state->frame_count) % state->frame_count;
 }
 
-Rectangle sprite_sheet_get_current_frame(FrameSpriteSheetAnimation* anim) {
+Rectangle animation_state_current_frame(SpriteSheetAnimationState* state) {
+    uint32 row_i = state->current_frame / state->rows;
+    uint32 col_i = state->current_frame % state->rows;
+
     return (Rectangle) {
-        .x = anim->current * anim->sprite_size.width,
-        .y = 0,
-        .width = anim->sprite_size.width,
-        .height = anim->sprite_size.height,
+        .x = state->texture_offset.x + (state->sprite_size.width * col_i),
+        .x = state->texture_offset.y + (state->sprite_size.height * row_i),
+        .width = state->sprite_size.width,
+        .height = state->sprite_size.height,
     };
 }
 
-bool frame_animation_is_finished(FrameSpriteSheetAnimation* anim) {
-    if (anim->finished) {
-        anim->finished = false;
+bool animation_is_finished(SpriteSheetAnimationState* state) {
+    if (state->finished) {
+        state->finished = false;
         return true;
     }
     return false;

@@ -215,8 +215,16 @@ typedef struct {
 } RectSize;
 
 typedef struct {
-    uint32 width;
-    uint32 height;
+    union {
+        struct {
+            uint32 width;
+            uint32 height;
+        };
+        struct {
+            uint32 x;
+            uint32 y;
+        };
+    };
 } URectSize;
 
 static inline Rectangle into_rectangle(Vector2 position, RectSize size) {
@@ -370,6 +378,22 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 
 #define __HEADER_MEMORY_MEMORY
 #ifdef __HEADER_MEMORY_MEMORY
+
+#define dynarray_free(arr) \
+    do { \
+        if ((arr)->capacity > 0) { \
+            (arr)->count = 0; \
+            free((arr)->capacity); \
+        } \
+    } while(0);
+
+#define dynarray_free_custom(arr, items_field) \
+    do { \
+        if ((arr)->capacity > 0) { \
+            (arr)->count = 0; \
+            free((arr)->items_field); \
+        } \
+    } while(0);
 
 #define dynarray_push_back(arr, item) \
     do { \
@@ -1178,133 +1202,155 @@ uint32 controls_map_get_control(ControlsMap* controls, uint32 input);
 
 #endif // __HEADER_INPUT_INPUT
 
-#define __HEADER_ANIMATION_ANIMATION
-#ifdef __HEADER_ANIMATION_ANIMATION
+#define __HEADER_ANIMATION_TIMER
+#ifdef __HEADER_ANIMATION_TIMER
 
 typedef enum {
+    Timer_Repeating = 0,
     Timer_NonRepeating,
-    Timer_Repeating,
 } TimerMode;
 
 typedef struct {
     TimerMode mode;
-    float time_setup;
-    float time_elapsed;
+    float32 time_setup;
+    float32 time_elapsed;
     bool finished;
 } Timer;
 
-Timer new_timer(float setup_secs, TimerMode mode);
+Timer new_timer(float32 setup_secs, TimerMode mode);
 void reset_timer(Timer* timer);
-void tick_timer(Timer* timer, float delta_time_seconds);
+void tick_timer(Timer* timer, float32 delta_time);
 bool timer_is_finished(Timer* timer);
 
 typedef struct {
     TimerMode mode;
-    int checkpoint_count;
-    int index;
-    float* checkpoints;
-    float time_elapsed;
+    uint32 checkpoint_count;
+    float32* checkpoints;
+    uint32 current_index;
+    float32 time_elapsed;
     bool pulsed;
     bool finished;
 } SequenceTimer;
 
-SequenceTimer new_sequence_timer(float* checkpoints, int count, TimerMode mode);
-SequenceTimer new_sequence_timer_evenly_spaced(float time_between, int count, TimerMode mode);
-void reset_sequence_timer(SequenceTimer* stimer);
-void tick_sequence_timer(SequenceTimer* stimer, float delta_time_seconds);
-bool sequence_timer_has_pulsed(SequenceTimer* stimer);
-bool sequence_timer_is_finished(SequenceTimer* stimer);
+SequenceTimer new_sequence_timer(float32* ref_checkpoints, uint32 count, TimerMode mode);
+SequenceTimer new_sequence_timer_evenly_spaced(float32 time_between, uint32 count, TimerMode mode);
+void reset_sequence_timer(SequenceTimer* timer);
+void tick_sequence_timer(SequenceTimer* timer, float delta_time);
+bool sequence_timer_has_pulsed(SequenceTimer* timer);
+bool sequence_timer_is_finished(SequenceTimer* timer);
 
 typedef struct {
     TimerMode mode;
-    uint32 count;
+    uint32 step_count;
+    uint32 current_step;
+    bool finished;
+} StepTimer;
+
+StepTimer new_step_timer(uint32 count, TimerMode mode);
+void reset_step_timer(StepTimer* timer);
+void tick_step_timer(StepTimer* timer);
+bool step_timer_is_finished(StepTimer* timer);
+
+#endif // __HEADER_ANIMATION_TIMER
+
+#define __HEADER_ANIMATION_TWEEN
+#ifdef __HEADER_ANIMATION_TWEEN
+
+typedef float32 (*EaseFunction)(float32 p);
+
+float32 ease_quadratic_in(float32 p);
+float32 ease_quadratic_out(float32 p);
+float32 ease_quadratic_in_out(float32 p);
+
+float32 ease_cubic_in(float32 p);
+float32 ease_cubic_out(float32 p);
+float32 ease_cubic_in_out(float32 p);
+
+float32 ease_quartic_in(float32 p);
+float32 ease_quartic_out(float32 p);
+float32 ease_quartic_in_out(float32 p);
+
+float32 ease_quintic_in(float32 p);
+float32 ease_quintic_out(float32 p);
+float32 ease_quintic_in_out(float32 p);
+
+float32 ease_sine_in(float32 p);
+float32 ease_sine_out(float32 p);
+float32 ease_sine_in_out(float32 p);
+
+float32 ease_circular_in(float32 p);
+float32 ease_circular_out(float32 p);
+float32 ease_circular_in_out(float32 p);
+
+float32 ease_exponential_in(float32 p);
+float32 ease_exponential_out(float32 p);
+float32 ease_exponential_in_out(float32 p);
+
+float32 ease_elastic_in(float32 p);
+float32 ease_elastic_out(float32 p);
+float32 ease_elastic_in_out(float32 p);
+
+float32 ease_back_in(float32 p);
+float32 ease_back_out(float32 p);
+float32 ease_back_in_out(float32 p);
+
+float32 ease_bounce_in(float32 p);
+float32 ease_bounce_out(float32 p);
+float32 ease_bounce_in_out(float32 p);
+
+typedef enum {
+    ANIMATION_CURVE_LINEAR = 0,
+    ANIMATION_CURVE_STEP,
+    ANIMATION_CURVE_EASED,
+} AnimationCurveType;
+
+typedef struct {
+    AnimationCurveType type;
+    union {
+        float32 step_cutoff;
+        EaseFunction ease_function;
+    };
+} AnimationCurve;
+
+AnimationCurve animation_curve_linear();
+AnimationCurve animation_curve_step(float32 step_cutoff);
+AnimationCurve animation_curve_eased(EaseFunction ease_function);
+
+float32 eval_animation_curve(AnimationCurve curve, float32 progress);
+
+#endif // __HEADER_ANIMATION_TWEEN
+
+#define __HEADER_ANIMATION_ANIMATION
+#ifdef __HEADER_ANIMATION_ANIMATION
+
+typedef struct {
+    // -- Setup --
+    URectSize texture_offset;
+    URectSize sprite_size;
+    uint32 rows;
+    uint32 cols;
+    uint32 frame_count;
+    // -- State --
+    StepTimer timer;
     uint32 current_frame;
     bool finished;
-} FrameTimer;
+} SpriteSheetAnimationState;
 
-FrameTimer new_frame_timer(uint32 count, TimerMode mode);
-void reset_frame_timer(FrameTimer* ftimer);
-void tick_frame_timer(FrameTimer* ftimer);
-bool frame_timer_is_finished(FrameTimer* ftimer);
-
-typedef struct {
-    SequenceTimer timer;
-    TextureHandle* textures;
-    int texture_count;
-    int current_texture_ind;
-} SpriteAnimation;
-
-SpriteAnimation new_sprite_animation(SequenceTimer timer, TextureHandle* textures, int texture_count);
-void tick_animation_timer(SpriteAnimation* anim, float delta_time_seconds);
-TextureHandle get_current_texture(SpriteAnimation* anim);
-
-typedef struct {
-    SequenceTimer timer;
-    TextureHandle sprite_sheet_texture;
-    Vector2 sprite_size;
-    int rows;
-    int cols;
-    int count;
-    int current_sprite_ind;
-} SpriteSheetAnimation;
-
-SpriteSheetAnimation new_sprite_sheet_animation(
-    SequenceTimer timer,
-    TextureHandle sprite_sheet_texture,
-    Vector2 sprite_size,
-    int rows,
-    int cols,
-    int count
-);
-SpriteSheetAnimation new_sprite_sheet_animation_single_row(
-    SequenceTimer timer,
-    TextureHandle sprite_sheet_texture,
-    Vector2 sprite_size,
-    int count
-);
-SpriteSheetAnimation new_sprite_sheet_animation_single_row_even_timer(
-    TextureHandle sprite_sheet_texture,
-    Vector2 sprite_size,
-    int count,
-    float time_between,
-    TimerMode mode
-);
-void reset_sprite_sheet_animation(SpriteSheetAnimation* anim);
-void tick_sprite_sheet_animation_timer(SpriteSheetAnimation* anim, float delta_time_seconds);
-
-typedef struct {
-    TextureHandle texture_handle;
-    Rectangle sprite;
-} SpriteSheetSprite;
-
-SpriteSheetSprite sprite_sheet_get_current_sprite(SpriteSheetAnimation* anim);
-
-typedef struct {
-    FrameTimer timer;
-    RectSize sprite_size;
-    uint32 frame_count;
-    uint32 current;
-    bool finished;
-} FrameSpriteSheetAnimation;
-
-/**
- * Requires single row sprite sheet
- * With frame_count number of frames
- */
-FrameSpriteSheetAnimation new_frame_sprite_sheet_animation(
-    RectSize sprite_size,
+SpriteSheetAnimationState new_animation_state_row(
+    URectSize sprite_size,
     uint32 frame_count
 );
-FrameSpriteSheetAnimation new_frame_sprite_sheet_animation_with_spacing(
-    RectSize sprite_size,
-    uint32 frame_count,
-    uint32 frame_spacing
+SpriteSheetAnimationState new_animation_state_grid(
+    URectSize sprite_size,
+    uint32 rows,
+    uint32 cols,
+    uint32 frame_count
 );
-void reset_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
-void tick_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
-void tick_back_frame_sprite_sheet_animation(FrameSpriteSheetAnimation* anim);
-Rectangle sprite_sheet_get_current_frame(FrameSpriteSheetAnimation* anim);
-bool frame_animation_is_finished(FrameSpriteSheetAnimation* anim);
+void reset_animation_state(SpriteSheetAnimationState* state);
+void tick_animation_state(SpriteSheetAnimationState* state);
+void tick_back_animation_state(SpriteSheetAnimationState* state);
+Rectangle animation_state_current_frame(SpriteSheetAnimationState* state);
+bool animation_is_finished(SpriteSheetAnimationState* state);
 
 #endif // __HEADER_ANIMATION_ANIMATION
 
@@ -1341,6 +1387,8 @@ typedef struct {
 } AABBColliderSet;
 
 // TODO: FreeRectangleCollider: arbitrarily rotated rectangle
+
+AABBColliderSet clone_aabb_collider_set(AABBColliderSet* set);
 
 static inline AABBCollider shift_aabb(SpaceShift shift, AABBCollider aabb) {
     return (AABBCollider) {
@@ -1533,6 +1581,7 @@ typedef struct {
 
 typedef struct {
     BumpAllocator memory;
+    byte* memory_reset_cursor;
     uint32 count;
     UIElement** elems;
     ElementSort* layer_sort;
@@ -1661,6 +1710,7 @@ UIElementStore ui_element_store_new_active_with_count_hint(uint32 count_hint);
 UIElementStore ui_element_store_new_active();
 void ui_element_store_drop_elements(UIElementStore* store);
 void ui_element_store_drop(UIElementStore* store);
+void ui_element_store_clear(UIElementStore* store);
 
 void* get_ui_element_unchecked(UIElementStore* store, UIElementId elem_id);
 UIElement* get_ui_element(UIElementStore* store, UIElementId elem_id);
@@ -1796,6 +1846,8 @@ SpriteEntityId spawn_sprite(
 );
 void despawn_sprite(SpriteStore* sprite_store, SpriteEntityId sprite_id);
 bool sprite_is_valid(SpriteStore* sprite_store, SpriteEntityId sprite_id);
+
+void destroy_sprite_store(SpriteStore* sprite_store);
 
 void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     SpriteCameraStore* sprite_camera_store,
