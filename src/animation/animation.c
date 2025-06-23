@@ -68,12 +68,12 @@ void tick_back_animation_state(SpriteSheetAnimationState* state) {
 }
 
 Rectangle animation_state_current_frame(SpriteSheetAnimationState* state) {
-    uint32 row_i = state->current_frame / state->rows;
-    uint32 col_i = state->current_frame % state->rows;
+    uint32 row_i = state->current_frame / state->cols;
+    uint32 col_i = state->current_frame % state->cols;
 
     return (Rectangle) {
         .x = state->texture_offset.x + (state->sprite_size.width * col_i),
-        .x = state->texture_offset.y + (state->sprite_size.height * row_i),
+        .y = state->texture_offset.y + (state->sprite_size.height * row_i),
         .width = state->sprite_size.width,
         .height = state->sprite_size.height,
     };
