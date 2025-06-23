@@ -381,55 +381,75 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 
 #define dynarray_free(arr) \
     do { \
-        if ((arr)->capacity > 0) { \
-            (arr)->count = 0; \
-            free((arr)->capacity); \
+        if ((arr).capacity > 0) { \
+            (arr).count = 0; \
+            free((arr).items); \
         } \
-    } while(0);
+    } while(0)
 
 #define dynarray_free_custom(arr, items_field) \
     do { \
-        if ((arr)->capacity > 0) { \
-            (arr)->count = 0; \
-            free((arr)->items_field); \
+        if ((arr).capacity > 0) { \
+            (arr).count = 0; \
+            free((arr)items_field); \
         } \
-    } while(0);
+    } while(0)
 
 #define dynarray_push_back(arr, item) \
     do { \
-        const uint32 DYNARRAY_INITIAL_CAPACITY = 2;\
-        const uint32 DYNARRAY_GROWTH_FACTOR = 2;\
+        const uint32 DYNARRAY_INITIAL_CAPACITY = 2; \
+        const uint32 DYNARRAY_GROWTH_FACTOR = 2; \
 \
-        if ((arr)->capacity == 0) { \
-            (arr)->capacity = DYNARRAY_INITIAL_CAPACITY; \
-            (arr)->items = malloc((arr)->capacity * sizeof((item))); \
+        if ((arr).capacity == 0) { \
+            (arr).capacity = DYNARRAY_INITIAL_CAPACITY; \
+            (arr).items = malloc((arr).capacity * sizeof((item))); \
         } \
-        else if ((arr)->count == (arr)->capacity) { \
-            (arr)->capacity = DYNARRAY_GROWTH_FACTOR * (arr)->capacity; \
-            (arr)->items = realloc((arr)->items, (arr)->capacity * sizeof((item))); \
+        else if ((arr).count == (arr).capacity) { \
+            (arr).capacity = DYNARRAY_GROWTH_FACTOR * (arr).capacity; \
+            (arr).items = realloc((arr).items, (arr).capacity * sizeof((item))); \
         } \
         \
-        (arr)->items[(arr)->count] = (item); \
-        (arr)->count++; \
-    } while(0);
+        (arr).items[(arr).count] = (item); \
+        (arr).count++; \
+    } while(0)
 
 #define dynarray_push_back_custom(arr, items_field, item) \
     do { \
-        const uint32 DYNARRAY_INITIAL_CAPACITY = 2;\
-        const uint32 DYNARRAY_GROWTH_FACTOR = 2;\
+        const uint32 DYNARRAY_INITIAL_CAPACITY = 2; \
+        const uint32 DYNARRAY_GROWTH_FACTOR = 2; \
 \
-        if ((arr)->capacity == 0) { \
-            (arr)->capacity = DYNARRAY_INITIAL_CAPACITY; \
-            (arr)->items_field = malloc((arr)->capacity * sizeof((item))); \
+        if ((arr).capacity == 0) { \
+            (arr).capacity = DYNARRAY_INITIAL_CAPACITY; \
+            (arr)items_field = malloc((arr).capacity * sizeof((item))); \
         } \
-        else if ((arr)->count == (arr)->capacity) { \
-            (arr)->capacity = DYNARRAY_GROWTH_FACTOR * (arr)->capacity; \
-            (arr)->items_field = realloc((arr)->items_field, (arr)->capacity * sizeof((item))); \
+        else if ((arr).count == (arr).capacity) { \
+            (arr).capacity = DYNARRAY_GROWTH_FACTOR * (arr).capacity; \
+            (arr)items_field = realloc((arr)items_field, (arr).capacity * sizeof((item))); \
         } \
         \
-        (arr)->items_field[(arr)->count] = (item); \
-        (arr)->count++; \
-    } while(0);
+        (arr)items_field[(arr).count] = (item); \
+        (arr).count++; \
+    } while(0)
+
+#define dynarray_clone(dst_arr, src_arr) \
+    do { \
+        usize size = sizeof(*(dst_arr).items) * (dst_arr).count; \
+        (src_arr).count = (dst_arr).count; \
+        (src_arr).capacity = (dst_arr).count; \
+        (src_arr).items = (dst_arr).items; \
+        (src_arr).items = malloc(size); \
+        memcpy((src_arr).items, (dst_arr).items, size); \
+    } while(0)
+
+#define dynarray_clone_custom(dst_arr, src_arr, items_field) \
+    do { \
+        usize size = sizeof(*(dst_arr)items_field) * (dst_arr).count; \
+        (src_arr).count = (dst_arr).count; \
+        (src_arr).capacity = (dst_arr).count; \
+        (src_arr)items_field = (dst_arr)items_field; \
+        (src_arr)items_field = malloc(size); \
+        memcpy((src_arr)items_field, (dst_arr)items_field, size); \
+    } while(0)
 
 static inline Buffer* malloc_buffer(usize size) {
     Buffer* buffer = malloc(sizeof(Buffer) + size); // Buffer + [bytes]

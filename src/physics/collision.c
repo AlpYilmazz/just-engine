@@ -11,8 +11,7 @@
 AABBColliderSet clone_aabb_collider_set(AABBColliderSet* set) {
     usize size = sizeof(*set->colliders) * set->count;
 
-    AABBColliderSet set_clone = {0};
-    set_clone.count = set->count;
+    AABBColliderSet set_clone = *set;
     set_clone.capacity = set->count;
     set_clone.colliders = malloc(size);
 
