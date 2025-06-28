@@ -5,6 +5,8 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
+#include <openssl/ssl.h>
+
 #include "core.h"
 #include "logging.h"
 #include "thread/threadsync.h"
@@ -17,6 +19,10 @@ SRWLock* NETWORK_THREAD_LOCK;
 
 atomic_bool interrupted = ATOMIC_VAR_INIT(1);
 SOCKET interrupt_socket;
+
+void test() {
+    SSL_read_ex(NULL, NULL, 0, NULL);
+}
 
 bool is_interrupted() {
     return atomic_load(&interrupted);

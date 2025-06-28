@@ -2,6 +2,13 @@
 #include "stdio.h"
 #include "stdbool.h"
 
+#include <openssl/ssl.h>
+void test() {
+    printf("start: SSL_read_ex\n");
+    SSL_read_ex(NULL, NULL, 0, NULL);
+    printf("end: SSL_read_ex\n");
+}
+
 typedef     unsigned int            uint32;
 typedef     unsigned long long      uint64;
 typedef     uint64                  usize;
@@ -49,6 +56,7 @@ int main() {
     printf("on_true: %d\n", on_true);
     printf("on_true_2: %d\n", on_true_2);
     printf("on_true_3: %d\n", on_true_3);
+    test();
     printf("on_false: %d\n", on_false);
     printf("on_false_2: %d\n", on_false_2);
 
