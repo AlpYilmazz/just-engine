@@ -4,9 +4,138 @@
 
 #include <openssl/ssl.h>
 void test() {
-    printf("start: SSL_read_ex\n");
-    SSL_read_ex(NULL, NULL, 0, NULL);
-    printf("end: SSL_read_ex\n");
+    printf("-- %d\n", __LINE__);
+    SSL_CTX* ctx = SSL_CTX_new(TLS_client_method());
+    if (ctx == NULL) {
+        printf("Failed to create the SSL_CTX\n");
+        goto end;
+    }
+
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+
+    /* Use the default trusted certificate store */
+    if (!SSL_CTX_set_default_verify_paths(ctx)) {
+        printf("Failed to set the default trusted certificate store\n");
+        goto end;
+    }
+
+    if (!SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION)) {
+        printf("Failed to set the minimum TLS protocol version\n");
+        goto end;
+    }
+
+    SSL* ssl = SSL_new(ctx);
+    if (ssl == NULL) {
+        printf("Failed to create the SSL object\n");
+        goto end;
+    }
+
+    char* hostname = "www.openssl.org";
+    char* port = "443";
+    int family = AF_INET;
+
+    int sock = -1;
+    BIO_ADDRINFO *res;
+    const BIO_ADDRINFO *ai = NULL;
+    printf("-- %d\n", __LINE__);
+
+    /*
+    * Lookup IP address info for the server.
+    */
+    if (!BIO_lookup_ex(hostname, port, BIO_LOOKUP_CLIENT, family, SOCK_STREAM, 0, &res)) {
+        printf("Failed BIO_lookup_ex\n");
+        goto end;
+    }
+
+    /*
+    * Loop through all the possible addresses for the server and find one
+    * we can connect to.
+    */
+    for (ai = res; ai != NULL; ai = BIO_ADDRINFO_next(ai)) {
+        /*
+        * Create a TCP socket. We could equally use non-OpenSSL calls such
+        * as "socket" here for this and the subsequent connect and close
+        * functions. But for portability reasons and also so that we get
+        * errors on the OpenSSL stack in the event of a failure we use
+        * OpenSSL's versions of these functions.
+        */
+        sock = BIO_socket(BIO_ADDRINFO_family(ai), SOCK_STREAM, 0, 0);
+        if (sock == -1)
+            continue;
+
+        /* Connect the socket to the server's address */
+        if (!BIO_connect(sock, BIO_ADDRINFO_address(ai), BIO_SOCK_NODELAY)) {
+            BIO_closesocket(sock);
+            sock = -1;
+            continue;
+        }
+
+        /* We have a connected socket so break out of the loop */
+        break;
+    }
+
+    /* Free the address information resources we allocated earlier */
+    BIO_ADDRINFO_free(res);
+
+    printf("-- %d\n", __LINE__);
+    /* Create a BIO to wrap the socket */
+    BIO* bio = BIO_new(BIO_s_socket());
+    if (bio == NULL) {
+        BIO_closesocket(sock);
+        printf("Failed BIO_new\n");
+        goto end;
+    }
+
+    /*
+    * Associate the newly created BIO with the underlying socket. By
+    * passing BIO_CLOSE here the socket will be automatically closed when
+    * the BIO is freed. Alternatively you can use BIO_NOCLOSE, in which
+    * case you must close the socket explicitly when it is no longer
+    * needed.
+    */
+    BIO_set_fd(bio, sock, BIO_CLOSE);
+
+    SSL_set_bio(ssl, bio, bio);
+    printf("-- %d\n", __LINE__);
+
+    /*
+    * Tell the server during the handshake which hostname we are attempting
+    * to connect to in case the server supports multiple hosts.
+    */
+    if (!SSL_set_tlsext_host_name(ssl, hostname)) {
+        printf("Failed to set the SNI hostname\n");
+        goto end;
+    }
+
+    /*
+    * Ensure we check during certificate verification that the server has
+    * supplied a certificate for the hostname that we were expecting.
+    * Virtually all clients should do this unless you really know what you
+    * are doing.
+    */
+    if (!SSL_set1_host(ssl, hostname)) {
+        printf("Failed to set the certificate verification hostname");
+        goto end;
+    }
+    printf("-- %d\n", __LINE__);
+
+    /* Do the handshake with the server */
+    if (SSL_connect(ssl) < 1) {
+        printf("Failed to connect to the server\n");
+        /*
+        * If the failure is due to a verification error we can get more
+        * information about it from SSL_get_verify_result().
+        */
+        if (SSL_get_verify_result(ssl) != X509_V_OK)
+            printf("Verify error: %s\n",
+                X509_verify_cert_error_string(SSL_get_verify_result(ssl)));
+        goto end;
+    }
+
+    printf("success\n");
+    end:
+    printf("end\n");
+    return;
 }
 
 typedef     unsigned int            uint32;

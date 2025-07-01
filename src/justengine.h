@@ -29,6 +29,8 @@ void JUST_LOG_WARN(const char* format, ...);
 void JUST_LOG_ERROR(const char* format, ...);
 void JUST_LOG_PANIC(const char* format, ...);
 
+#define JUST_DEV_MARK() printf("-- [%s] [%d] --\n", __FILE__, __LINE__)
+
 #endif // __HEAEDER_LOGGING
 
 #define __HEADER_CORE
@@ -82,6 +84,9 @@ DECLARE__Option(char);
 
 #define SIGNOF(x) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
 
+#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
+#define UNREACHABLE() { JUST_LOG_PANIC("UNREACHABLE: [%s] [%d]\n", __FILE__, __LINE__); exit(EXIT_FAILURE); }
+
 typedef struct {
     uint32 id;
     uint32 generation;
@@ -125,8 +130,6 @@ static inline usize filled_length(FillBuffer* buffer) {
 
 #define __HEADER_BASE
 #ifdef __HEADER_BASE
-
-#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
 
 static const uint32 ALL_SET_32 = 0b11111111111111111111111111111111;
 
@@ -566,14 +569,18 @@ void srw_lock_release_exclusive(SRWLock* lock);
 void srw_lock_release_shared(SRWLock* lock);
 
 #define SRW_LOCK_EXCLUSIVE_ZONE(SRW_LOCK, CodeBlock) \
+    do {\
     srw_lock_acquire_exclusive(SRW_LOCK);\
-        CodeBlock\
-    srw_lock_release_exclusive(SRW_LOCK);
+        do { CodeBlock; } while(0);\
+    srw_lock_release_exclusive(SRW_LOCK);\
+    } while (0)
 
 #define SRW_LOCK_SHARED_ZONE(SRW_LOCK, CodeBlock) \
+    do {\
     srw_lock_acquire_shared(SRW_LOCK);\
-        CodeBlock\
-    srw_lock_release_shared(SRW_LOCK);
+        do { CodeBlock; } while(0);\
+    srw_lock_release_shared(SRW_LOCK);\
+    } while (0)
 
 #endif // __HEADER_THREAD_THREADSYNC
 

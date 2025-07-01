@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdio.h>
+
 typedef enum {
     LOG_LEVEL_ALL = 0,
     LOG_LEVEL_TRACE,
@@ -18,3 +20,5 @@ void JUST_LOG_INFO(const char* format, ...);
 void JUST_LOG_WARN(const char* format, ...);
 void JUST_LOG_ERROR(const char* format, ...);
 void JUST_LOG_PANIC(const char* format, ...);
+
+#define JUST_DEV_MARK() printf("-- [%s] [%d] --\n", __FILE__, __LINE__)

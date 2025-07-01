@@ -1,14 +1,9 @@
 #pragma once
 
-#include "stdlib.h"
-
 #include "raylib.h"
 #include "raymath.h"
 
 #include "core.h"
-#include "logging.h"
-
-#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
 
 static const uint32 ALL_SET_32 = 0b11111111111111111111111111111111;
 

@@ -1,6 +1,9 @@
 #pragma once
 
+#include "stdlib.h"
 #include "stdbool.h"
+
+#include "logging.h"
 
 typedef     unsigned char           uint8;
 typedef     unsigned short          uint16;
@@ -49,6 +52,9 @@ DECLARE__Option(char);
 #define MIN(a, b) ((a <= b) ? a : b)
 
 #define SIGNOF(x) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
+
+#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
+#define UNREACHABLE() { JUST_LOG_PANIC("UNREACHABLE: [%s] [%d]\n", __FILE__, __LINE__); exit(EXIT_FAILURE); }
 
 typedef struct {
     uint32 id;
