@@ -610,36 +610,57 @@ void example_async_task_print_int_arg(TaskArgVoid* arg);
 #define __HEADER_NETWORK_NETWORK
 #ifdef __HEADER_NETWORK_NETWORK
 
-typedef uint64 SOCKET;
+#define SOCKET_WRITE_QUEUE_CAPACITY 10
 
-typedef enum {
-    SOCKET_TYPE_STREAM = 1,
-    SOCKET_TYPE_DATAGRAM = 2,
-} SocketTypeEnum;
+typedef uint64 Socket;
 
 typedef struct {
-    char* host; // string
+    char* host;
+    char* service;
     uint16 port;
 } SocketAddr;
 
-typedef void (*OnConnectFnStream)(SOCKET socket, bool success, void* arg);
-typedef bool (*OnReadFnStream)(SOCKET socket, BufferSlice read_buffer, void* arg);
-typedef void (*OnWriteFnStream)(SOCKET socket, void* arg);
+typedef enum {
+    CONNECT_SUCCESS = 0,
+    CONNECT_FAIL_GENERAL,
+    CONNECT_FAIL_SSL_GENERAL,
+    CONNECT_FAIL_SSL_VERIFY,
+} ConnectResult;
 
-typedef bool (*OnReadFnDatagram)(SOCKET socket, SocketAddr addr, BufferSlice datagram, void* arg);
-typedef void (*OnWriteFnDatagram)(SOCKET socket, SocketAddr addr, void* arg);
+typedef enum {
+    NETWORK_PROTOCOL_TCP = 0,
+    NETWORK_PROTOCOL_UDP,
+    NETWORK_PROTOCOL_TLS,
+    NETWORK_PROTOCOL_DTLS,
+} NetworkProtocolEnum;
+
+typedef enum {
+    CONNECTION_CLOSE_IMMEDIATE = 0,
+    CONNECTION_CLOSE_GRACEFULL,
+} ConnectionCloseEnum;
+
+typedef struct {
+    Socket socket;
+    SocketAddr remote_addr;
+} ReadContext;
+
+typedef struct {
+    Socket socket;
+    SocketAddr remote_addr;
+} WriteContext;
+
+typedef void (*OnConnectFn)(uint32 connect_id, Socket socket, ConnectResult result, void* arg);
+typedef bool (*OnReadFn)(ReadContext context, BufferSlice read_buffer, void* arg); // -> do_continue
+typedef void (*OnWriteFn)(WriteContext context, void* arg);
+typedef void (*OnCloseFn)(Socket socket, void* arg);
 
 void init_network_thread();
 
-SOCKET make_socket(SocketTypeEnum socket_type);
-void bind_socket(SOCKET socket, SocketAddr addr);
-
-void network_connect(SOCKET socket, SocketAddr addr, OnConnectFnStream on_connect, void* arg);
-void network_start_read_stream(SOCKET socket, OnReadFnStream on_read, void* arg);
-void network_write_stream(SOCKET socket, BufferSlice buffer, OnWriteFnStream on_write, void* arg);
-
-void network_start_read_datagram(SOCKET socket, OnReadFnDatagram on_read, void* arg);
-void network_write_datagram(SOCKET socket, SocketAddr addr, BufferSlice datagram, OnWriteFnDatagram on_write, void* arg);
+void network_connect(SocketAddr remote_addr, NetworkProtocolEnum protocol, uint32 connect_id, OnConnectFn on_connect, void* arg);
+void network_start_read(Socket socket, OnReadFn on_read, void* arg);
+void network_write_buffer(Socket socket, BufferSlice buffer, OnWriteFn on_write, void* arg);
+void network_write_buffer_to(Socket socket, SocketAddr remote_addr, BufferSlice buffer, OnWriteFn on_write, void* arg);
+void network_close_connection(Socket socket, ConnectionCloseEnum close, OnCloseFn on_close, void* arg);
 
 uint16 just_htons(uint16 hostnum);
 uint32 just_htonl(uint32 hostnum);

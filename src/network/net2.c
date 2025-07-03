@@ -14,9 +14,8 @@
 #include "thread/threadsync.h"
 
 #define SOCKET_NO_DEFINE
-#include "network/net2.h"
-
 typedef SOCKET Socket;
+#include "network/net2.h"
 
 HANDLE NETWORK_THREAD;
 uint32 NETWORK_THREAD_ID;
@@ -211,8 +210,11 @@ void store_network_connection(NetworkConnection connection) {
 }
 
 NetworkConnection* find_network_connection(Socket socket) {
+    JUST_LOG_INFO("Find [%llu]\n", socket);
     for (uint32 i = 0; i < NETWORK_CONNECTIONS.length; i++) {
+        JUST_LOG_INFO("Check [%llu]\n", NETWORK_CONNECTIONS.connections[i].conn.socket);
         if (NETWORK_CONNECTIONS.connections[i].conn.socket == socket) {
+            JUST_DEV_MARK();
             return &NETWORK_CONNECTIONS.connections[i];
         }
     }
@@ -323,16 +325,24 @@ typedef struct {
 NetworkRequestQueue REQUEST_QUEUE = {0};
 
 void queue_connect_request(NetworkConnectRequest connect_request) {
+    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.connect_requests[REQUEST_QUEUE.connect_length++] = connect_request;
+    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_read_request(NetworkReadRequest read_request) {
+    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.read_requests[REQUEST_QUEUE.read_length++] = read_request;
+    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_write_request(NetworkWriteRequest write_request) {
+    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.write_requests[REQUEST_QUEUE.write_length++] = write_request;
+    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_close_request(NetworkCloseRequest close_request) {
+    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.close_requests[REQUEST_QUEUE.close_length++] = close_request;
+    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 #pragma endregion NetworkRequestQueue
 
@@ -504,6 +514,7 @@ void TCP_free_connection(NetworkConnection* connection) {
 }
 
 NetworkConnectCommand UDP_init_connect(NetworkConnectRequest connect_request) {
+    JUST_LOG_TRACE("Init UDP\n");
     bool done = false;
     ConnectResult connect_result = CONNECT_SUCCESS;
 
@@ -512,6 +523,7 @@ NetworkConnectCommand UDP_init_connect(NetworkConnectRequest connect_request) {
         done = true;
         connect_result = CONNECT_FAIL_GENERAL;
     }
+    bind_socket(socket, (SocketAddr) { .host = "0.0.0.0", .port = 0, });
 
     return (NetworkConnectCommand) {
         .conn = (ConnectionInfo) {
@@ -530,7 +542,10 @@ NetworkConnectCommand UDP_init_connect(NetworkConnectRequest connect_request) {
     };
 }
 void UDP_try_connect(NetworkConnectCommand* connect_command) {
+    JUST_LOG_TRACE("Connect UDP\n");
     connect_command->current_direction = COMM_DIRECTION_WRITE;
+    connect_command->done = true;
+    connect_command->result = CONNECT_SUCCESS;
 }
 void UDP_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
     JUST_LOG_TRACE("Read UDP\n");
@@ -545,7 +560,7 @@ void UDP_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            connection->want_read |= true;
+            connection->want_read = true;
             break;
         case WSAEMSGSIZE:
             // TODO: Partial Read
@@ -594,7 +609,7 @@ void UDP_try_write(NetworkConnection* connection) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            connection->want_write |= true;
+            connection->want_write = true;
             break;
         case WSAEMSGSIZE:
             // TODO: Partial Write
@@ -1027,6 +1042,7 @@ void network_free_connection(NetworkConnection* connection) {
 }
 
 void handle_queued_immediate_close_request() {
+    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     for (uint32 i = 0; i < REQUEST_QUEUE.close_length; i++) {
         NetworkCloseRequest close_request = REQUEST_QUEUE.close_requests[i];
         if (close_request.close_moment == CONNECTION_CLOSE_IMMEDIATE) {
@@ -1039,9 +1055,11 @@ void handle_queued_immediate_close_request() {
             }
         }
     }
+    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 
 void initiate_queued_requests(BufferSlice netbuffer) {
+    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     for (uint32 i = 0; i < REQUEST_QUEUE.connect_length; i++) {
         NetworkConnectRequest connect_request = REQUEST_QUEUE.connect_requests[i];
         NetworkConnectCommand connect_command = network_init_connect(connect_request);
@@ -1059,6 +1077,7 @@ void initiate_queued_requests(BufferSlice netbuffer) {
                 .arg = read_request.arg,
             };
             network_try_read(connection, netbuffer);
+            JUST_DEV_MARK();
         }
         else {
             // TODO: handle no connection
@@ -1077,10 +1096,12 @@ void initiate_queued_requests(BufferSlice netbuffer) {
                 .arg = write_request.arg,
             };
             if (write_queue_is_empty(&connection->write_queue)) {
+                JUST_DEV_MARK();
                 write_queue_push_command_unchecked(&connection->write_queue, write_command);
                 network_try_write(connection);
             }
             else if (!write_queue_is_full(&connection->write_queue)) {
+                JUST_DEV_MARK();
                 write_queue_push_command_unchecked(&connection->write_queue, write_command);
             }
             else {
@@ -1089,6 +1110,7 @@ void initiate_queued_requests(BufferSlice netbuffer) {
         }
         else {
             // TODO: handle no connection
+            JUST_DEV_MARK();
         }
     }
 
@@ -1109,16 +1131,15 @@ void initiate_queued_requests(BufferSlice netbuffer) {
     REQUEST_QUEUE.read_length = 0;
     REQUEST_QUEUE.write_length = 0;
     REQUEST_QUEUE.close_length = 0;
+    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 
 void cleanup_connect_commands() {
     for (uint32 i = 0; i < CONNECT_COMMANDS.length; i++) {
         NetworkConnectCommand connect_command = CONNECT_COMMANDS.commands[i];
         if (connect_command.done) {
-            if (connect_command.on_connect_fn != NULL) {
-                ((OnConnectFn) connect_command.on_connect_fn)(connect_command.connect_id, connect_command.conn.socket, connect_command.result, connect_command.arg);
-            }
             if (connect_command.result == CONNECT_SUCCESS) {
+                JUST_DEV_MARK();
                 NetworkConnection connection = {
                     .conn = connect_command.conn,
                     .want_read = false,
@@ -1128,6 +1149,9 @@ void cleanup_connect_commands() {
                     .closed = false,
                 };
                 store_network_connection(connection);
+            }
+            if (connect_command.on_connect_fn != NULL) {
+                ((OnConnectFn) connect_command.on_connect_fn)(connect_command.connect_id, connect_command.conn.socket, connect_command.result, connect_command.arg);
             }
             // swap remove
             CONNECT_COMMANDS.commands[i] = CONNECT_COMMANDS.commands[CONNECT_COMMANDS.length];
@@ -1185,6 +1209,7 @@ void handle_read(fd_set* read_sockets, BufferSlice netbuffer) {
     for (uint32 i = 0; i < read_sockets->fd_count; i++) {
         Socket socket = read_sockets->fd_array[i];
         if (socket == interrupt_socket) continue;
+        JUST_DEV_MARK();
 
         NetworkConnection* connection = find_network_connection(socket);
         if (connection != NULL) {
@@ -1245,7 +1270,7 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
         FD_SET(interrupt_socket, &read_sockets);
 
         for (uint32 i = 0; i < CONNECT_COMMANDS.length; i++) {
-            NetworkConnectCommand* connect_command = &NETWORK_CONNECTIONS.connections[i];
+            NetworkConnectCommand* connect_command = &CONNECT_COMMANDS.commands[i];
             switch (connect_command->current_direction) {
             case COMM_DIRECTION_READ:
                 FD_SET(connect_command->conn.fd, &read_sockets);
@@ -1259,15 +1284,15 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
 
         for (uint32 i = 0; i < NETWORK_CONNECTIONS.length; i++) {
             NetworkConnection* connection = &NETWORK_CONNECTIONS.connections[i];
-            uint64 fd = connection->conn.fd;
-            if (connection->want_read && connection->read_command.read_active) {
+            if (connection->want_read || connection->read_command.read_active) {
+                JUST_DEV_MARK();
                 FD_SET(connection->conn.fd, &read_sockets);
             }
             if (connection->want_write) {
                 FD_SET(connection->conn.fd, &write_sockets);
             }
-            NETWORK_CONNECTIONS.connections[i].want_read = false;
-            NETWORK_CONNECTIONS.connections[i].want_write = false;
+            connection->want_read = false;
+            connection->want_write = false;
         }
 
         JUST_LOG_TRACE("read_sockets: %d\n", read_sockets.fd_count);
@@ -1424,6 +1449,7 @@ void network_write_buffer_to(Socket socket, SocketAddr remote_addr, BufferSlice 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
         issue_interrupt_apc();
     }
+    JUST_DEV_MARK();
 }
 
 void network_close_connection(Socket socket, ConnectionCloseEnum close, OnCloseFn on_close, void* arg) {
