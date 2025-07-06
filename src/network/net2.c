@@ -180,6 +180,21 @@ typedef struct {
 } NetworkConnection;
 
 typedef struct {
+    NetworkProtocolEnum protocol;
+    char* server_host;
+    SocketAddr bind_addr;
+    Socket socket;
+    BIO* ssl_bio;
+    // --
+    bool closed;
+} NetworkServer;
+
+typedef struct {
+    uint32 length;
+    NetworkServer servers[FD_SETSIZE];
+} NetworkServerList;
+
+typedef struct {
     uint32 length;
     NetworkConnectCommand commands[FD_SETSIZE];
 } ConnectCommandList;
@@ -189,13 +204,25 @@ typedef struct {
     NetworkConnection connections[FD_SETSIZE];
 } NetworkConnectionList;
 
+NetworkServerList NETWORK_SERVERS = {0};
 ConnectCommandList CONNECT_COMMANDS = {0};
 NetworkConnectionList NETWORK_CONNECTIONS = {0};
+
+void store_network_server(NetworkServer server) {
+    NETWORK_SERVERS.servers[NETWORK_SERVERS.length++] = server;
+}
+NetworkServer* find_network_server(Socket socket) {
+    for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
+        if (NETWORK_SERVERS.servers[i].socket == socket) {
+            return &NETWORK_SERVERS.servers[i];
+        }
+    }
+    return NULL;
+}
 
 void store_connect_command(NetworkConnectCommand connect_command) {
     CONNECT_COMMANDS.commands[CONNECT_COMMANDS.length++] = connect_command;
 }
-
 NetworkConnectCommand* find_connect_command(Socket socket) {
     for (uint32 i = 0; i < CONNECT_COMMANDS.length; i++) {
         if (CONNECT_COMMANDS.commands[i].conn.socket == socket) {
@@ -208,7 +235,6 @@ NetworkConnectCommand* find_connect_command(Socket socket) {
 void store_network_connection(NetworkConnection connection) {
     NETWORK_CONNECTIONS.connections[NETWORK_CONNECTIONS.length++] = connection;
 }
-
 NetworkConnection* find_network_connection(Socket socket) {
     JUST_LOG_INFO("Find [%llu]\n", socket);
     for (uint32 i = 0; i < NETWORK_CONNECTIONS.length; i++) {
@@ -284,6 +310,14 @@ bool create_ssl_contexts() {
 #pragma region NetworkRequestQueue
 typedef struct {
     NetworkProtocolEnum protocol;
+    SocketAddr bind_addr;
+    uint32 listen_id;
+    void* on_accept_fn;
+    void* arg;
+} NetworkListenRequest;
+
+typedef struct {
+    NetworkProtocolEnum protocol;
     SocketAddr remote_addr;
     uint32 connect_id;
     void* on_connect_fn;
@@ -312,6 +346,8 @@ typedef struct {
 } NetworkCloseRequest;
 
 typedef struct {
+    uint32 listen_length;
+    NetworkListenRequest listen_requests[FD_SETSIZE];
     uint32 connect_length;
     NetworkConnectRequest connect_requests[FD_SETSIZE];
     uint32 read_length;
@@ -324,6 +360,11 @@ typedef struct {
 
 NetworkRequestQueue REQUEST_QUEUE = {0};
 
+void queue_listen_request(NetworkListenRequest listen_request) {
+    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
+    REQUEST_QUEUE.listen_requests[REQUEST_QUEUE.listen_length++] = listen_request;
+    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
+}
 void queue_connect_request(NetworkConnectRequest connect_request) {
     srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.connect_requests[REQUEST_QUEUE.connect_length++] = connect_request;
@@ -396,6 +437,9 @@ void bind_socket(Socket socket, SocketAddr addr) {
     }
 }
 
+// NetworkServer TCP_try_listen(NetworkListenRequest listen_request) {
+//     accept
+// }
 NetworkConnectCommand TCP_init_connect(NetworkConnectRequest connect_request) {
     bool done = false;
     ConnectResult connect_result = CONNECT_SUCCESS;
