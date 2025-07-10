@@ -171,6 +171,7 @@ NetworkWriteCommand write_queue_pop_command_unchecked(NetworkWriteCommandQueue* 
 
 typedef struct {
     ConnectionInfo conn;
+    Socket server_socket;
     bool want_read;
     bool want_write;
     NetworkReadCommand read_command;
@@ -349,7 +350,14 @@ typedef struct {
 
 typedef struct {
     Socket socket;
-    ConnectionCloseEnum close_moment;
+    ServerStopEnum stop_kind;
+    void* on_stop_fn;
+    void* arg;
+} NetworkStopRequest;
+
+typedef struct {
+    Socket socket;
+    ConnectionCloseEnum close_kind;
     void* on_close_fn;
     void* arg;
 } NetworkCloseRequest;
@@ -363,6 +371,8 @@ typedef struct {
     NetworkReadRequest read_requests[FD_SETSIZE];
     uint32 write_length;
     NetworkWriteRequest write_requests[FD_SETSIZE];
+    uint32 stop_length;
+    NetworkStopRequest stop_requests[FD_SETSIZE];
     uint32 close_length;
     NetworkCloseRequest close_requests[FD_SETSIZE];
 } NetworkRequestQueue;
@@ -387,6 +397,11 @@ void queue_read_request(NetworkReadRequest read_request) {
 void queue_write_request(NetworkWriteRequest write_request) {
     srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.write_requests[REQUEST_QUEUE.write_length++] = write_request;
+    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
+}
+void queue_stop_request(NetworkStopRequest stop_request) {
+    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
+    REQUEST_QUEUE.stop_requests[REQUEST_QUEUE.stop_length++] = stop_request;
     srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_close_request(NetworkCloseRequest close_request) {
@@ -506,6 +521,7 @@ void TCP_try_accept(NetworkServer* server) {
             .ssl_bio = NULL,
             .fd = connection_socket,
         },
+        .server_socket = server->socket,
         .want_read = false,
         .want_write = false,
         .read_command = {0},
@@ -1253,7 +1269,7 @@ void handle_queued_immediate_close_request() {
     srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     for (uint32 i = 0; i < REQUEST_QUEUE.close_length; i++) {
         NetworkCloseRequest close_request = REQUEST_QUEUE.close_requests[i];
-        if (close_request.close_moment == CONNECTION_CLOSE_IMMEDIATE) {
+        if (close_request.close_kind == CONNECTION_CLOSE_IMMEDIATE) {
             NetworkConnection* connection = find_network_connection(close_request.socket);
             if (connection != NULL) {
                 connection->closed = true;
@@ -1273,6 +1289,28 @@ void initiate_queued_requests(BufferSlice netbuffer) {
         NetworkServer server = network_set_listen(listen_request);
         network_try_accept(&server);
         store_network_server(server);
+    }
+
+    for (uint32 i = 0; i < REQUEST_QUEUE.stop_length; i++) {
+        NetworkStopRequest stop_request = REQUEST_QUEUE.stop_requests[i];
+        NetworkServer* server = find_network_server(stop_request.socket);
+        if (server != NULL) {
+            server->closed = true;
+            if (stop_request.stop_kind == SERVER_STOP_CLOSE_CONNECTIONS) {
+                if (server->has_accepted) {
+                    server->accepted_connection.closed = true;
+                }
+                for (uint32 c = 0; c < NETWORK_CONNECTIONS.length; c++) {
+                    NetworkConnection* connection = &NETWORK_CONNECTIONS.connections[c];
+                    if (connection->server_socket == server->socket) {
+                        connection->closed = true;
+                    }
+                }
+            }
+        }
+        else {
+            // TODO: handle no server, or not ???
+        }
     }
 
     for (uint32 i = 0; i < REQUEST_QUEUE.connect_length; i++) {
@@ -1331,7 +1369,7 @@ void initiate_queued_requests(BufferSlice netbuffer) {
 
     for (uint32 i = 0; i < REQUEST_QUEUE.close_length; i++) {
         NetworkCloseRequest close_request = REQUEST_QUEUE.close_requests[i];
-        if (close_request.close_moment == CONNECTION_CLOSE_GRACEFULL) {
+        if (close_request.close_kind == CONNECTION_CLOSE_GRACEFULL) {
             NetworkConnection* connection = find_network_connection(close_request.socket);
             if (connection != NULL) {
                 connection->closed = true;
@@ -1342,9 +1380,11 @@ void initiate_queued_requests(BufferSlice netbuffer) {
         }
     }
 
+    REQUEST_QUEUE.listen_length = 0;
     REQUEST_QUEUE.connect_length = 0;
     REQUEST_QUEUE.read_length = 0;
     REQUEST_QUEUE.write_length = 0;
+    REQUEST_QUEUE.stop_length = 0;
     REQUEST_QUEUE.close_length = 0;
     srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
@@ -1354,9 +1394,16 @@ void cleanup_network_servers() {
         NetworkServer* server = &NETWORK_SERVERS.servers[i];
         if (server->has_accepted) {
             server->has_accepted = false;
-            store_network_connection(server->accepted_connection);
+
             if (server->on_accept_fn != NULL) {
                 ((OnAcceptFn) server->on_accept_fn)(server->server_id, server->socket, server->arg);
+            }
+
+            if (server->accepted_connection.closed) {
+                network_free_connection(&server->accepted_connection);
+            }
+            else {
+                store_network_connection(server->accepted_connection);
             }
         }
     }
@@ -1380,6 +1427,7 @@ void cleanup_connect_commands() {
                 JUST_DEV_MARK();
                 NetworkConnection connection = {
                     .conn = connect_command.conn,
+                    .server_socket = INVALID_SOCKET,
                     .want_read = false,
                     .want_write = false,
                     .read_command = {0},
@@ -1721,10 +1769,24 @@ void network_write_buffer_to(Socket socket, SocketAddr remote_addr, BufferSlice 
     JUST_DEV_MARK();
 }
 
-void network_close_connection(Socket socket, ConnectionCloseEnum close, OnCloseFn on_close, void* arg) {
+void network_stop_server(Socket socket, ServerStopEnum stop_kind, OnStopFn on_stop, void* arg) {
+    NetworkStopRequest request = {
+        .socket = socket,
+        .stop_kind = stop_kind,
+        .on_stop_fn = on_stop,
+        .arg = arg,
+    };
+    queue_stop_request(request);
+
+    if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        issue_interrupt_apc();
+    }
+}
+
+void network_close_connection(Socket socket, ConnectionCloseEnum close_kind, OnCloseFn on_close, void* arg) {
     NetworkCloseRequest request = {
         .socket = socket,
-        .close_moment = close,
+        .close_kind = close_kind,
         .on_close_fn = on_close,
         .arg = arg,
     };
