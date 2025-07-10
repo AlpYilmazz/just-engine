@@ -649,6 +649,7 @@ typedef struct {
     SocketAddr remote_addr;
 } WriteContext;
 
+typedef void (*OnAcceptFn)(uint32 server_id, Socket socket, void* arg);
 typedef void (*OnConnectFn)(uint32 connect_id, Socket socket, ConnectResult result, void* arg);
 typedef bool (*OnReadFn)(ReadContext context, BufferSlice read_buffer, void* arg); // -> do_continue
 typedef void (*OnWriteFn)(WriteContext context, void* arg);
@@ -656,6 +657,7 @@ typedef void (*OnCloseFn)(Socket socket, void* arg);
 
 void init_network_thread();
 
+void network_listen(SocketAddr bind_addr, NetworkProtocolEnum protocol, uint32 server_id, OnAcceptFn on_accept, void* arg);
 void network_connect(SocketAddr remote_addr, NetworkProtocolEnum protocol, uint32 connect_id, OnConnectFn on_connect, void* arg);
 void network_start_read(Socket socket, OnReadFn on_read, void* arg);
 void network_write_buffer(Socket socket, BufferSlice buffer, OnWriteFn on_write, void* arg);
