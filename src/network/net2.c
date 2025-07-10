@@ -185,6 +185,15 @@ typedef struct {
     SocketAddr bind_addr;
     Socket socket;
     BIO* ssl_bio;
+    uint64 fd;
+    // --
+    CommDirection current_direction;
+    uint32 server_id;
+    void* on_accept_fn;
+    void* arg;
+    // --
+    bool has_accepted;
+    NetworkConnection accepted_connection;
     // --
     bool closed;
 } NetworkServer;
@@ -311,7 +320,7 @@ bool create_ssl_contexts() {
 typedef struct {
     NetworkProtocolEnum protocol;
     SocketAddr bind_addr;
-    uint32 listen_id;
+    uint32 server_id;
     void* on_accept_fn;
     void* arg;
 } NetworkListenRequest;
@@ -437,9 +446,73 @@ void bind_socket(Socket socket, SocketAddr addr) {
     }
 }
 
-// NetworkServer TCP_try_listen(NetworkListenRequest listen_request) {
-//     accept
-// }
+NetworkServer TCP_set_listen(NetworkListenRequest listen_request) {
+    Socket socket = make_socket(SOCKET_TYPE_STREAM);
+    if (socket == INVALID_SOCKET) {
+        PANIC("FAIL: TCP_set_listen -> make_socket");
+    }
+    bind_socket(socket, listen_request.bind_addr);
+    listen(socket, SOMAXCONN);
+    
+    return (NetworkServer) {
+        .protocol = listen_request.protocol,
+        .server_host = listen_request.bind_addr.host,
+        .bind_addr = listen_request.bind_addr,
+        .socket = socket,
+        .ssl_bio = NULL,
+        .fd = socket,
+        // --
+        .current_direction = COMM_DIRECTION_IDLE,
+        .server_id = listen_request.server_id,
+        .on_accept_fn = listen_request.on_accept_fn,
+        .arg = listen_request.arg,
+        // --
+        .has_accepted = false,
+        .accepted_connection = {0},
+        //--
+        .closed = false,
+    };
+}
+void TCP_try_accept(NetworkServer* server) {
+    SOCKADDR_IN sockaddr = {0};
+    int sockaddr_size = sizeof(sockaddr);
+    Socket connection_socket = accept(server->socket, (SOCKADDR*) &sockaddr, &sockaddr_size);
+    if (connection_socket == INVALID_SOCKET) {
+        int32 err = WSAGetLastError();
+        switch (err) {
+        case WSAEWOULDBLOCK:
+            // Fine
+            server->current_direction = COMM_DIRECTION_WRITE;
+            break;
+        default:
+            // TODO: handle err
+            JUST_LOG_WARN("accept err: %d\n", err);
+            break;
+        }
+        return;
+    }
+    
+    SocketAddr addr = {
+        .host = inet_ntoa(sockaddr.sin_addr),
+        .port = ntohs(sockaddr.sin_port),
+    };
+
+    server->has_accepted = true;
+    server->accepted_connection = (NetworkConnection) {
+        .conn = (ConnectionInfo) {
+            .protocol = server->protocol,
+            .remote_addr = addr,
+            .socket = connection_socket,
+            .ssl_bio = NULL,
+            .fd = connection_socket,
+        },
+        .want_read = false,
+        .want_write = false,
+        .read_command = {0},
+        .write_queue = write_queue_new_empty(),
+        .closed = false,
+    };
+}
 NetworkConnectCommand TCP_init_connect(NetworkConnectRequest connect_request) {
     bool done = false;
     ConnectResult connect_result = CONNECT_SUCCESS;
@@ -507,7 +580,7 @@ void TCP_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            connection->want_read |= true;
+            connection->want_read = true;
             break;
         default:
             // TODO: handle err
@@ -541,7 +614,7 @@ void TCP_try_write(NetworkConnection* connection) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            connection->want_write |= true;
+            connection->want_write = true;
             break;
         default:
             // TODO: handle err
@@ -553,10 +626,56 @@ void TCP_try_write(NetworkConnection* connection) {
 
     this_write->offset += sent_count;
 }
+void TCP_free_server(NetworkServer* server) {
+    closesocket(server->socket);
+}
 void TCP_free_connection(NetworkConnection* connection) {
     closesocket(connection->conn.socket);
 }
 
+NetworkServer UDP_set_listen(NetworkListenRequest listen_request) {
+    Socket socket = make_socket(SOCKET_TYPE_DATAGRAM);
+    if (socket == INVALID_SOCKET) {
+        PANIC("FAIL: UDP_set_listen -> make_socket");
+    }
+    bind_socket(socket, listen_request.bind_addr);
+    
+    return (NetworkServer) {
+        .protocol = listen_request.protocol,
+        .server_host = listen_request.bind_addr.host,
+        .bind_addr = listen_request.bind_addr,
+        .socket = socket,
+        .ssl_bio = NULL,
+        .fd = socket,
+        // --
+        .current_direction = COMM_DIRECTION_IDLE,
+        .server_id = listen_request.server_id,
+        .on_accept_fn = listen_request.on_accept_fn,
+        .arg = listen_request.arg,
+        // --
+        // Immediate accept
+        .has_accepted = true,
+        .accepted_connection = (NetworkConnection) {
+            .conn = (ConnectionInfo) {
+                .protocol = listen_request.protocol,
+                .remote_addr = {0},
+                .socket = socket,
+                .ssl_bio = NULL,
+                .fd = socket,
+            },
+            .want_read = false,
+            .want_write = false,
+            .read_command = {0},
+            .write_queue = write_queue_new_empty(),
+            .closed = false,
+        },
+        //--
+        // Immediate server close
+        .closed = true,
+    };
+}
+void UDP_try_accept(NetworkServer* server) {
+}
 NetworkConnectCommand UDP_init_connect(NetworkConnectRequest connect_request) {
     JUST_LOG_TRACE("Init UDP\n");
     bool done = false;
@@ -577,7 +696,7 @@ NetworkConnectCommand UDP_init_connect(NetworkConnectRequest connect_request) {
             .ssl_bio = NULL,
             .fd = socket,
         },
-        .current_direction = COMM_DIRECTION_IDLE,
+        .current_direction = COMM_DIRECTION_WRITE,
         .connect_id = connect_request.connect_id,
         .on_connect_fn = connect_request.on_connect_fn,
         .arg = connect_request.arg,
@@ -587,9 +706,6 @@ NetworkConnectCommand UDP_init_connect(NetworkConnectRequest connect_request) {
 }
 void UDP_try_connect(NetworkConnectCommand* connect_command) {
     JUST_LOG_TRACE("Connect UDP\n");
-    connect_command->current_direction = COMM_DIRECTION_WRITE;
-    connect_command->done = true;
-    connect_command->result = CONNECT_SUCCESS;
 }
 void UDP_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
     JUST_LOG_TRACE("Read UDP\n");
@@ -671,6 +787,8 @@ void UDP_try_write(NetworkConnection* connection) {
     }
     
     this_write->offset += sent_count;
+}
+void UDP_free_server(NetworkServer* server) {
 }
 void UDP_free_connection(NetworkConnection* connection) {
     closesocket(connection->conn.socket);
@@ -986,6 +1104,34 @@ void DTLS_free_connection(NetworkConnection* connection) {
     BIO_free_all(connection->conn.ssl_bio);
 }
 
+NetworkServer network_set_listen(NetworkListenRequest listen_request) {
+    switch (listen_request.protocol) {
+    case NETWORK_PROTOCOL_TCP:
+        return TCP_set_listen(listen_request);
+    case NETWORK_PROTOCOL_UDP:
+        return UDP_set_listen(listen_request);
+    // case NETWORK_PROTOCOL_TLS:
+    //     return TLS_set_listen(listen_request);
+    // case NETWORK_PROTOCOL_DTLS:
+    //     return DTLS_set_listen(listen_request);
+    default:
+        UNREACHABLE();
+    }
+}
+void network_try_accept(NetworkServer* server) {
+    switch (server->protocol) {
+    case NETWORK_PROTOCOL_TCP:
+        TCP_try_accept(server);
+    case NETWORK_PROTOCOL_UDP:
+        UDP_try_accept(server);
+    // case NETWORK_PROTOCOL_TLS:
+    //     TLS_try_accept(server);
+    // case NETWORK_PROTOCOL_DTLS:
+    //     DTLS_try_accept(server);
+    default:
+        UNREACHABLE();
+    }
+}
 NetworkConnectCommand network_init_connect(NetworkConnectRequest connect_request) {
     switch (connect_request.protocol) {
     case NETWORK_PROTOCOL_TCP:
@@ -1066,6 +1212,24 @@ void network_try_write(NetworkConnection* connection) {
         UNREACHABLE();
     }
 }
+void network_free_server(NetworkServer* server) {
+    switch (server->protocol) {
+    case NETWORK_PROTOCOL_TCP:
+        TCP_free_server(server);
+        break;
+    case NETWORK_PROTOCOL_UDP:
+        UDP_free_server(server);
+        break;
+    // case NETWORK_PROTOCOL_TLS:
+    //     TLS_free_server(server);
+    //     break;
+    // case NETWORK_PROTOCOL_DTLS:
+    //     DTLS_free_server(server);
+    //     break;
+    default:
+        UNREACHABLE();
+    }
+}
 void network_free_connection(NetworkConnection* connection) {
     switch (connection->conn.protocol) {
     case NETWORK_PROTOCOL_TCP:
@@ -1104,6 +1268,13 @@ void handle_queued_immediate_close_request() {
 
 void initiate_queued_requests(BufferSlice netbuffer) {
     srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
+    for (uint32 i = 0; i < REQUEST_QUEUE.listen_length; i++) {
+        NetworkListenRequest listen_request = REQUEST_QUEUE.listen_requests[i];
+        NetworkServer server = network_set_listen(listen_request);
+        network_try_accept(&server);
+        store_network_server(server);
+    }
+
     for (uint32 i = 0; i < REQUEST_QUEUE.connect_length; i++) {
         NetworkConnectRequest connect_request = REQUEST_QUEUE.connect_requests[i];
         NetworkConnectCommand connect_command = network_init_connect(connect_request);
@@ -1178,6 +1349,29 @@ void initiate_queued_requests(BufferSlice netbuffer) {
     srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 
+void cleanup_network_servers() {
+    for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
+        NetworkServer* server = &NETWORK_SERVERS.servers[i];
+        if (server->has_accepted) {
+            server->has_accepted = false;
+            store_network_connection(server->accepted_connection);
+            if (server->on_accept_fn != NULL) {
+                ((OnAcceptFn) server->on_accept_fn)(server->server_id, server->socket, server->arg);
+            }
+        }
+    }
+    for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
+        NetworkServer* server = &NETWORK_SERVERS.servers[i];
+        if (server->closed) {
+            network_free_server(server);
+            // swap remove
+            NETWORK_SERVERS.servers[i] = NETWORK_SERVERS.servers[NETWORK_SERVERS.length];
+            NETWORK_SERVERS.length--;
+            i--;
+        }
+    }
+}
+
 void cleanup_connect_commands() {
     for (uint32 i = 0; i < CONNECT_COMMANDS.length; i++) {
         NetworkConnectCommand connect_command = CONNECT_COMMANDS.commands[i];
@@ -1205,7 +1399,7 @@ void cleanup_connect_commands() {
     }
 }
 
-void cleanup_connection_commands() {
+void cleanup_network_connections() {
     for (uint32 i = 0; i < NETWORK_CONNECTIONS.length; i++) {
         NetworkConnection* connection = &NETWORK_CONNECTIONS.connections[i];
         if (connection->closed) {
@@ -1313,6 +1507,18 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
         init_interrupt();
         FD_SET(interrupt_socket, &read_sockets);
 
+        for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
+            NetworkServer* server = &NETWORK_SERVERS.servers[i];
+            switch (server->current_direction) {
+            case COMM_DIRECTION_READ:
+                FD_SET(server->fd, &read_sockets);
+                break;
+            case COMM_DIRECTION_WRITE:
+                FD_SET(server->fd, &write_sockets);
+                break;
+            }
+        }
+
         for (uint32 i = 0; i < CONNECT_COMMANDS.length; i++) {
             NetworkConnectCommand* connect_command = &CONNECT_COMMANDS.commands[i];
             switch (connect_command->current_direction) {
@@ -1358,7 +1564,6 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
         if (ready_count == SOCKET_ERROR) {
             int err = WSAGetLastError();
             JUST_LOG_WARN("select error: %d\n", err);
-            continue;
         }
 
         if (is_interrupted()) {
@@ -1381,8 +1586,13 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
         
         JUST_LOG_TRACE("START: cleanup\n");
 
+        cleanup_network_servers();
         cleanup_connect_commands();
-        cleanup_connection_commands();
+        cleanup_network_connections();
+        
+        JUST_LOG_TRACE("START: handle socket queue 2\n");
+
+        initiate_queued_requests(NETWORK_BUFFER);
 
         JUST_LOG_TRACE("END: ---\n");
     }
