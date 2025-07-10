@@ -1647,11 +1647,26 @@ void init_network_thread() {
     );
 }
 
+void network_listen(SocketAddr bind_addr, NetworkProtocolEnum protocol, uint32 server_id, OnAcceptFn on_accept, void* arg) {
+    NetworkListenRequest request = {
+        .protocol = protocol,
+        .bind_addr = bind_addr,
+        .server_id = server_id,
+        .on_accept_fn = on_accept,
+        .arg = arg,
+    };
+    queue_listen_request(request);
+
+    if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        issue_interrupt_apc();
+    }
+}
+
 void network_connect(SocketAddr remote_addr, NetworkProtocolEnum protocol, uint32 connect_id, OnConnectFn on_connect, void* arg) {
     NetworkConnectRequest request = {
         .protocol = protocol,
-        .connect_id = connect_id,
         .remote_addr = remote_addr,
+        .connect_id = connect_id,
         .on_connect_fn = on_connect,
         .arg = arg,
     };
