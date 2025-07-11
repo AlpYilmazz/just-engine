@@ -1,7 +1,8 @@
 #pragma once
 
-#include "stdlib.h"
-#include "stdbool.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 
 #include "logging.h"
 
@@ -89,6 +90,15 @@ static inline BufferSlice buffer_as_slice(Buffer buffer, usize start, usize leng
 
 static inline BufferSlice buffer_into_slice(Buffer buffer) {
     return buffer_as_slice(buffer, 0, buffer.length);
+}
+
+static inline Buffer buffer_clone(Buffer buffer) {
+    byte* bytes_clone = malloc(buffer.length);
+    memcpy(bytes_clone, buffer.bytes, buffer.length);
+    return (Buffer) {
+        .length = buffer.length,
+        .bytes = bytes_clone,
+    };
 }
 
 static inline usize filled_length(FillBuffer* buffer) {

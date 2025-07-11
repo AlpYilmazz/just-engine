@@ -122,6 +122,15 @@ static inline BufferSlice buffer_into_slice(Buffer buffer) {
     return buffer_as_slice(buffer, 0, buffer.length);
 }
 
+static inline Buffer buffer_clone(Buffer buffer) {
+    byte* bytes_clone = malloc(buffer.length);
+    memcpy(bytes_clone, buffer.bytes, buffer.length);
+    return (Buffer) {
+        .length = buffer.length,
+        .bytes = bytes_clone,
+    };
+}
+
 static inline usize filled_length(FillBuffer* buffer) {
     return buffer->cursor - buffer->bytes;
 }
@@ -635,6 +644,11 @@ typedef enum {
 } NetworkProtocolEnum;
 
 typedef enum {
+    SERVER_STOP_ONLY = 0,
+    SERVER_STOP_CLOSE_CONNECTIONS,
+} ServerStopEnum;
+
+typedef enum {
     CONNECTION_CLOSE_IMMEDIATE = 0,
     CONNECTION_CLOSE_GRACEFULL,
 } ConnectionCloseEnum;
@@ -653,6 +667,7 @@ typedef void (*OnAcceptFn)(uint32 server_id, Socket socket, void* arg);
 typedef void (*OnConnectFn)(uint32 connect_id, Socket socket, ConnectResult result, void* arg);
 typedef bool (*OnReadFn)(ReadContext context, BufferSlice read_buffer, void* arg); // -> do_continue
 typedef void (*OnWriteFn)(WriteContext context, void* arg);
+typedef void (*OnStopFn)(uint32 server_id, Socket server_socket, void* arg);
 typedef void (*OnCloseFn)(Socket socket, void* arg);
 
 void init_network_thread();
@@ -662,7 +677,8 @@ void network_connect(SocketAddr remote_addr, NetworkProtocolEnum protocol, uint3
 void network_start_read(Socket socket, OnReadFn on_read, void* arg);
 void network_write_buffer(Socket socket, BufferSlice buffer, OnWriteFn on_write, void* arg);
 void network_write_buffer_to(Socket socket, SocketAddr remote_addr, BufferSlice buffer, OnWriteFn on_write, void* arg);
-void network_close_connection(Socket socket, ConnectionCloseEnum close, OnCloseFn on_close, void* arg);
+void network_stop_server(uint32 server_id, ServerStopEnum stop_kind, OnStopFn on_stop, void* arg);
+void network_close_connection(Socket socket, ConnectionCloseEnum close_kind, OnCloseFn on_close, void* arg);
 
 uint16 just_htons(uint16 hostnum);
 uint32 just_htonl(uint32 hostnum);

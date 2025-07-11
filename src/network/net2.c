@@ -221,6 +221,14 @@ NetworkConnectionList NETWORK_CONNECTIONS = {0};
 void store_network_server(NetworkServer server) {
     NETWORK_SERVERS.servers[NETWORK_SERVERS.length++] = server;
 }
+NetworkServer* find_network_server_by_id(uint32 server_id) {
+    for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
+        if (NETWORK_SERVERS.servers[i].server_id == server_id) {
+            return &NETWORK_SERVERS.servers[i];
+        }
+    }
+    return NULL;
+}
 NetworkServer* find_network_server(Socket socket) {
     for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
         if (NETWORK_SERVERS.servers[i].socket == socket) {
@@ -349,7 +357,7 @@ typedef struct {
 } NetworkWriteRequest;
 
 typedef struct {
-    Socket socket;
+    uint32 server_id;
     ServerStopEnum stop_kind;
     void* on_stop_fn;
     void* arg;
@@ -462,6 +470,7 @@ void bind_socket(Socket socket, SocketAddr addr) {
 }
 
 NetworkServer TCP_set_listen(NetworkListenRequest listen_request) {
+    JUST_LOG_TRACE("Set Listen TCP\n");
     Socket socket = make_socket(SOCKET_TYPE_STREAM);
     if (socket == INVALID_SOCKET) {
         PANIC("FAIL: TCP_set_listen -> make_socket");
@@ -489,6 +498,7 @@ NetworkServer TCP_set_listen(NetworkListenRequest listen_request) {
     };
 }
 void TCP_try_accept(NetworkServer* server) {
+    JUST_LOG_TRACE("Accept TCP\n");
     SOCKADDR_IN sockaddr = {0};
     int sockaddr_size = sizeof(sockaddr);
     Socket connection_socket = accept(server->socket, (SOCKADDR*) &sockaddr, &sockaddr_size);
@@ -497,7 +507,8 @@ void TCP_try_accept(NetworkServer* server) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            server->current_direction = COMM_DIRECTION_WRITE;
+            JUST_DEV_MARK();
+            server->current_direction = COMM_DIRECTION_READ;
             break;
         default:
             // TODO: handle err
@@ -530,6 +541,7 @@ void TCP_try_accept(NetworkServer* server) {
     };
 }
 NetworkConnectCommand TCP_init_connect(NetworkConnectRequest connect_request) {
+    JUST_LOG_TRACE("Init Connect TCP\n");
     bool done = false;
     ConnectResult connect_result = CONNECT_SUCCESS;
 
@@ -556,6 +568,7 @@ NetworkConnectCommand TCP_init_connect(NetworkConnectRequest connect_request) {
     };
 }
 void TCP_try_connect(NetworkConnectCommand* connect_command) {
+    JUST_LOG_TRACE("Connect TCP\n");
     Socket socket = connect_command->conn.socket;
 
     SOCKADDR_IN sockaddr = {0};
@@ -572,6 +585,9 @@ void TCP_try_connect(NetworkConnectCommand* connect_command) {
             JUST_LOG_INFO("Connection started\n");
             connect_command->current_direction = COMM_DIRECTION_WRITE;
             break;
+        case WSAEISCONN:
+            JUST_LOG_INFO("Connection success\n");
+            goto SUCCESS;
         default:
             // TODO: handle err
             JUST_LOG_ERROR("Connection failed: %d\n", err);
@@ -582,7 +598,8 @@ void TCP_try_connect(NetworkConnectCommand* connect_command) {
         return;
     }
 
-    connect_command->done = (result == 0); // result == 0 -> success
+    SUCCESS:
+    connect_command->done = true; // result == 0 -> success
     connect_command->result = CONNECT_SUCCESS;
 }
 void TCP_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
@@ -1138,12 +1155,16 @@ void network_try_accept(NetworkServer* server) {
     switch (server->protocol) {
     case NETWORK_PROTOCOL_TCP:
         TCP_try_accept(server);
+        break;
     case NETWORK_PROTOCOL_UDP:
         UDP_try_accept(server);
+        break;
     // case NETWORK_PROTOCOL_TLS:
     //     TLS_try_accept(server);
+    //     break;
     // case NETWORK_PROTOCOL_DTLS:
     //     DTLS_try_accept(server);
+    //     break;
     default:
         UNREACHABLE();
     }
@@ -1186,6 +1207,7 @@ void network_try_connect(NetworkConnectCommand* connect_command) {
 }
 void network_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
     if (connection->closed || !connection->read_command.read_active) {
+        JUST_LOG_TRACE("connection->closed: %d, connection->read_command.read_active: %d\n", connection->closed ? 1 : 0, connection->read_command.read_active ? 1 : 0);
         return;
     }
 
@@ -1284,6 +1306,14 @@ void handle_queued_immediate_close_request() {
 
 void initiate_queued_requests(BufferSlice netbuffer) {
     srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
+
+    JUST_LOG_TRACE("QUEUE: listen: %d\n", REQUEST_QUEUE.listen_length);
+    JUST_LOG_TRACE("QUEUE: connect: %d\n", REQUEST_QUEUE.connect_length);
+    JUST_LOG_TRACE("QUEUE: read: %d\n", REQUEST_QUEUE.read_length);
+    JUST_LOG_TRACE("QUEUE: write: %d\n", REQUEST_QUEUE.write_length);
+    JUST_LOG_TRACE("QUEUE: stop: %d\n", REQUEST_QUEUE.stop_length);
+    JUST_LOG_TRACE("QUEUE: close: %d\n", REQUEST_QUEUE.close_length);
+
     for (uint32 i = 0; i < REQUEST_QUEUE.listen_length; i++) {
         NetworkListenRequest listen_request = REQUEST_QUEUE.listen_requests[i];
         NetworkServer server = network_set_listen(listen_request);
@@ -1293,7 +1323,7 @@ void initiate_queued_requests(BufferSlice netbuffer) {
 
     for (uint32 i = 0; i < REQUEST_QUEUE.stop_length; i++) {
         NetworkStopRequest stop_request = REQUEST_QUEUE.stop_requests[i];
-        NetworkServer* server = find_network_server(stop_request.socket);
+        NetworkServer* server = find_network_server_by_id(stop_request.server_id);
         if (server != NULL) {
             server->closed = true;
             if (stop_request.stop_kind == SERVER_STOP_CLOSE_CONNECTIONS) {
@@ -1393,17 +1423,21 @@ void cleanup_network_servers() {
     for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
         NetworkServer* server = &NETWORK_SERVERS.servers[i];
         if (server->has_accepted) {
+            JUST_LOG_TRACE("Just Accepted\n");
             server->has_accepted = false;
 
-            if (server->on_accept_fn != NULL) {
-                ((OnAcceptFn) server->on_accept_fn)(server->server_id, server->socket, server->arg);
-            }
-
             if (server->accepted_connection.closed) {
+                JUST_DEV_MARK();
                 network_free_connection(&server->accepted_connection);
             }
             else {
+                JUST_DEV_MARK();
                 store_network_connection(server->accepted_connection);
+            }
+
+            if (server->on_accept_fn != NULL) {
+                JUST_DEV_MARK();
+                ((OnAcceptFn) server->on_accept_fn)(server->server_id, server->accepted_connection.conn.socket, server->arg);
             }
         }
     }
@@ -1499,12 +1533,21 @@ void handle_read(fd_set* read_sockets, BufferSlice netbuffer) {
 
         NetworkConnection* connection = find_network_connection(socket);
         if (connection != NULL) {
+            JUST_DEV_MARK();
             network_try_read(connection, netbuffer);
         }
         else {
             NetworkConnectCommand* connect_command = find_connect_command(socket);
             if (connect_command != NULL) {
+                JUST_DEV_MARK();
                 network_try_connect(connect_command);
+            }
+            else {
+                NetworkServer* server = find_network_server(socket);
+                if (server != NULL) {
+                    JUST_DEV_MARK();
+                    network_try_accept(server);
+                }
             }
         }
     }
@@ -1684,6 +1727,8 @@ void init_network_thread() {
         PANIC("Could not create ssl context objects\n");
     }
 
+    init_interrupt();
+
     NETWORK_THREAD_LOCK = alloc_create_srw_lock();
     NETWORK_THREAD = (HANDLE) _beginthreadex( // NATIVE CODE
         NULL,                       // default security attributes
@@ -1769,9 +1814,9 @@ void network_write_buffer_to(Socket socket, SocketAddr remote_addr, BufferSlice 
     JUST_DEV_MARK();
 }
 
-void network_stop_server(Socket socket, ServerStopEnum stop_kind, OnStopFn on_stop, void* arg) {
+void network_stop_server(uint32 server_id, ServerStopEnum stop_kind, OnStopFn on_stop, void* arg) {
     NetworkStopRequest request = {
-        .socket = socket,
+        .server_id = server_id,
         .stop_kind = stop_kind,
         .on_stop_fn = on_stop,
         .arg = arg,
