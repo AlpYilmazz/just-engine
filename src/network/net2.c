@@ -83,16 +83,6 @@ typedef enum {
     COMM_DIRECTION_WRITE,
 } CommDirection;
 
-// CommDirection merge_direction(CommDirection base, CommDirection add) {
-//     if (add == COMM_DIRECTION_IDLE) {
-//         return COMM_DIRECTION_IDLE;
-//     }
-//     if (base == COMM_DIRECTION_IDLE) {
-//         return add;
-//     }
-//     return (base == add) ? base : COMM_DIRECTION_BOTH;
-// }
-
 typedef struct {
     NetworkProtocolEnum protocol;
     SocketAddr remote_addr;
@@ -170,10 +160,20 @@ NetworkWriteCommand write_queue_pop_command_unchecked(NetworkWriteCommandQueue* 
 #pragma endregion NetworkWriteCommandQueue
 
 typedef struct {
-    ConnectionInfo conn;
-    Socket server_socket;
     bool want_read;
     bool want_write;
+} NetworkWant;
+
+typedef struct {
+    NetworkWant readop;
+    NetworkWant writeop;
+} NetworkWants;
+
+typedef struct {
+    ConnectionInfo conn;
+    Socket server_socket;
+    NetworkWants prev_wants;
+    NetworkWants wants;
     NetworkReadCommand read_command;
     NetworkWriteCommandQueue write_queue;
     // --
@@ -532,8 +532,7 @@ void TCP_try_accept(NetworkServer* server) {
             .fd = connection_socket,
         },
         .server_socket = server->socket,
-        .want_read = false,
-        .want_write = false,
+        .wants = {0},
         .read_command = {0},
         .write_queue = write_queue_new_empty(),
         .closed = false,
@@ -612,7 +611,6 @@ void TCP_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            connection->want_read = true;
             break;
         case WSAENETDOWN:
         case WSAENETRESET:
@@ -664,7 +662,6 @@ void TCP_try_write(NetworkConnection* connection) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            connection->want_write = true;
             break;
         case WSAENETDOWN:
         case WSAENETRESET:
@@ -733,8 +730,23 @@ NetworkServer UDP_set_listen(NetworkListenRequest listen_request) {
                 .ssl_bio = NULL,
                 .fd = socket,
             },
-            .want_read = false,
-            .want_write = false,
+            .wants = {0},
+            // .readop_wants = (NetworkWant) {
+            //     .want_read = false,
+            //     .want_write = false,
+            //     .handled = false,
+            // },
+            // .writeop_wants = (NetworkWant) {
+            //     .want_read = false,
+            //     .want_write = false,
+            //     .handled = false,
+            // },
+            // .want_read = false,
+            // .want_write = false,
+            // .do_try_read = false,
+            // .do_try_write = false,
+            // .tried_read = false,
+            // .tried_write = false,
             .read_command = {0},
             .write_queue = write_queue_new_empty(),
             .closed = false,
@@ -790,7 +802,6 @@ void UDP_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            connection->want_read = true;
             break;
         case WSAEMSGSIZE:
             // TODO: Partial Read
@@ -839,7 +850,6 @@ void UDP_try_write(NetworkConnection* connection) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            connection->want_write = true;
             break;
         case WSAEMSGSIZE:
             // TODO: Partial Write
@@ -950,10 +960,10 @@ void TLS_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
     if (!success) {
         if (BIO_should_retry(bio)) {
             if (BIO_should_read(bio)) {
-                connection->want_read = true;
+                connection->wants.readop.want_read = true;
             }
             else if (BIO_should_write(bio)) {
-                connection->want_write = true;
+                connection->wants.readop.want_write = true;
             }
             else {
                 // TODO: should not happen, what to do
@@ -994,10 +1004,10 @@ void TLS_try_write(NetworkConnection* connection) {
     if (!success) {
         if (BIO_should_retry(bio)) {
             if (BIO_should_read(bio)) {
-                connection->want_read = true;
+                connection->wants.writeop.want_read = true;
             }
             else if (BIO_should_write(bio)) {
-                connection->want_write = true;
+                connection->wants.writeop.want_write = true;
             }
             else {
                 // TODO: should not happen, what to do
@@ -1105,10 +1115,10 @@ void DTLS_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
     if (!success) {
         if (BIO_should_retry(bio)) {
             if (BIO_should_read(bio)) {
-                connection->want_read = true;
+                connection->wants.readop.want_read = true;
             }
             else if (BIO_should_write(bio)) {
-                connection->want_write = true;
+                connection->wants.readop.want_write = true;
             }
             else {
                 // TODO: should not happen, what to do
@@ -1149,10 +1159,10 @@ void DTLS_try_write(NetworkConnection* connection) {
     if (!success) {
         if (BIO_should_retry(bio)) {
             if (BIO_should_read(bio)) {
-                connection->want_read = true;
+                connection->wants.writeop.want_read = true;
             }
             else if (BIO_should_write(bio)) {
-                connection->want_write = true;
+                connection->wants.writeop.want_write = true;
             }
             else {
                 // TODO: should not happen, what to do
@@ -1189,6 +1199,10 @@ NetworkServer network_set_listen(NetworkListenRequest listen_request) {
     }
 }
 void network_try_accept(NetworkServer* server) {
+    if (server->closed) {
+        return;
+    }
+
     switch (server->protocol) {
     case NETWORK_PROTOCOL_TCP:
         TCP_try_accept(server);
@@ -1490,8 +1504,7 @@ void cleanup_connect_commands() {
                 NetworkConnection connection = {
                     .conn = connect_command.conn,
                     .server_socket = INVALID_SOCKET,
-                    .want_read = false,
-                    .want_write = false,
+                    .wants = {0},
                     .read_command = {0},
                     .write_queue = write_queue_new_empty(),
                     .closed = false,
@@ -1559,39 +1572,45 @@ void handle_read(fd_set* read_sockets, BufferSlice netbuffer) {
         if (socket == interrupt_socket) continue;
 
         NetworkConnection* connection = find_network_connection(socket);
+        NetworkConnectCommand* connect_command = (connection == NULL) ? find_connect_command(socket) : NULL;
+        NetworkServer* server = (connection == NULL && connect_command == NULL) ? find_network_server(socket) : NULL;
+
         if (connection != NULL) {
-            network_try_read(connection, netbuffer);
+            if (connection->prev_wants.readop.want_read) {
+                network_try_read(connection, netbuffer);
+            }
+            if (connection->prev_wants.writeop.want_read) {
+                network_try_write(connection);
+            }
         }
-        else {
-            NetworkConnectCommand* connect_command = find_connect_command(socket);
-            if (connect_command != NULL) {
-                network_try_connect(connect_command);
-            }
-            else {
-                NetworkServer* server = find_network_server(socket);
-                if (server != NULL) {
-                    network_try_accept(server);
-                }
-            }
+        else if (connect_command != NULL) {
+            network_try_connect(connect_command);
+        }
+        else if (server != NULL) {
+            network_try_accept(server);
         }
     }
 }
 
-void handle_write(fd_set* write_sockets) {
+void handle_write(fd_set* write_sockets, BufferSlice netbuffer) {
     JUST_LOG_TRACE("handle_write: %d\n", write_sockets->fd_count);
     for (uint32 i = 0; i < write_sockets->fd_count; i++) {
         Socket socket = write_sockets->fd_array[i];
         if (socket == interrupt_socket) continue;
-
+        
         NetworkConnection* connection = find_network_connection(socket);
+        NetworkConnectCommand* connect_command = (connection == NULL) ? find_connect_command(socket) : NULL;
+
         if (connection != NULL) {
-            network_try_write(connection);
-        }
-        else {
-            NetworkConnectCommand* connect_command = find_connect_command(socket);
-            if (connect_command != NULL) {
-                network_try_connect(connect_command);
+            if (connection->prev_wants.readop.want_write) {
+                network_try_read(connection, netbuffer);
             }
+            if (connection->prev_wants.writeop.want_write) {
+                network_try_write(connection);
+            }
+        }
+        else if (connect_command != NULL) {
+            network_try_connect(connect_command);
         }
     }
 }
@@ -1603,6 +1622,7 @@ void handle_except(fd_set* except_sockets) {
         if (socket == interrupt_socket) continue;
 
         NetworkConnectCommand* connect_command = find_connect_command(socket);
+
         if (connect_command != NULL) {
             network_try_connect(connect_command);
         }
@@ -1648,14 +1668,14 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
 
         for (uint32 i = 0; i < NETWORK_CONNECTIONS.length; i++) {
             NetworkConnection* connection = &NETWORK_CONNECTIONS.connections[i];
-            if (connection->want_read || connection->read_command.read_active) {
+            if (connection->wants.readop.want_read || connection->wants.writeop.want_read || connection->read_command.read_active) {
                 FD_SET(connection->conn.fd, &read_sockets);
             }
-            if (connection->want_write) {
+            if (connection->wants.readop.want_write || connection->wants.writeop.want_write || write_queue_has_next(&connection->write_queue)) {
                 FD_SET(connection->conn.fd, &write_sockets);
             }
-            connection->want_read = false;
-            connection->want_write = false;
+            connection->prev_wants = connection->wants;
+            connection->wants = (NetworkWants) {0};
         }
 
         JUST_LOG_TRACE("read_sockets: %d\n", read_sockets.fd_count);
@@ -1690,7 +1710,7 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
         JUST_LOG_TRACE("START: handle ready sockets\n");
 
         handle_read(&read_sockets, NETWORK_BUFFER);
-        handle_write(&write_sockets);
+        handle_write(&write_sockets, NETWORK_BUFFER);
         handle_except(&except_sockets);
         
         JUST_LOG_TRACE("START: handle socket queue\n");
