@@ -26,3 +26,9 @@ void srw_lock_release_shared(SRWLock* lock);
         do { CodeBlock; } while(0);\
     srw_lock_release_shared(SRW_LOCK);\
     } while (0)
+
+// typedef void AwakableSleep;
+
+// AwakableSleep* new_awakable_sleep();
+// void sleep_awakeable(AwakableSleep* awakable);
+// void signal_awake(AwakableSleep* awakable);

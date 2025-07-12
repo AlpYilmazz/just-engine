@@ -57,3 +57,11 @@ void srw_lock_release_shared(SRWLock* lock) {
     #endif
 }
 
+// typedef void AwakableSleep;
+// typedef struct {
+//     SRWLOCK cond_var;
+// } AwakableSleep;
+
+// AwakableSleep* new_awakable_sleep();
+// void sleep_awakeable(AwakableSleep* awakable);
+// void signal_awake(AwakableSleep* awakable);

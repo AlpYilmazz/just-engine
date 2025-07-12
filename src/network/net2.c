@@ -258,7 +258,6 @@ NetworkConnection* find_network_connection(Socket socket) {
     for (uint32 i = 0; i < NETWORK_CONNECTIONS.length; i++) {
         JUST_LOG_INFO("Check [%llu]\n", NETWORK_CONNECTIONS.connections[i].conn.socket);
         if (NETWORK_CONNECTIONS.connections[i].conn.socket == socket) {
-            JUST_DEV_MARK();
             return &NETWORK_CONNECTIONS.connections[i];
         }
     }
@@ -475,6 +474,7 @@ NetworkServer TCP_set_listen(NetworkListenRequest listen_request) {
     if (socket == INVALID_SOCKET) {
         PANIC("FAIL: TCP_set_listen -> make_socket");
     }
+    setsockopt(socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, 1, sizeof(int));
     bind_socket(socket, listen_request.bind_addr);
     listen(socket, SOMAXCONN);
     
@@ -507,7 +507,6 @@ void TCP_try_accept(NetworkServer* server) {
         switch (err) {
         case WSAEWOULDBLOCK:
             // Fine
-            JUST_DEV_MARK();
             server->current_direction = COMM_DIRECTION_READ;
             break;
         default:
@@ -615,6 +614,24 @@ void TCP_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
             // Fine
             connection->want_read = true;
             break;
+        case WSAENETDOWN:
+        case WSAENETRESET:
+        case WSAESHUTDOWN:
+        case WSAECONNABORTED:
+        case WSAECONNRESET:
+        case WSAETIMEDOUT:
+            JUST_LOG_WARN("connection closed: %d\n", err);
+            connection->closed = true;
+            break;
+        case WSANOTINITIALISED:
+        case WSAEFAULT:
+        case WSAENOTCONN:
+        case WSAEINTR:
+        case WSAEINPROGRESS:
+        case WSAENOTSOCK:
+        case WSAEOPNOTSUPP:
+        case WSAEMSGSIZE:
+        case WSAEINVAL:
         default:
             // TODO: handle err
             JUST_LOG_WARN("read err: %d\n", err);
@@ -649,6 +666,26 @@ void TCP_try_write(NetworkConnection* connection) {
             // Fine
             connection->want_write = true;
             break;
+        case WSAENETDOWN:
+        case WSAENETRESET:
+        case WSAESHUTDOWN:
+        case WSAECONNABORTED:
+        case WSAECONNRESET:
+        case WSAETIMEDOUT:
+            JUST_LOG_WARN("connection closed: %d\n", err);
+            connection->closed = true;
+            break;
+        case WSANOTINITIALISED:
+        case WSAEACCES:
+        case WSAEINTR:
+        case WSAEINPROGRESS:
+        case WSAEFAULT:
+        case WSAENOBUFS:
+        case WSAENOTCONN:
+        case WSAENOTSOCK:
+        case WSAEOPNOTSUPP:
+        case WSAEMSGSIZE:
+        case WSAEINVAL:
         default:
             // TODO: handle err
             JUST_LOG_WARN("write err: %d\n", err);
@@ -1207,7 +1244,6 @@ void network_try_connect(NetworkConnectCommand* connect_command) {
 }
 void network_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
     if (connection->closed || !connection->read_command.read_active) {
-        JUST_LOG_TRACE("connection->closed: %d, connection->read_command.read_active: %d\n", connection->closed ? 1 : 0, connection->read_command.read_active ? 1 : 0);
         return;
     }
 
@@ -1360,7 +1396,6 @@ void initiate_queued_requests(BufferSlice netbuffer) {
                 .arg = read_request.arg,
             };
             network_try_read(connection, netbuffer);
-            JUST_DEV_MARK();
         }
         else {
             // TODO: handle no connection
@@ -1379,12 +1414,10 @@ void initiate_queued_requests(BufferSlice netbuffer) {
                 .arg = write_request.arg,
             };
             if (write_queue_is_empty(&connection->write_queue)) {
-                JUST_DEV_MARK();
                 write_queue_push_command_unchecked(&connection->write_queue, write_command);
                 network_try_write(connection);
             }
             else if (!write_queue_is_full(&connection->write_queue)) {
-                JUST_DEV_MARK();
                 write_queue_push_command_unchecked(&connection->write_queue, write_command);
             }
             else {
@@ -1393,7 +1426,6 @@ void initiate_queued_requests(BufferSlice netbuffer) {
         }
         else {
             // TODO: handle no connection
-            JUST_DEV_MARK();
         }
     }
 
@@ -1427,16 +1459,13 @@ void cleanup_network_servers() {
             server->has_accepted = false;
 
             if (server->accepted_connection.closed) {
-                JUST_DEV_MARK();
                 network_free_connection(&server->accepted_connection);
             }
             else {
-                JUST_DEV_MARK();
                 store_network_connection(server->accepted_connection);
             }
 
             if (server->on_accept_fn != NULL) {
-                JUST_DEV_MARK();
                 ((OnAcceptFn) server->on_accept_fn)(server->server_id, server->accepted_connection.conn.socket, server->arg);
             }
         }
@@ -1458,7 +1487,6 @@ void cleanup_connect_commands() {
         NetworkConnectCommand connect_command = CONNECT_COMMANDS.commands[i];
         if (connect_command.done) {
             if (connect_command.result == CONNECT_SUCCESS) {
-                JUST_DEV_MARK();
                 NetworkConnection connection = {
                     .conn = connect_command.conn,
                     .server_socket = INVALID_SOCKET,
@@ -1529,23 +1557,19 @@ void handle_read(fd_set* read_sockets, BufferSlice netbuffer) {
     for (uint32 i = 0; i < read_sockets->fd_count; i++) {
         Socket socket = read_sockets->fd_array[i];
         if (socket == interrupt_socket) continue;
-        JUST_DEV_MARK();
 
         NetworkConnection* connection = find_network_connection(socket);
         if (connection != NULL) {
-            JUST_DEV_MARK();
             network_try_read(connection, netbuffer);
         }
         else {
             NetworkConnectCommand* connect_command = find_connect_command(socket);
             if (connect_command != NULL) {
-                JUST_DEV_MARK();
                 network_try_connect(connect_command);
             }
             else {
                 NetworkServer* server = find_network_server(socket);
                 if (server != NULL) {
-                    JUST_DEV_MARK();
                     network_try_accept(server);
                 }
             }
@@ -1595,7 +1619,6 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
         FD_ZERO(&write_sockets);
         FD_ZERO(&except_sockets);
 
-        init_interrupt();
         FD_SET(interrupt_socket, &read_sockets);
 
         for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
@@ -1626,7 +1649,6 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
         for (uint32 i = 0; i < NETWORK_CONNECTIONS.length; i++) {
             NetworkConnection* connection = &NETWORK_CONNECTIONS.connections[i];
             if (connection->want_read || connection->read_command.read_active) {
-                JUST_DEV_MARK();
                 FD_SET(connection->conn.fd, &read_sockets);
             }
             if (connection->want_write) {
@@ -1642,23 +1664,23 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
 
         JUST_LOG_TRACE("START: select\n");
 
-        int ready_count = select(
+        int32 ready_count = select(
             0,
             read_sockets.fd_count == 0 ? NULL : &read_sockets,
             write_sockets.fd_count == 0 ? NULL : &write_sockets,
             except_sockets.fd_count == 0 ? NULL : &except_sockets,
             NULL
         );
+        if (is_interrupted()) {
+            JUST_LOG_TRACE("select was interrupted\n");
+        }
+        init_interrupt();
 
         JUST_LOG_TRACE("END: select\n");
     
         if (ready_count == SOCKET_ERROR) {
-            int err = WSAGetLastError();
+            int32 err = WSAGetLastError();
             JUST_LOG_WARN("select error: %d\n", err);
-        }
-
-        if (is_interrupted()) {
-            JUST_LOG_TRACE("select was interrupted\n");
         }
 
         JUST_LOG_TRACE("START: handle immediate close\n");
@@ -1740,7 +1762,7 @@ void init_network_thread() {
     );
 }
 
-void network_listen(SocketAddr bind_addr, NetworkProtocolEnum protocol, uint32 server_id, OnAcceptFn on_accept, void* arg) {
+void network_start_server(SocketAddr bind_addr, NetworkProtocolEnum protocol, uint32 server_id, OnAcceptFn on_accept, void* arg) {
     NetworkListenRequest request = {
         .protocol = protocol,
         .bind_addr = bind_addr,
@@ -1811,7 +1833,6 @@ void network_write_buffer_to(Socket socket, SocketAddr remote_addr, BufferSlice 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
         issue_interrupt_apc();
     }
-    JUST_DEV_MARK();
 }
 
 void network_stop_server(uint32 server_id, ServerStopEnum stop_kind, OnStopFn on_stop, void* arg) {

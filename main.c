@@ -770,22 +770,10 @@
 
 void echo_on_write(WriteContext context, void* arg) {
     byte* msg_buffer = arg;
-    JUST_LOG_INFO("Write Made\n");
-    // static uint64 count = 0;
-    // count++;
-    // if (count == 2) {
-    //     PANIC("WRITE\n");
-    // }
     free(msg_buffer);
 }
 
 bool server_on_read(ReadContext context, BufferSlice read_buffer, void* arg) {
-    JUST_LOG_INFO("Read: %d\n", read_buffer.length);
-    // static uint64 count = 0;
-    // count++;
-    // if (count == 2) {
-    //     PANIC("READ\n");
-    // }
     Buffer echo_msg = buffer_clone(read_buffer);
     network_write_buffer(context.socket, echo_msg, echo_on_write, echo_msg.bytes);
     return true;
@@ -796,30 +784,23 @@ void server_on_accept(uint32 server_id, Socket socket, void* arg) {
 }
 
 int main() {
-    SET_LOG_LEVEL(LOG_LEVEL_INFO);
-    SET_LOG_LEVEL(LOG_LEVEL_TRACE);
+    SET_LOG_LEVEL(LOG_LEVEL_WARN);
+    // SET_LOG_LEVEL(LOG_LEVEL_TRACE);
 
     InitWindow(1000, 1000, "Test");
     SetTargetFPS(5);
 
     init_network_thread();
 
-    Timer start_timer = new_timer(5, Timer_NonRepeating);
+    SocketAddr server_addr = {
+        .host = "127.0.0.1",
+        .port = 8080,
+    };
+    network_start_server(server_addr, NETWORK_PROTOCOL_TCP, 0, server_on_accept, NULL);
+
     Timer timer = new_timer(10, Timer_Repeating);
     while (!WindowShouldClose()) {
         float32 delta_time = GetFrameTime();
-
-        if (!timer_is_finished(&start_timer)) {
-            tick_timer(&start_timer, delta_time);
-            if (timer_is_finished(&start_timer)) {
-                SocketAddr server_addr = {
-                    .host = "127.0.0.1",
-                    .port = 8080,
-                };
-                network_listen(server_addr, NETWORK_PROTOCOL_TCP, 0, server_on_accept, NULL);
-                JUST_DEV_MARK();
-            }
-        }
 
         tick_timer(&timer, delta_time);
         if (timer_is_finished(&timer)) {
