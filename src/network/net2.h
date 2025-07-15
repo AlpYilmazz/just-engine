@@ -57,7 +57,16 @@ typedef void (*OnCloseFn)(Socket socket, void* arg);
 typedef bool (*OnReadFn)(ReadContext context, BufferSlice read_buffer, void* arg); // -> do_continue
 typedef void (*OnWriteFn)(WriteContext context, void* arg);
 
-void init_network_thread();
+typedef struct {
+    bool configure_server;
+    bool configure_tls;
+    // --
+    char* server_cert_file;
+    char* server_key_file;
+} NetworkConfig;
+
+void configure_network_system(NetworkConfig config);
+void start_network_thread();
 
 void network_start_server(SocketAddr bind_addr, NetworkProtocolEnum protocol, uint32 server_id, OnAcceptFn on_accept, void* arg);
 void network_stop_server(uint32 server_id, ServerStopEnum stop_kind, OnStopFn on_stop, void* arg);

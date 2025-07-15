@@ -8,6 +8,7 @@
 #include <stdbool.h>
 
 #include <openssl/ssl.h>
+#include <openssl/bio.h>
 
 #include "core.h"
 #include "logging.h"
@@ -314,12 +315,12 @@ NetworkConnection* find_network_connection(Socket socket) {
 }
 
 #pragma region SSL CONTEXTS
-SSL_CTX* TLS_server_ctx;
-SSL_CTX* DTLS_server_ctx;
-SSL_CTX* TLS_client_ctx;
-SSL_CTX* DTLS_client_ctx;
+SSL_CTX* TLS_server_ctx = NULL;
+SSL_CTX* DTLS_server_ctx = NULL;
+SSL_CTX* TLS_client_ctx = NULL;
+SSL_CTX* DTLS_client_ctx = NULL;
 
-bool create_ssl_contexts() {
+bool create_server_ssl_contexts(char* cert_file, char* key_file) {
     {
         TLS_server_ctx = SSL_CTX_new(TLS_server_method());
         if (TLS_server_ctx == NULL) {
@@ -327,8 +328,8 @@ bool create_ssl_contexts() {
             goto FAIL;
         }
 
-        SSL_CTX_use_certificate_file(TLS_server_ctx, "server.crt", SSL_FILETYPE_PEM);
-        SSL_CTX_use_PrivateKey_file(TLS_server_ctx, "server.key", SSL_FILETYPE_PEM);
+        SSL_CTX_use_certificate_file(TLS_server_ctx, cert_file, SSL_FILETYPE_PEM);
+        SSL_CTX_use_PrivateKey_file(TLS_server_ctx, key_file, SSL_FILETYPE_PEM);
         SSL_CTX_check_private_key(TLS_server_ctx);
     }
     {
@@ -338,10 +339,17 @@ bool create_ssl_contexts() {
             goto FAIL;
         }
 
-        SSL_CTX_use_certificate_file(DTLS_server_ctx, "server.crt", SSL_FILETYPE_PEM);
-        SSL_CTX_use_PrivateKey_file(DTLS_server_ctx, "server.key", SSL_FILETYPE_PEM);
+        SSL_CTX_use_certificate_file(DTLS_server_ctx, cert_file, SSL_FILETYPE_PEM);
+        SSL_CTX_use_PrivateKey_file(DTLS_server_ctx, key_file, SSL_FILETYPE_PEM);
         SSL_CTX_check_private_key(DTLS_server_ctx);
     }
+
+    return true;
+    FAIL:
+    return false;
+}
+
+bool create_client_ssl_contexts() {
     {
         TLS_client_ctx = SSL_CTX_new(TLS_client_method());
         if (TLS_client_ctx == NULL) {
@@ -397,8 +405,12 @@ bool create_ssl_contexts() {
 }
 
 void free_ssl_contexts() {
-    SSL_CTX_free(TLS_server_ctx);
-    SSL_CTX_free(DTLS_server_ctx);
+    if (TLS_server_ctx != NULL) {
+        SSL_CTX_free(TLS_server_ctx);
+    }
+    if (DTLS_server_ctx != NULL) {
+        SSL_CTX_free(DTLS_server_ctx);
+    }
     SSL_CTX_free(TLS_client_ctx);
     SSL_CTX_free(DTLS_client_ctx);
 }
@@ -554,7 +566,8 @@ NetworkServer TCP_set_listen(NetworkListenRequest listen_request) {
     if (socket == INVALID_SOCKET) {
         PANIC("FAIL: TCP_set_listen -> make_socket");
     }
-    setsockopt(socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, 1, sizeof(int));
+    int true__ = 1;
+    setsockopt(socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*) &true__, sizeof(true__));
     bind_socket(socket, listen_request.bind_addr);
     listen(socket, SOMAXCONN);
     
@@ -937,7 +950,7 @@ NetworkServer TLS_set_listen(NetworkListenRequest listen_request) {
     BIO_set_nbio_accept(bio, 1);      // Set non-blocking mode
     
     // Configure SSL context for accepted connections
-    BIO_ssl_set_accept(bio, TLS_server_ctx);
+    // BIO_ssl_set_accept(bio, TLS_server_ctx);
 
     return (NetworkServer) {
         .protocol = listen_request.protocol,
@@ -969,10 +982,22 @@ void TLS_try_accept(NetworkServer* server) {
 
     CommDirection comm_direction;
     if (result > 0) {
-        BIO* client_bio = BIO_pop(bio);
-        int32 client_fd = BIO_get_fd(bio, NULL);
+        // BIO* client_bio = BIO_pop(bio);
+        // int32 client_fd = BIO_get_fd(bio, NULL);
 
-        BIO_set_close(client_bio, BIO_CLOSE);
+        // BIO_set_close(client_bio, BIO_CLOSE);
+
+        BIO* client_socket_bio = BIO_pop(bio);
+        BIO_set_close(client_socket_bio, BIO_CLOSE);
+        int32 client_fd = BIO_get_fd(client_socket_bio, NULL);
+        
+        SSL* ssl = SSL_new(TLS_server_ctx);
+        BIO* client_ssl_bio = BIO_new(BIO_f_ssl());
+        BIO_set_ssl(client_ssl_bio, ssl, BIO_CLOSE);
+        BIO_set_nbio(client_ssl_bio, 1);
+
+        BIO_push(client_ssl_bio, client_socket_bio);
+        int32 client_fd = BIO_get_fd(client_ssl_bio, NULL);
 
         server->has_accepted = true;
         server->accepted_connection = new_connection_init(
@@ -980,7 +1005,7 @@ void TLS_try_accept(NetworkServer* server) {
                 .protocol = server->protocol,
                 .remote_addr = {0}, // TODO: unnecessary but I should do it?
                 .socket = client_fd,
-                .ssl_bio = client_bio,
+                .ssl_bio = client_ssl_bio,
                 .fd = client_fd,
             }
         );
@@ -1896,23 +1921,54 @@ uint32 __stdcall network_thread_main(void* thread_param) {
     _endthreadex(0);
 }
 
+void just_WSAStartup() {
+    static bool is_init = false;
+    if (!is_init) {
+        is_init = true;
+        // Initialize Winsock
+        WSADATA wsa_data;
+        int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+        if (result != NO_ERROR) {
+            PANIC("WSAStartup function failed with error: %d\n", result);
+        }
+    }
+}
+
 /**
  * BELOW IS THE PUBLIC API
  * CALLED FROM ANOTHER THREAD
  * TO INTERRACT WITH THE NETWORK THREAD
  */
 
-void init_network_thread() {
-    // Initialize Winsock
-    WSADATA wsa_data;
-    int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-    if (result != NO_ERROR) {
-        PANIC("WSAStartup function failed with error: %d\n", result);
+bool init_as_server = false;
+bool server_tls_configured = false;
+bool client_tls_configured = false;
+
+static inline bool protocol_is_tls(NetworkProtocolEnum protocol) {
+    return protocol == NETWORK_PROTOCOL_TLS || protocol == NETWORK_PROTOCOL_DTLS;
+}
+
+void configure_network_system(NetworkConfig config) {
+    if (config.configure_server) {
+        init_as_server = true;
+        if (config.configure_tls && config.server_cert_file != NULL && config.server_key_file != NULL) {
+            server_tls_configured = true;
+            if (!create_server_ssl_contexts(config.server_cert_file, config.server_key_file)) {
+                PANIC("Could not create server ssl context objects\n");
+            }
+        }
     }
 
-    if (!create_ssl_contexts()) {
-        PANIC("Could not create ssl context objects\n");
+    if (config.configure_tls) {
+        client_tls_configured = true;
+        if (!create_client_ssl_contexts()) {
+            PANIC("Could not create client ssl context objects\n");
+        }
     }
+}
+
+void start_network_thread() {
+    just_WSAStartup();
 
     init_interrupt();
 
@@ -1928,6 +1984,13 @@ void init_network_thread() {
 }
 
 void network_start_server(SocketAddr bind_addr, NetworkProtocolEnum protocol, uint32 server_id, OnAcceptFn on_accept, void* arg) {
+    if (!init_as_server) {
+        PANIC("Network system is not initialized for server functionality. Use [init_network_server]\n");
+    }
+    if (!server_tls_configured && protocol_is_tls(protocol)) {
+        PANIC("Network system is not configured for TLS on server side. Use [init_network_server | ServerInitConfig.configure_tls]\n");
+    }
+
     NetworkListenRequest request = {
         .protocol = protocol,
         .bind_addr = bind_addr,
@@ -1943,6 +2006,10 @@ void network_start_server(SocketAddr bind_addr, NetworkProtocolEnum protocol, ui
 }
 
 void network_connect(SocketAddr remote_addr, NetworkProtocolEnum protocol, uint32 connect_id, OnConnectFn on_connect, void* arg) {
+    if (!client_tls_configured && protocol_is_tls(protocol)) {
+        PANIC("Network system is not configured for TLS on client side. Use [init_network_client | ClientInitConfig.configure_tls]\n");
+    }
+
     NetworkConnectRequest request = {
         .protocol = protocol,
         .remote_addr = remote_addr,

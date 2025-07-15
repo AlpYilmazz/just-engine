@@ -790,7 +790,13 @@ int main() {
     InitWindow(1000, 1000, "Test");
     SetTargetFPS(5);
 
-    init_network_thread();
+    configure_network_system((NetworkConfig) {
+        .configure_server = true,
+        .configure_tls = true,
+        .server_cert_file = "cert.pem",
+        .server_key_file = "key.pem",
+    });
+    start_network_thread();
 
     SocketAddr server_addr = {
         .host = "127.0.0.1",
