@@ -9,6 +9,7 @@
 
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
+#include <openssl/rand.h>
 
 #include "core.h"
 #include "logging.h"
@@ -331,6 +332,17 @@ bool create_server_ssl_contexts(char* cert_file, char* key_file) {
         SSL_CTX_use_certificate_file(TLS_server_ctx, cert_file, SSL_FILETYPE_PEM);
         SSL_CTX_use_PrivateKey_file(TLS_server_ctx, key_file, SSL_FILETYPE_PEM);
         SSL_CTX_check_private_key(TLS_server_ctx);
+
+        /* Use the default trusted certificate store */
+        if (!SSL_CTX_set_default_verify_paths(TLS_server_ctx)) {
+            JUST_LOG_ERROR("Failed to set the default trusted certificate store\n");
+            goto FAIL;
+        }
+
+        if (!SSL_CTX_set_min_proto_version(TLS_server_ctx, TLS1_2_VERSION)) {
+            JUST_LOG_ERROR("Failed to set the minimum TLS protocol version\n");
+            goto FAIL;
+        }
     }
     {
         DTLS_server_ctx = SSL_CTX_new(DTLS_server_method());
@@ -342,6 +354,17 @@ bool create_server_ssl_contexts(char* cert_file, char* key_file) {
         SSL_CTX_use_certificate_file(DTLS_server_ctx, cert_file, SSL_FILETYPE_PEM);
         SSL_CTX_use_PrivateKey_file(DTLS_server_ctx, key_file, SSL_FILETYPE_PEM);
         SSL_CTX_check_private_key(DTLS_server_ctx);
+
+        /* Use the default trusted certificate store */
+        if (!SSL_CTX_set_default_verify_paths(DTLS_server_ctx)) {
+            JUST_LOG_ERROR("Failed to set the default trusted certificate store\n");
+            goto FAIL;
+        }
+
+        if (!SSL_CTX_set_min_proto_version(DTLS_server_ctx, DTLS1_2_VERSION)) {
+            JUST_LOG_ERROR("Failed to set the minimum DTLS protocol version\n");
+            goto FAIL;
+        }
     }
 
     return true;
@@ -1921,25 +1944,7 @@ uint32 __stdcall network_thread_main(void* thread_param) {
     _endthreadex(0);
 }
 
-void just_WSAStartup() {
-    static bool is_init = false;
-    if (!is_init) {
-        is_init = true;
-        // Initialize Winsock
-        WSADATA wsa_data;
-        int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-        if (result != NO_ERROR) {
-            PANIC("WSAStartup function failed with error: %d\n", result);
-        }
-    }
-}
-
-/**
- * BELOW IS THE PUBLIC API
- * CALLED FROM ANOTHER THREAD
- * TO INTERRACT WITH THE NETWORK THREAD
- */
-
+bool is_init = false;
 bool init_as_server = false;
 bool server_tls_configured = false;
 bool client_tls_configured = false;
@@ -1948,7 +1953,39 @@ static inline bool protocol_is_tls(NetworkProtocolEnum protocol) {
     return protocol == NETWORK_PROTOCOL_TLS || protocol == NETWORK_PROTOCOL_DTLS;
 }
 
+/**
+ * BELOW IS THE PUBLIC API
+ * CALLED FROM ANOTHER THREAD
+ * TO INTERRACT WITH THE NETWORK THREAD
+ */
+
 void configure_network_system(NetworkConfig config) {
+    is_init = true;
+
+    // 1. Initialize Winsock
+    WSADATA wsa_data;
+    int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+    if (result != NO_ERROR) {
+        PANIC("WSAStartup function failed with error: %d\n", result);
+    }
+
+    // 2. Core SSL initialization
+    if(!OPENSSL_init_ssl(
+        OPENSSL_INIT_LOAD_SSL_STRINGS |
+        OPENSSL_INIT_LOAD_CRYPTO_STRINGS |
+        OPENSSL_INIT_ADD_ALL_CIPHERS |
+        OPENSSL_INIT_ADD_ALL_DIGESTS,
+        NULL
+    )) {
+        PANIC("OPENSSL_init_ssl function failed\n");
+    }
+    
+    // 3. Security hardening
+    OPENSSL_init_crypto(OPENSSL_INIT_NO_LOAD_CONFIG, NULL);
+    
+    // 4. Seed RNG
+    RAND_poll();
+
     if (config.configure_server) {
         init_as_server = true;
         if (config.configure_tls && config.server_cert_file != NULL && config.server_key_file != NULL) {
@@ -1968,7 +2005,9 @@ void configure_network_system(NetworkConfig config) {
 }
 
 void start_network_thread() {
-    just_WSAStartup();
+    if (!is_init) {
+        PANIC("Network system is not initialized. Use [configure_network_system]");
+    }
 
     init_interrupt();
 
@@ -1985,10 +2024,10 @@ void start_network_thread() {
 
 void network_start_server(SocketAddr bind_addr, NetworkProtocolEnum protocol, uint32 server_id, OnAcceptFn on_accept, void* arg) {
     if (!init_as_server) {
-        PANIC("Network system is not initialized for server functionality. Use [init_network_server]\n");
+        PANIC("Network system is not initialized for server functionality. Use [configure_network_system]\n");
     }
     if (!server_tls_configured && protocol_is_tls(protocol)) {
-        PANIC("Network system is not configured for TLS on server side. Use [init_network_server | ServerInitConfig.configure_tls]\n");
+        PANIC("Network system is not configured for TLS on server side. Use [configure_network_system | NetworkConfig.configure_tls]\n");
     }
 
     NetworkListenRequest request = {
@@ -2007,7 +2046,7 @@ void network_start_server(SocketAddr bind_addr, NetworkProtocolEnum protocol, ui
 
 void network_connect(SocketAddr remote_addr, NetworkProtocolEnum protocol, uint32 connect_id, OnConnectFn on_connect, void* arg) {
     if (!client_tls_configured && protocol_is_tls(protocol)) {
-        PANIC("Network system is not configured for TLS on client side. Use [init_network_client | ClientInitConfig.configure_tls]\n");
+        PANIC("Network system is not configured for TLS on client side. Use [configure_network_system | NetworkConfig.configure_tls]\n");
     }
 
     NetworkConnectRequest request = {
