@@ -9,6 +9,7 @@ typedef uint64 Socket;
 #endif
 
 typedef struct {
+    char* bind;
     char* host;
     char* service;
     uint16 port;

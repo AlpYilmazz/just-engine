@@ -9,6 +9,7 @@
 
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
+#include <openssl/err.h>
 #include <openssl/rand.h>
 
 #include "core.h"
@@ -22,6 +23,14 @@ typedef SOCKET Socket;
 HANDLE NETWORK_THREAD;
 uint32 NETWORK_THREAD_ID;
 SRWLock* NETWORK_THREAD_LOCK;
+
+void print_openssl_error() {
+    uint64 err;
+    while ((err = ERR_get_error())) {
+        char* str = ERR_error_string(err, NULL);
+        JUST_LOG_ERROR("SSL ERROR: %s\n", str);
+    }
+}
 
 #pragma region INTERRUPT
 atomic_bool interrupted = ATOMIC_VAR_INIT(1);
@@ -38,6 +47,7 @@ bool maybe_flip_interrupted(bool enter_cond) {
 
 void init_interrupt() {
     if (maybe_flip_interrupted(true)) {
+        JUST_DEV_MARK();
         interrupt_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (interrupt_socket == INVALID_SOCKET) {
             // TODO: handle err
@@ -343,6 +353,8 @@ bool create_server_ssl_contexts(char* cert_file, char* key_file) {
             JUST_LOG_ERROR("Failed to set the minimum TLS protocol version\n");
             goto FAIL;
         }
+
+        SSL_CTX_set_mode(TLS_server_ctx, SSL_MODE_AUTO_RETRY);
     }
     {
         DTLS_server_ctx = SSL_CTX_new(DTLS_server_method());
@@ -365,6 +377,8 @@ bool create_server_ssl_contexts(char* cert_file, char* key_file) {
             JUST_LOG_ERROR("Failed to set the minimum DTLS protocol version\n");
             goto FAIL;
         }
+
+        SSL_CTX_set_mode(DTLS_server_ctx, SSL_MODE_AUTO_RETRY);
     }
 
     return true;
@@ -502,34 +516,22 @@ typedef struct {
 NetworkRequestQueue REQUEST_QUEUE = {0};
 
 void queue_listen_request(NetworkListenRequest listen_request) {
-    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.listen_requests[REQUEST_QUEUE.listen_length++] = listen_request;
-    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_connect_request(NetworkConnectRequest connect_request) {
-    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.connect_requests[REQUEST_QUEUE.connect_length++] = connect_request;
-    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_read_request(NetworkReadRequest read_request) {
-    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.read_requests[REQUEST_QUEUE.read_length++] = read_request;
-    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_write_request(NetworkWriteRequest write_request) {
-    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.write_requests[REQUEST_QUEUE.write_length++] = write_request;
-    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_stop_request(NetworkStopRequest stop_request) {
-    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.stop_requests[REQUEST_QUEUE.stop_length++] = stop_request;
-    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 void queue_close_request(NetworkCloseRequest close_request) {
-    srw_lock_acquire_exclusive(NETWORK_THREAD_LOCK);
     REQUEST_QUEUE.close_requests[REQUEST_QUEUE.close_length++] = close_request;
-    srw_lock_release_exclusive(NETWORK_THREAD_LOCK);
 }
 #pragma endregion NetworkRequestQueue
 
@@ -968,9 +970,21 @@ void UDP_free_connection(NetworkConnection* connection) {
 
 NetworkServer TLS_set_listen(NetworkListenRequest listen_request) {
     // Create accept BIO
-    BIO* bio = BIO_new_accept(listen_request.bind_addr.service);  // Listen on port 443
+    BIO* bio = BIO_new_accept(listen_request.bind_addr.bind);
     BIO_set_close(bio, BIO_CLOSE);
     BIO_set_nbio_accept(bio, 1);      // Set non-blocking mode
+
+    int32 result = BIO_do_accept(bio);
+    if (result != 1) {
+        print_openssl_error();
+        PANIC("TLS bind Socket could not be created\n");
+    }
+
+    int32 fd = BIO_get_fd(bio, NULL);
+    JUST_LOG_INFO("server fd: %d\n", fd);
+    
+    int true__ = 1;
+    setsockopt(fd, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*) &true__, sizeof(true__));
     
     // Configure SSL context for accepted connections
     // BIO_ssl_set_accept(bio, TLS_server_ctx);
@@ -979,9 +993,9 @@ NetworkServer TLS_set_listen(NetworkListenRequest listen_request) {
         .protocol = listen_request.protocol,
         .server_host = listen_request.bind_addr.host,
         .bind_addr = listen_request.bind_addr,
-        .socket = INVALID_SOCKET,
+        .socket = fd,
         .ssl_bio = bio,
-        .fd = INVALID_SOCKET,
+        .fd = fd,
         // --
         .current_direction = COMM_DIRECTION_IDLE,
         .server_id = listen_request.server_id,
@@ -998,29 +1012,29 @@ void TLS_try_accept(NetworkServer* server) {
     BIO* bio = server->ssl_bio;
 
     int32 result = BIO_do_accept(bio);
+    JUST_LOG_INFO("BIO_do_accept: %d\n", result);
 
-    int32 fd = BIO_get_fd(bio, NULL);
-    server->socket = fd;
-    server->fd = fd;
-
-    CommDirection comm_direction;
     if (result > 0) {
         // BIO* client_bio = BIO_pop(bio);
         // int32 client_fd = BIO_get_fd(bio, NULL);
 
         // BIO_set_close(client_bio, BIO_CLOSE);
+        print_openssl_error();
 
         BIO* client_socket_bio = BIO_pop(bio);
         BIO_set_close(client_socket_bio, BIO_CLOSE);
-        int32 client_fd = BIO_get_fd(client_socket_bio, NULL);
         
         SSL* ssl = SSL_new(TLS_server_ctx);
+        SSL_set_accept_state(ssl);
         BIO* client_ssl_bio = BIO_new(BIO_f_ssl());
         BIO_set_ssl(client_ssl_bio, ssl, BIO_CLOSE);
         BIO_set_nbio(client_ssl_bio, 1);
 
         BIO_push(client_ssl_bio, client_socket_bio);
-        int32 client_fd = BIO_get_fd(client_ssl_bio, NULL);
+        int32 client_fd = BIO_get_fd(client_socket_bio, NULL);
+
+        JUST_LOG_INFO("accepted client fd: %d\n", client_fd);
+        // UNREACHABLE();
 
         server->has_accepted = true;
         server->accepted_connection = new_connection_init(
@@ -1036,10 +1050,16 @@ void TLS_try_accept(NetworkServer* server) {
     }
     else if (BIO_should_retry(bio)) {
         if (BIO_should_read(bio)) {
-            comm_direction = COMM_DIRECTION_READ;
+            JUST_LOG_TRACE("Server should: read\n");
+            server->current_direction = COMM_DIRECTION_READ;
         }
         else if (BIO_should_write(bio)) {
-            comm_direction = COMM_DIRECTION_WRITE;
+            JUST_LOG_TRACE("Server should: write\n");
+            server->current_direction = COMM_DIRECTION_WRITE;
+        }
+        else if (BIO_should_io_special(bio)) {
+            JUST_LOG_TRACE("Server should: read (special)\n");
+            server->current_direction = COMM_DIRECTION_READ;
         }
         else {
             // TODO: should not happen, what to do
@@ -1048,6 +1068,7 @@ void TLS_try_accept(NetworkServer* server) {
     }
     else {
         // TODO: handle err
+        print_openssl_error();
     }
 }
 NetworkConnectCommand TLS_init_connect(NetworkConnectRequest connect_request) {
@@ -1102,17 +1123,22 @@ void TLS_try_connect(NetworkConnectCommand* connect_command) {
     connect_command->conn.socket = fd;
     connect_command->conn.fd = fd;
 
-    CommDirection comm_direction;
     if (result > 0) {
         connect_command->done = true;
         connect_command->result = CONNECT_SUCCESS;
     }
     else if (BIO_should_retry(bio)) {
         if (BIO_should_read(bio)) {
-            comm_direction = COMM_DIRECTION_READ;
+            JUST_LOG_TRACE("Connect should: read\n");
+            connect_command->current_direction = COMM_DIRECTION_READ;
         }
         else if (BIO_should_write(bio)) {
-            comm_direction = COMM_DIRECTION_WRITE;
+            JUST_LOG_TRACE("Connect should: write\n");
+            connect_command->current_direction = COMM_DIRECTION_WRITE;
+        }
+        else if (BIO_should_io_special(bio)) {
+            JUST_LOG_TRACE("Connect should: write (special)\n");
+            connect_command->current_direction = COMM_DIRECTION_WRITE;
         }
         else {
             // TODO: should not happen, what to do
@@ -1122,6 +1148,7 @@ void TLS_try_connect(NetworkConnectCommand* connect_command) {
     else {
         connect_command->done = true;
         connect_command->result = CONNECT_FAIL_GENERAL;
+        print_openssl_error();
     }
 }
 void TLS_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
@@ -1143,14 +1170,17 @@ void TLS_try_read(NetworkConnection* connection, BufferSlice netbuffer) {
             }
             else {
                 // TODO: should not happen, what to do
+                print_openssl_error();
                 UNREACHABLE();
             }
         }
         else if (BIO_eof(bio)) {
             // TODO: connection closed
+            print_openssl_error();
         }
         else {
             // TODO: handle err
+            print_openssl_error();
         }
         return;
     }
@@ -1187,13 +1217,16 @@ void TLS_try_write(NetworkConnection* connection) {
             }
             else {
                 // TODO: should not happen, what to do
+                print_openssl_error();
                 UNREACHABLE();
             }
         }
         else if (BIO_eof(bio)) {
+            print_openssl_error();
             // TODO: connection closed
         }
         else {
+            print_openssl_error();
             // TODO: handle err
         }
         return;
@@ -1598,6 +1631,7 @@ void initiate_queued_requests(BufferSlice netbuffer) {
                 .arg = read_request.arg,
             };
             network_try_read(connection, netbuffer);
+            JUST_DEV_MARK();
         }
         else {
             // TODO: handle no connection
@@ -1797,10 +1831,25 @@ void cleanup_network_connections() {
 // }
 
 void handle_ready(BufferSlice netbuffer, fd_set* read_sockets, fd_set* write_sockets) {
+    for (uint32 i = 0; i < NETWORK_SERVERS.length; i++) {
+        NetworkServer* server = &NETWORK_SERVERS.servers[i];
+        uint64 fd = server->fd;
+        if (FD_ISSET(fd, read_sockets)) {
+            network_try_accept(server);
+        }
+    }
+    for (uint32 i = 0; i < CONNECT_COMMANDS.length; i++) {
+        NetworkConnectCommand* connect_command = &CONNECT_COMMANDS.commands[i];
+        uint64 fd = connect_command->conn.fd;
+        if (FD_ISSET(fd, read_sockets) || FD_ISSET(fd, write_sockets)) {
+            network_try_connect(connect_command);
+        }
+    }
     for (uint32 i = 0; i < NETWORK_CONNECTIONS.length; i++) {
         NetworkConnection* connection = &NETWORK_CONNECTIONS.connections[i];
         uint64 fd = connection->conn.fd;
         if (FD_ISSET(fd, read_sockets) || FD_ISSET(fd, write_sockets)) {
+            // UNREACHABLE();
             network_try_read(connection, netbuffer);
             network_try_write(connection);
         }
@@ -2037,10 +2086,15 @@ void network_start_server(SocketAddr bind_addr, NetworkProtocolEnum protocol, ui
         .on_accept_fn = on_accept,
         .arg = arg,
     };
-    queue_listen_request(request);
 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_listen_request(request);
+        });
         issue_interrupt_apc();
+    }
+    else {
+        queue_listen_request(request);
     }
 }
 
@@ -2056,10 +2110,15 @@ void network_connect(SocketAddr remote_addr, NetworkProtocolEnum protocol, uint3
         .on_connect_fn = on_connect,
         .arg = arg,
     };
-    queue_connect_request(request);
 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_connect_request(request);
+        });
         issue_interrupt_apc();
+    }
+    else {
+        queue_connect_request(request);
     }
 }
 
@@ -2069,10 +2128,15 @@ void network_start_read(Socket socket, OnReadFn on_read, void* arg) {
         .on_read_fn = on_read,
         .arg = arg,
     };
-    queue_read_request(request);
 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_read_request(request);
+        });
         issue_interrupt_apc();
+    }
+    else {
+        queue_read_request(request);
     }
 }
 
@@ -2084,10 +2148,15 @@ void network_write_buffer(Socket socket, BufferSlice buffer, OnWriteFn on_write,
         .on_write_fn = on_write,
         .arg = arg,
     };
-    queue_write_request(request);
 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_write_request(request);
+        });
         issue_interrupt_apc();
+    }
+    else {
+        queue_write_request(request);
     }
 }
 
@@ -2099,10 +2168,15 @@ void network_write_buffer_to(Socket socket, SocketAddr remote_addr, BufferSlice 
         .on_write_fn = on_write,
         .arg = arg,
     };
-    queue_write_request(request);
 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_write_request(request);
+        });
         issue_interrupt_apc();
+    }
+    else {
+        queue_write_request(request);
     }
 }
 
@@ -2113,10 +2187,15 @@ void network_stop_server(uint32 server_id, ServerStopEnum stop_kind, OnStopFn on
         .on_stop_fn = on_stop,
         .arg = arg,
     };
-    queue_stop_request(request);
 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_stop_request(request);
+        });
         issue_interrupt_apc();
+    }
+    else {
+        queue_stop_request(request);
     }
 }
 
@@ -2127,10 +2206,15 @@ void network_close_connection(Socket socket, ConnectionCloseEnum close_kind, OnC
         .on_close_fn = on_close,
         .arg = arg,
     };
-    queue_close_request(request);
 
     if (GetCurrentThreadId() != NETWORK_THREAD_ID) {
+        SRW_LOCK_EXCLUSIVE_ZONE(NETWORK_THREAD_LOCK, {
+            queue_close_request(request);
+        });
         issue_interrupt_apc();
+    }
+    else {
+        queue_close_request(request);
     }
 }
 

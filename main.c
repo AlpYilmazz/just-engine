@@ -769,23 +769,34 @@
 // }
 
 void echo_on_write(WriteContext context, void* arg) {
-    byte* msg_buffer = arg;
+    // UNREACHABLE();
+    JUST_DEV_MARK();
+    void* msg_buffer = arg;
     free(msg_buffer);
 }
 
 bool server_on_read(ReadContext context, BufferSlice read_buffer, void* arg) {
+    JUST_DEV_MARK();
     Buffer echo_msg = buffer_clone(read_buffer);
+    JUST_DEV_MARK();
     network_write_buffer(context.socket, echo_msg, echo_on_write, echo_msg.bytes);
+    JUST_DEV_MARK();
     return true;
 }
 
 void server_on_accept(uint32 server_id, Socket socket, void* arg) {
+    // UNREACHABLE();
+    // Buffer* msg = malloc_buffer(14);
+    // for (uint32 i = 0; i < msg->length; i++) {
+    //     msg->bytes[i] = 0;
+    // }
+    // network_write_buffer(socket, *msg, echo_on_write, msg);
     network_start_read(socket, server_on_read, NULL);
 }
 
 int main() {
     SET_LOG_LEVEL(LOG_LEVEL_WARN);
-    // SET_LOG_LEVEL(LOG_LEVEL_TRACE);
+    SET_LOG_LEVEL(LOG_LEVEL_TRACE);
 
     InitWindow(1000, 1000, "Test");
     SetTargetFPS(5);
@@ -793,16 +804,19 @@ int main() {
     configure_network_system((NetworkConfig) {
         .configure_server = true,
         .configure_tls = true,
-        .server_cert_file = "cert.pem",
-        .server_key_file = "key.pem",
+        .server_cert_file = "C:/dev/vendor/openssl-3.5.0/certs/cert.pem",
+        .server_key_file = "C:/dev/vendor/openssl-3.5.0/certs/key.pem",
     });
     start_network_thread();
 
     SocketAddr server_addr = {
-        .host = "127.0.0.1",
-        .port = 8080,
+        // .host = "127.0.0.1",
+        // .port = 8080,
+        // .service = "8443",
+        // .service = "8444",
+        .bind = "127.0.0.1:8444",
     };
-    network_start_server(server_addr, NETWORK_PROTOCOL_TCP, 0, server_on_accept, NULL);
+    network_start_server(server_addr, NETWORK_PROTOCOL_TLS, 0, server_on_accept, NULL);
 
     Timer timer = new_timer(10, Timer_Repeating);
     while (!WindowShouldClose()) {

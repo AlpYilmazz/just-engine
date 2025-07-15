@@ -624,6 +624,7 @@ void example_async_task_print_int_arg(TaskArgVoid* arg);
 typedef uint64 Socket;
 
 typedef struct {
+    char* bind;
     char* host;
     char* service;
     uint16 port;
