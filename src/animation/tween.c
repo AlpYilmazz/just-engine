@@ -252,3 +252,88 @@ float32 eval_animation_curve(AnimationCurve curve, float32 progress) {
     }
     PANIC("Unsupported AnimationCurveType");
 }
+
+typedef enum {
+    TWEEN_REPEATING = 0,
+    TWEEN_NONREPEATING,
+} TweenMode;
+
+typedef enum {
+    TWEEN_STARTOVER = 0,
+    TWEEN_MIRRORED,
+} TweenEndBehaviour;
+
+typedef struct {
+    TweenMode mode;
+    TweenEndBehaviour on_end;
+    AnimationCurve curve;
+    float32 duration;
+    // --
+    float32 elapsed;
+    int32 direction; // -1 | 1
+    // --
+    Vector2 start;
+    Vector2 end;
+    // Vector2 vector2_interpolate(Vector2 start, Vector2 end, float32 factor)
+    // --
+    // T start;
+    // T end;
+    // T T_interpolate(T start, T end, float32 factor);
+} Tween_Vector2;
+
+Vector2 vector2_interpolate(Vector2 start, Vector2 end, float32 factor) {
+    return Vector2Add(
+        start,
+        Vector2Scale(
+            Vector2Subtract(end, start),
+            factor
+        )
+    );
+}
+
+Vector2 vector2_tween_tick(Tween_Vector2* tween, float32 delta_time) {
+    if (tween->mode == TWEEN_NONREPEATING && tween->elapsed > tween->duration) {
+        goto INTERPOLATE;
+    }
+
+    tween->elapsed += tween->direction * delta_time;
+
+    if (tween->mode == TWEEN_REPEATING) {
+        switch (tween->on_end) {
+        case TWEEN_STARTOVER: {
+            float32 elapsed = tween->elapsed;
+            while (tween->duration < elapsed) {
+                elapsed -= tween->duration;
+            }
+            tween->elapsed = elapsed;
+            break;
+        }
+        case TWEEN_MIRRORED: {
+            float32 elapsed = tween->elapsed;
+            if (elapsed < 0) {
+                while (elapsed < 0) {
+                    elapsed += tween->duration;
+                }
+                tween->elapsed = elapsed;
+                tween->direction *= -1;
+            }
+            else if (tween->duration < elapsed) {
+                while (tween->duration < elapsed) {
+                    elapsed -= tween->duration;
+                }
+                tween->elapsed = tween->duration - elapsed;
+                tween->direction *= -1;
+            }
+            break;
+        }
+        default:
+            PANIC("Unsupported TweenEndBehaviour");
+        }
+    }
+
+    INTERPOLATE:
+    float32 progress_in = tween->elapsed / tween->duration;
+    float32 progress_out = eval_animation_curve(tween->curve, progress_in);
+
+    return vector2_interpolate(tween->start, tween->end, progress_out);
+}

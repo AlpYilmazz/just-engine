@@ -2028,11 +2028,7 @@ void configure_network_system(NetworkConfig config) {
     )) {
         PANIC("OPENSSL_init_ssl function failed\n");
     }
-    
-    // 3. Security hardening
     OPENSSL_init_crypto(OPENSSL_INIT_NO_LOAD_CONFIG, NULL);
-    
-    // 4. Seed RNG
     RAND_poll();
 
     if (config.configure_server) {

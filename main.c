@@ -769,28 +769,17 @@
 // }
 
 void echo_on_write(WriteContext context, void* arg) {
-    // UNREACHABLE();
-    JUST_DEV_MARK();
     void* msg_buffer = arg;
     free(msg_buffer);
 }
 
 bool server_on_read(ReadContext context, BufferSlice read_buffer, void* arg) {
-    JUST_DEV_MARK();
     Buffer echo_msg = buffer_clone(read_buffer);
-    JUST_DEV_MARK();
     network_write_buffer(context.socket, echo_msg, echo_on_write, echo_msg.bytes);
-    JUST_DEV_MARK();
     return true;
 }
 
 void server_on_accept(uint32 server_id, Socket socket, void* arg) {
-    // UNREACHABLE();
-    // Buffer* msg = malloc_buffer(14);
-    // for (uint32 i = 0; i < msg->length; i++) {
-    //     msg->bytes[i] = 0;
-    // }
-    // network_write_buffer(socket, *msg, echo_on_write, msg);
     network_start_read(socket, server_on_read, NULL);
 }
 
@@ -799,7 +788,7 @@ int main() {
     SET_LOG_LEVEL(LOG_LEVEL_TRACE);
 
     InitWindow(1000, 1000, "Test");
-    SetTargetFPS(5);
+    SetTargetFPS(1);
 
     configure_network_system((NetworkConfig) {
         .configure_server = true,
