@@ -223,6 +223,11 @@ AnimationCurve animation_curve_linear() {
         .type = ANIMATION_CURVE_LINEAR,
     };
 }
+AnimationCurve animation_curve_delay() {
+    return (AnimationCurve) {
+        .type = ANIMATION_CURVE_DELAY,
+    };
+}
 AnimationCurve animation_curve_step(float32 step_cutoff) {
     return (AnimationCurve) {
         .type = ANIMATION_CURVE_STEP,
@@ -243,6 +248,8 @@ static inline float32 tween_clamp(float32 p) {
 float32 eval_animation_curve(AnimationCurve curve, float32 progress) {
     float32 progress_clamped = tween_clamp(progress);
     switch (curve.type) {
+    case ANIMATION_CURVE_DELAY:
+        return 0.0;
     case ANIMATION_CURVE_LINEAR:
         return progress_clamped;
     case ANIMATION_CURVE_STEP:
@@ -254,43 +261,41 @@ float32 eval_animation_curve(AnimationCurve curve, float32 progress) {
 }
 
 float32 tween_state_tick(TweenState* tween, float32 delta_time) {
-    if (tween->mode == TWEEN_NONREPEATING && tween->elapsed > tween->duration) {
+    if (tween->mode == TWEEN_ONCE && tween->elapsed > tween->duration) {
         goto EVAL;
     }
 
     tween->elapsed += tween->direction * delta_time;
 
-    if (tween->mode == TWEEN_REPEATING) {
-        switch (tween->on_end) {
-        case TWEEN_STARTOVER: {
-            float32 elapsed = tween->elapsed;
+    switch (tween->mode) {
+    case TWEEN_REPEATOVER: {
+        float32 elapsed = tween->elapsed;
+        while (tween->duration < elapsed) {
+            elapsed -= tween->duration;
+        }
+        tween->elapsed = elapsed;
+        break;
+    }
+    case TWEEN_REPEATMIRRORED: {
+        float32 elapsed = tween->elapsed;
+        if (elapsed < 0) {
+            while (elapsed < 0) {
+                elapsed += tween->duration;
+            }
+            tween->elapsed = elapsed;
+            tween->direction *= -1;
+        }
+        else if (tween->duration < elapsed) {
             while (tween->duration < elapsed) {
                 elapsed -= tween->duration;
             }
-            tween->elapsed = elapsed;
-            break;
+            tween->elapsed = tween->duration - elapsed;
+            tween->direction *= -1;
         }
-        case TWEEN_MIRRORED: {
-            float32 elapsed = tween->elapsed;
-            if (elapsed < 0) {
-                while (elapsed < 0) {
-                    elapsed += tween->duration;
-                }
-                tween->elapsed = elapsed;
-                tween->direction *= -1;
-            }
-            else if (tween->duration < elapsed) {
-                while (tween->duration < elapsed) {
-                    elapsed -= tween->duration;
-                }
-                tween->elapsed = tween->duration - elapsed;
-                tween->direction *= -1;
-            }
-            break;
-        }
-        default:
-            PANIC("Unsupported TweenEndBehaviour");
-        }
+        break;
+    }
+    default:
+        PANIC("Unsupported TweenEndBehaviour");
     }
 
     EVAL:
@@ -298,6 +303,10 @@ float32 tween_state_tick(TweenState* tween, float32 delta_time) {
     float32 progress_out = eval_animation_curve(tween->curve, progress_in);
 
     return progress_out;
+}
+
+TweenTickOut tween_sequence_state_tick(TweenSequenceState* tween, float32 delta_time) {
+    // TODO
 }
 
 // Tween_Vector2
@@ -314,5 +323,11 @@ Vector2 vector2_interpolate(Vector2 start, Vector2 end, float32 progress) {
 
 Vector2 Vector2__tween_tick(Tween_Vector2* tween, float32 delta_time) {
     float32 progress_out = tween_state_tick(&tween->state, delta_time);
-    return vector2_interpolate(tween->start, tween->end, progress_out);
+    return vector2_interpolate(tween->limits.start, tween->limits.end, progress_out);
+}
+
+Vector2 Vector2__tween_sequence_tick(TweenSequence_Vector2* tween, float32 delta_time) {
+    TweenTickOut tick_out = tween_sequence_state_tick(&tween->state, delta_time);
+    TweenLimits_Vector2 limits = tween->limits.items[tick_out.section];
+    return vector2_interpolate(limits.start, limits.end, tick_out.progress_out);
 }
