@@ -63,3 +63,51 @@ AnimationCurve animation_curve_step(float32 step_cutoff);
 AnimationCurve animation_curve_eased(EaseFunction ease_function);
 
 float32 eval_animation_curve(AnimationCurve curve, float32 progress);
+
+typedef enum {
+    TWEEN_REPEATING = 0,
+    TWEEN_NONREPEATING,
+} TweenMode;
+
+typedef enum {
+    TWEEN_STARTOVER = 0,
+    TWEEN_MIRRORED,
+} TweenEndBehaviour;
+
+typedef struct {
+    TweenMode mode;
+    TweenEndBehaviour on_end;
+    AnimationCurve curve;
+    float32 duration;
+    // --
+    float32 elapsed;
+    int32 direction; // -1 | 1
+} TweenState;
+
+float32 tween_state_tick(TweenState* tween, float32 delta_time);
+
+typedef struct {
+    TweenState state;
+    Vector2 start;
+    Vector2 end;
+} Tween_Vector2;
+
+Vector2 vector2_interpolate(Vector2 start, Vector2 end, float32 progress);
+Vector2 Vector2__tween_tick(Tween_Vector2* tween, float32 delta_time);
+
+#define Tween(TYPE) Tween_##TYPE
+#define tween_tick(TYPE) TYPE##__tween_tick
+
+#define __DECLARE__TWEEN(TYPE) \
+    typedef struct { \
+        TweenState state; \
+        TYPE start; \
+        TYPE end; \
+    } Tween_##TYPE; \
+    TYPE TYPE##__tween_tick(Tween_##TYPE* tween, float32 delta_time);
+
+#define __IMPL_____TWEEN(TYPE, InterpolateFn) \
+    TYPE TYPE##__tween_tick(Tween_##TYPE* tween, float32 delta_time) { \
+        float32 progress_out = tween_state_tick(&tween->state, delta_time); \
+        return (InterpolateFn)(tween->start, tween->end, progress_out); \
+    }

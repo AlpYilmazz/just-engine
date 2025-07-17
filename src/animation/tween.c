@@ -253,47 +253,9 @@ float32 eval_animation_curve(AnimationCurve curve, float32 progress) {
     PANIC("Unsupported AnimationCurveType");
 }
 
-typedef enum {
-    TWEEN_REPEATING = 0,
-    TWEEN_NONREPEATING,
-} TweenMode;
-
-typedef enum {
-    TWEEN_STARTOVER = 0,
-    TWEEN_MIRRORED,
-} TweenEndBehaviour;
-
-typedef struct {
-    TweenMode mode;
-    TweenEndBehaviour on_end;
-    AnimationCurve curve;
-    float32 duration;
-    // --
-    float32 elapsed;
-    int32 direction; // -1 | 1
-    // --
-    Vector2 start;
-    Vector2 end;
-    // Vector2 vector2_interpolate(Vector2 start, Vector2 end, float32 factor)
-    // --
-    // T start;
-    // T end;
-    // T T_interpolate(T start, T end, float32 factor);
-} Tween_Vector2;
-
-Vector2 vector2_interpolate(Vector2 start, Vector2 end, float32 factor) {
-    return Vector2Add(
-        start,
-        Vector2Scale(
-            Vector2Subtract(end, start),
-            factor
-        )
-    );
-}
-
-Vector2 vector2_tween_tick(Tween_Vector2* tween, float32 delta_time) {
+float32 tween_state_tick(TweenState* tween, float32 delta_time) {
     if (tween->mode == TWEEN_NONREPEATING && tween->elapsed > tween->duration) {
-        goto INTERPOLATE;
+        goto EVAL;
     }
 
     tween->elapsed += tween->direction * delta_time;
@@ -331,9 +293,26 @@ Vector2 vector2_tween_tick(Tween_Vector2* tween, float32 delta_time) {
         }
     }
 
-    INTERPOLATE:
+    EVAL:
     float32 progress_in = tween->elapsed / tween->duration;
     float32 progress_out = eval_animation_curve(tween->curve, progress_in);
 
+    return progress_out;
+}
+
+// Tween_Vector2
+
+Vector2 vector2_interpolate(Vector2 start, Vector2 end, float32 progress) {
+    return Vector2Add(
+        start,
+        Vector2Scale(
+            Vector2Subtract(end, start),
+            progress
+        )
+    );
+}
+
+Vector2 Vector2__tween_tick(Tween_Vector2* tween, float32 delta_time) {
+    float32 progress_out = tween_state_tick(&tween->state, delta_time);
     return vector2_interpolate(tween->start, tween->end, progress_out);
 }
