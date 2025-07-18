@@ -9,22 +9,22 @@ void reset_test_tweens(Tween_Vector2* tweens) {
         .state = new_tween_state(TWEEN_ONCE, animation_curve_eased(ease_cubic_in), 2),
     };
     tweens[1] = (Tween_Vector2) {
-        .state = new_tween_state(TWEEN_REPEATOVER, animation_curve_linear(), 5),
+        .state = new_tween_state(TWEEN_REPEAT_STARTOVER, animation_curve_linear(), 5),
     };
     tweens[2] = (Tween_Vector2) {
-        .state = new_tween_state(TWEEN_REPEATOVER, animation_curve_step(0.5), 2),
+        .state = new_tween_state(TWEEN_REPEAT_STARTOVER, animation_curve_step(0.5), 2),
     };
     tweens[3] = (Tween_Vector2) {
-        .state = new_tween_state(TWEEN_REPEATOVER, animation_curve_eased(ease_elastic_out), 2),
+        .state = new_tween_state(TWEEN_REPEAT_STARTOVER, animation_curve_eased(ease_elastic_out), 2),
     };
     tweens[4] = (Tween_Vector2) {
-        .state = new_tween_state(TWEEN_REPEATMIRRORED, animation_curve_linear(), 2),
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_linear(), 2),
     };
     tweens[5] = (Tween_Vector2) {
-        .state = new_tween_state(TWEEN_REPEATMIRRORED, animation_curve_step(0.5), 2),
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_step(0.5), 2),
     };
     tweens[6] = (Tween_Vector2) {
-        .state = new_tween_state(TWEEN_REPEATMIRRORED, animation_curve_eased(ease_elastic_out), 2),
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_eased(ease_elastic_out), 2),
     };
 
     Vector2 start_i = { 50, 50 };

@@ -1404,8 +1404,9 @@ float32 eval_animation_curve(AnimationCurve curve, float32 progress);
 
 typedef enum {
     TWEEN_ONCE = 0,
-    TWEEN_REPEATOVER,
-    TWEEN_REPEATMIRRORED,
+    TWEEN_REPEAT_STARTOVER,
+    TWEEN_REPEAT_MIRRORED,
+    // TODO: TWEEN_REPEAT_CURVEMIRRORED
 } TweenMode;
 
 typedef struct {

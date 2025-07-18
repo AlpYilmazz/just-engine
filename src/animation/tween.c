@@ -281,7 +281,7 @@ float32 tween_state_tick(TweenState* tween, float32 delta_time) {
     switch (tween->mode) {
     case TWEEN_ONCE:
         break;
-    case TWEEN_REPEATOVER: {
+    case TWEEN_REPEAT_STARTOVER: {
         float32 elapsed = tween->elapsed;
         while (tween->duration < elapsed) {
             elapsed -= tween->duration;
@@ -289,7 +289,7 @@ float32 tween_state_tick(TweenState* tween, float32 delta_time) {
         tween->elapsed = elapsed;
         break;
     }
-    case TWEEN_REPEATMIRRORED: {
+    case TWEEN_REPEAT_MIRRORED: {
         JUST_LOG_WARN("----- START: %0.2f +(%0.4f) -> %0.2f -----\n", old_elapsed, tween->direction * delta_time, tween->elapsed);
         float32 elapsed = tween->elapsed;
         bool is_end = false;
@@ -365,7 +365,7 @@ TweenSequenceTickOut tween_sequence_state_tick(TweenSequenceState* tween_sequenc
     switch (tween_sequence->mode) {
     case TWEEN_ONCE:
         break;
-    case TWEEN_REPEATOVER: {
+    case TWEEN_REPEAT_STARTOVER: {
         if (tween->duration < tween_sequence->elapsed) {
             usize section = tween_sequence->section;
             float32 elapsed = tween_sequence->elapsed;
@@ -381,7 +381,7 @@ TweenSequenceTickOut tween_sequence_state_tick(TweenSequenceState* tween_sequenc
         }
         break;
     }
-    case TWEEN_REPEATMIRRORED: {
+    case TWEEN_REPEAT_MIRRORED: {
         usize section = tween_sequence->section;
         float32 elapsed = tween_sequence->elapsed;
 
