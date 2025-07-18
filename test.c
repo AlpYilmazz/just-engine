@@ -1,5 +1,287 @@
 #include "justengine.h"
 
+#define introspect(...) 
+
+introspect(mode_dyn_array, count: count, items: items)
+typedef struct {
+    usize count;
+    usize capacity;
+    uint32* items;
+} InnerTestStruct;
+
+introspect()
+typedef struct {
+    bool bool_field;
+    uint32 uint_field;
+    int32 int_field;
+    float32 float_field;
+    uint32* ptr_field;
+    uint32 arr_field[10];
+    InnerTestStruct struct_field;
+} TestStruct;
+
+typedef enum {
+    TYPE_bool,
+    TYPE_uint32,
+    TYPE_int32,
+    TYPE_usize,
+    TYPE_float32,
+    TYPE_TestStruct,
+    TYPE_InnerTestStruct,
+} Type;
+
+typedef struct {
+    Type type;
+    char* name;
+    void* ptr;
+    // --
+    bool is_ptr;
+    // --
+    bool is_array;
+    usize count;
+    // --
+    bool is_dynarray;
+    void* count_ptr;
+} FieldInfo;
+
+FieldInfo TestStruct__fields[] = {
+    { .type = TYPE_bool, .name = "bool_field", .ptr = &(((TestStruct*)(0))->bool_field) },
+    { .type = TYPE_uint32, .name = "uint_field", .ptr = &(((TestStruct*)(0))->uint_field) },
+    { .type = TYPE_int32, .name = "int_field", .ptr = &(((TestStruct*)(0))->int_field) },
+    { .type = TYPE_float32, .name = "float_field", .ptr = &(((TestStruct*)(0))->float_field) },
+    { .type = TYPE_uint32, .name = "ptr_field", .ptr = &(((TestStruct*)(0))->ptr_field), .is_ptr = true },
+    { .type = TYPE_uint32, .name = "arr_field", .ptr = &(((TestStruct*)(0))->arr_field), .is_array = true, .count = 10 },
+    { .type = TYPE_InnerTestStruct, .name = "struct_field", .ptr = &(((TestStruct*)(0))->struct_field) },
+};
+
+FieldInfo InnerTestStruct__fields[] = {
+    { .type = TYPE_usize, .name = "count", .ptr = &(((InnerTestStruct*)(0))->count) },
+    { .type = TYPE_usize, .name = "capacity", .ptr = &(((InnerTestStruct*)(0))->capacity) },
+    // { .type = TYPE_uint32, .name = "items", .ptr = &(((InnerTestStruct*)(0))->items), .is_ptr = true },
+    { .type = TYPE_uint32, .name = "items", .ptr = &(((InnerTestStruct*)(0))->items), .is_dynarray = true, .count_ptr = &(((InnerTestStruct*)(0))->count) },
+};
+
+#define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
+
+void introspect_field_print(FieldInfo field, void* var);
+void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent);
+
+void bool__print(bool* var) {
+    if (*var) {
+        printf("true");
+    }
+    else {
+        printf("false");
+    }
+}
+
+void uint32__print(uint32* var) {
+    printf("%u", *var);
+}
+void uint32_ptr__print(uint32** ptr) {
+    printf("[0x%p](%u)", *ptr, **ptr);
+}
+void uint32_array__print(uint32* arr, usize count) {
+    printf("[ ");
+    for (uint32 i = 0; i < count; i++) {
+        uint32__print(&arr[i]);
+        if (i != count-1) {
+            printf(", ");
+        }
+    }
+    printf(" ]");
+}
+
+void int32__print(int32* var) {
+    printf("%d", *var);
+}
+
+void usize__print(usize* var) {
+    printf("%llu", *var);
+}
+
+void float32__print(float32* var) {
+    printf("%0.2f", *var);
+}
+
+void ptr__print(void** var) {
+    printf("%p", *var);
+}
+
+void TestStruct__print(TestStruct* var) {
+    uint32 count = ARRAY_LENGTH(TestStruct__fields);
+    printf("{ ");
+    for (uint32 i = 0; i < count; i++) {
+        FieldInfo field = TestStruct__fields[i];
+        printf(field.name);
+        printf(": ");
+        introspect_field_print(field, var);
+        if (i != count-1) {
+            printf(", ");
+        }
+    }
+    printf(" }");
+}
+
+void print_indent(uint32 count) {
+    for (uint32 i = 0; i < count; i++) {
+        printf("\t");
+    }
+}
+
+void TestStruct__pretty_print(TestStruct* var, uint32 indent) {
+    uint32 count = ARRAY_LENGTH(TestStruct__fields);
+    printf("{\n");
+    for (uint32 i = 0; i < count; i++) {
+        FieldInfo field = TestStruct__fields[i];
+        print_indent(indent+1);
+        printf(field.name);
+        printf(": ");
+        introspect_field_pretty_print(field, var, indent+1);
+        printf(",\n");
+    }
+    print_indent(indent);
+    printf("}");
+}
+
+void InnerTestStruct__print(InnerTestStruct* var) {
+    // printf("{ ");
+    // printf("count: "); usize__print(&var->count); printf(", ");
+    // printf("capacity: "); usize__print(&var->capacity); printf(", ");
+    // printf("items: "); printf("[0x%p]", var->items); uint32_array__print(var->items, var->count);
+    // printf(" }");
+
+    uint32 count = ARRAY_LENGTH(InnerTestStruct__fields);
+    printf("{ ");
+    for (uint32 i = 0; i < count; i++) {
+        FieldInfo field = InnerTestStruct__fields[i];
+        printf(field.name);
+        printf(": ");
+        introspect_field_print(field, var);
+        if (i != count-1) {
+            printf(", ");
+        }
+    }
+    printf(" }");
+}
+
+void InnerTestStruct__pretty_print(InnerTestStruct* var, uint32 indent) {
+    uint32 count = ARRAY_LENGTH(InnerTestStruct__fields);
+    printf("{\n");
+    for (uint32 i = 0; i < count; i++) {
+        FieldInfo field = InnerTestStruct__fields[i];
+        print_indent(indent+1);
+        printf(field.name);
+        printf(": ");
+        introspect_field_pretty_print(field, var, indent+1);
+        printf(",\n");
+    }
+    print_indent(indent);
+    printf("}");
+}
+
+void introspect_field_print(FieldInfo field, void* var) {
+    void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
+    switch (field.type) {
+    case TYPE_bool:
+        bool__print(field_ptr);
+        break;
+    case TYPE_uint32:
+        if (field.is_ptr) {
+            uint32_ptr__print(field_ptr);
+        }
+        else if (field.is_array) {
+            uint32_array__print(field_ptr, field.count);
+        }
+        else if (field.is_dynarray) {
+            uint32** items_ptr = field_ptr;
+            usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
+            uint32_array__print(*items_ptr, *count);
+        }
+        else {
+            uint32__print(field_ptr);
+        }
+        break;
+    case TYPE_int32:
+        // if (field.is_ptr) {
+        //     int32_ptr__print(field_ptr);
+        // }
+        // else if (field.is_array) {
+        //     int32_array__print(field_ptr, field.count);
+        // }
+        // else {
+        //     int32__print(field_ptr);
+        // }
+        int32__print(field_ptr);
+        break;
+    case TYPE_usize:
+        usize__print(field_ptr);
+        break;
+    case TYPE_float32:
+        float32__print(field_ptr);
+        break;
+    case TYPE_TestStruct:
+        TestStruct__print(field_ptr);
+        break;
+    case TYPE_InnerTestStruct:
+        InnerTestStruct__print(field_ptr);
+        break;
+    default:
+        break;
+    }
+}
+
+void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent) {
+    void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
+    switch (field.type) {
+    case TYPE_bool:
+        bool__print(field_ptr);
+        break;
+    case TYPE_uint32:
+        if (field.is_ptr) {
+            uint32_ptr__print(field_ptr);
+        }
+        else if (field.is_array) {
+            uint32_array__print(field_ptr, field.count);
+        }
+        else if (field.is_dynarray) {
+            uint32** items_ptr = field_ptr;
+            usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
+            uint32_array__print(*items_ptr, *count);
+        }
+        else {
+            uint32__print(field_ptr);
+        }
+        break;
+    case TYPE_int32:
+        // if (field.is_ptr) {
+        //     int32_ptr__print(field_ptr);
+        // }
+        // else if (field.is_array) {
+        //     int32_array__print(field_ptr, field.count);
+        // }
+        // else {
+        //     int32__print(field_ptr);
+        // }
+        int32__print(field_ptr);
+        break;
+    case TYPE_usize:
+        usize__print(field_ptr);
+        break;
+    case TYPE_float32:
+        float32__print(field_ptr);
+        break;
+    case TYPE_TestStruct:
+        TestStruct__pretty_print(field_ptr, indent);
+        break;
+    case TYPE_InnerTestStruct:
+        InnerTestStruct__pretty_print(field_ptr, indent);
+        break;
+    default:
+        break;
+    }
+}
+
 #define COUNT 10
 void reset_test_tweens(Tween_Vector2* tweens) {
     float32 pathlen = 900;
@@ -149,12 +431,30 @@ int main() {
 
     // -----
 
+    uint32 val = 15;
+    uint32 items[2] = {1, 2};
+    TestStruct test_struct = {
+        .bool_field = true,
+        .uint_field = 14,
+        .int_field = -2020,
+        .float_field = 17.899,
+        .ptr_field = &val,
+        .arr_field = {0},
+        .struct_field = (InnerTestStruct) {
+            .count = 2,
+            .capacity = 4,
+            .items = items,
+        },
+    };
+
     while (!WindowShouldClose()) {
         float32 delta_time = GetFrameTime();
 
         if (IsKeyPressed(KEY_SPACE)) {
             reset_test_tweens(tweens);
             reset_test_tween_sequence(&tween_seq);
+            // TestStruct__print(&test_struct);
+            TestStruct__pretty_print(&test_struct, 0);
         }
 
         for (uint32 i = 0; i < COUNT; i++) {
