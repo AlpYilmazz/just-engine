@@ -1,6 +1,11 @@
 @echo off
 SETLOCAL
 
+set ENTRY=%1
+
+set SRC_DIR=src
+set BUILD_DIR=target
+
 set CC=gcc
 
 set COMPILER_FLAGS=-std=c11
@@ -26,7 +31,7 @@ set SRC_DIR=.
 
 set OUTPUT=game.exe
 set COMPILE=^
-    %SRC_DIR%/main.c
+    %SRC_DIR%/%ENTRY%.c
 @echo on
 
 %CC% %COMPILER_FLAGS% %COMPILE% %INCLUDE% %LIB% %LINK% -o %OUTPUT%

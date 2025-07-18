@@ -819,4 +819,6 @@ int main() {
         BeginDrawing();
         EndDrawing();
     }
+
+    return 0;
 }
