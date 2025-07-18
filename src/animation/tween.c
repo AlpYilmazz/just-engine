@@ -354,7 +354,7 @@ TweenSequenceState new_tween_sequence_state(TweenMode mode) {
 TweenSequenceTickOut tween_sequence_state_tick(TweenSequenceState* tween_sequence, float32 delta_time) {
     TweenSequenceStateSection* tween = &tween_sequence->sections.items[tween_sequence->section];
     bool is_first_section = tween_sequence->section == 0;
-    bool is_last_section = tween_sequence->section == tween_sequence->sections.count;
+    bool is_last_section = tween_sequence->section == tween_sequence->sections.count-1;
 
     if (tween_sequence->mode == TWEEN_ONCE && is_last_section && tween_sequence->elapsed > tween->duration) {
         goto EVAL;
@@ -384,9 +384,11 @@ TweenSequenceTickOut tween_sequence_state_tick(TweenSequenceState* tween_sequenc
     case TWEEN_REPEAT_MIRRORED: {
         usize section = tween_sequence->section;
         float32 elapsed = tween_sequence->elapsed;
+        bool is_end = false;
 
         if (elapsed < 0) {
             elapsed *= -1;
+            is_end = true;
             if (is_first_section) {
                 tween_sequence->direction *= -1;
             }
@@ -397,6 +399,7 @@ TweenSequenceTickOut tween_sequence_state_tick(TweenSequenceState* tween_sequenc
         }
         else if (tween->duration < elapsed) {
             elapsed -= tween->duration;
+            is_end = true;
             if (is_last_section) {
                 tween_sequence->direction *= -1;
             }
@@ -423,7 +426,15 @@ TweenSequenceTickOut tween_sequence_state_tick(TweenSequenceState* tween_sequenc
         }
         
         tween_sequence->section = section;
-        tween_sequence->elapsed = ((tween_sequence->direction == -1 ? 1 : 0) * tween->duration) + (tween_sequence->direction * elapsed);
+        if (is_end && tween_sequence->direction == 1) {
+            tween_sequence->elapsed = elapsed;
+        }
+        else if (is_end && tween_sequence->direction == -1) {
+            tween_sequence->elapsed = tween->duration - elapsed;
+        }
+        else {
+            tween_sequence->elapsed = elapsed;
+        }
         break;
     }
     default:
@@ -460,6 +471,6 @@ Vector2 Vector2__tween_tick(Tween_Vector2* tween, float32 delta_time) {
 
 Vector2 Vector2__tween_sequence_tick(TweenSequence_Vector2* tween, float32 delta_time) {
     TweenSequenceTickOut tick_out = tween_sequence_state_tick(&tween->state, delta_time);
-    TweenLimits_Vector2 limits = tween->limits.items[tick_out.section];
+    TweenLimits_Vector2 limits = tween->limits_list.items[tick_out.section];
     return vector2_interpolate(limits.start, limits.end, tick_out.progress_out);
 }

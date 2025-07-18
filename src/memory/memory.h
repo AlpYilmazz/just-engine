@@ -2,6 +2,11 @@
 
 #include "base.h"
 
+#define dynarray_clear(arr) \
+    do { \
+        (arr).count = 0; \
+    } while(0)
+
 #define dynarray_free(arr) \
     do { \
         if ((arr).capacity > 0) { \

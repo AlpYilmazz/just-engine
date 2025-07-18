@@ -391,6 +391,11 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 #define __HEADER_MEMORY_MEMORY
 #ifdef __HEADER_MEMORY_MEMORY
 
+#define dynarray_clear(arr) \
+    do { \
+        (arr).count = 0; \
+    } while(0)
+
 #define dynarray_free(arr) \
     do { \
         if ((arr).capacity > 0) { \
@@ -1468,7 +1473,7 @@ typedef struct {
 
 typedef struct {
     TweenSequenceState state;
-    TweenLimitsList_Vector2 limits;
+    TweenLimitsList_Vector2 limits_list;
 } TweenSequence_Vector2;
 
 Vector2 vector2_interpolate(Vector2 start, Vector2 end, float32 progress);
@@ -1504,7 +1509,7 @@ Vector2 Vector2__tween_sequence_tick(TweenSequence_Vector2* tween, float32 delta
 \
     typedef struct { \
         TweenSequenceState state; \
-        TweenLimitsList_##TYPE limits; \
+        TweenLimitsList_##TYPE limits_list; \
     } TweenSequence_##TYPE; \
 \
     TYPE TYPE##__tween_tick(Tween_##TYPE* tween, float32 delta_time); \
@@ -1520,7 +1525,7 @@ Vector2 Vector2__tween_sequence_tick(TweenSequence_Vector2* tween, float32 delta
     } \
     TYPE TYPE##__tween_sequence_tick(Tween_##TYPE* tween, float32 delta_time) { \
         TweenSequenceTickOut tick_out = tween_sequence_state_tick(&tween->state, delta_time); \
-        TweenLimits_##TYPE limits = tween->limits.items[tick_out.section]; \
+        TweenLimits_##TYPE limits = tween->limits_list.items[tick_out.section]; \
         return (InterpolateFn)(limits.start, limits.end, tick_out.progress_out); \
     }
 
