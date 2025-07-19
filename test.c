@@ -1,6 +1,7 @@
 #include "justengine.h"
 
 #define introspect(...) 
+#define alias(...) 
 
 introspect(mode_dynarray, count: count, items: items)
 typedef struct {
@@ -14,6 +15,7 @@ typedef struct {
     bool bool_field;
     uint32 uint_field;
     int32 int_field;
+    alias(int32) int cint_field;
     float32 float_field;
     uint32* ptr_field;
     uint32 arr_field[10];
@@ -54,12 +56,13 @@ typedef struct FieldInfo {
 #define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
 
 FieldInfo InnerTestStruct__fields[3];
-FieldInfo TestStruct__fields[8];
+FieldInfo TestStruct__fields[9];
 
 FieldInfo TestStruct__fields[] = {
     { .type = TYPE_bool, .name = "bool_field", .ptr = &(((TestStruct*)(0))->bool_field) },
     { .type = TYPE_uint32, .name = "uint_field", .ptr = &(((TestStruct*)(0))->uint_field) },
     { .type = TYPE_int32, .name = "int_field", .ptr = &(((TestStruct*)(0))->int_field) },
+    { .type = TYPE_int32, .name = "cint_field", .ptr = &(((TestStruct*)(0))->cint_field) },
     { .type = TYPE_float32, .name = "float_field", .ptr = &(((TestStruct*)(0))->float_field) },
     { .type = TYPE_uint32, .name = "ptr_field", .ptr = &(((TestStruct*)(0))->ptr_field), .is_ptr = true },
     { .type = TYPE_uint32, .name = "arr_field", .ptr = &(((TestStruct*)(0))->arr_field), .is_array = true, .count = 10 },
@@ -500,6 +503,7 @@ int main() {
         .bool_field = true,
         .uint_field = 14,
         .int_field = -2020,
+        .cint_field = -150,
         .float_field = 17.899,
         .ptr_field = &val,
         .arr_field = {0},
