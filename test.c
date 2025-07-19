@@ -2,14 +2,14 @@
 
 #define introspect(...) 
 
-introspect(mode_dyn_array, count: count, items: items)
+introspect(mode_dynarray, count: count, items: items)
 typedef struct {
     usize count;
     usize capacity;
     uint32* items;
 } InnerTestStruct;
 
-introspect()
+introspect(mode_normal)
 typedef struct {
     bool bool_field;
     uint32 uint_field;
@@ -63,8 +63,26 @@ FieldInfo InnerTestStruct__fields[] = {
 
 #define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
 
+typedef struct {
+    char* token;
+    uint32 count;
+} IndentToken;
+
+static inline IndentToken default_indent_token() {
+    return (IndentToken) {
+        .token = "\t",
+        .count = 1,
+    };
+}
+
+void print_indent(uint32 indent_count, IndentToken indent_token) {
+    for (uint32 i = 0; i < indent_count * indent_token.count; i++) {
+        printf(indent_token.token);
+    }
+}
+
 void introspect_field_print(FieldInfo field, void* var);
-void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent);
+void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, IndentToken indent_token);
 
 void bool__print(bool* var) {
     if (*var) {
@@ -79,7 +97,7 @@ void uint32__print(uint32* var) {
     printf("%u", *var);
 }
 void uint32_ptr__print(uint32** ptr) {
-    printf("[0x%p](%u)", *ptr, **ptr);
+    printf("<0x%p>(%u)", *ptr, **ptr);
 }
 void uint32_array__print(uint32* arr, usize count) {
     printf("[ ");
@@ -90,6 +108,16 @@ void uint32_array__print(uint32* arr, usize count) {
         }
     }
     printf(" ]");
+}
+void uint32_array__pretty_print(uint32* arr, usize count, uint32 indent, IndentToken indent_token) {
+    printf("[\n");
+    for (uint32 i = 0; i < count; i++) {
+        print_indent(indent+1, indent_token);
+        uint32__print(&arr[i]);
+        printf(",\n");
+    }
+    print_indent(indent, indent_token);
+    printf("]");
 }
 
 void int32__print(int32* var) {
@@ -105,14 +133,13 @@ void float32__print(float32* var) {
 }
 
 void ptr__print(void** var) {
-    printf("%p", *var);
+    printf("<0x%p>", *var);
 }
 
-void TestStruct__print(TestStruct* var) {
-    uint32 count = ARRAY_LENGTH(TestStruct__fields);
+void struct__print(void* var, FieldInfo* fields, uint32 count) {
     printf("{ ");
     for (uint32 i = 0; i < count; i++) {
-        FieldInfo field = TestStruct__fields[i];
+        FieldInfo field = fields[i];
         printf(field.name);
         printf(": ");
         introspect_field_print(field, var);
@@ -123,61 +150,71 @@ void TestStruct__print(TestStruct* var) {
     printf(" }");
 }
 
-void print_indent(uint32 count) {
-    for (uint32 i = 0; i < count; i++) {
-        printf("\t");
-    }
-}
-
-void TestStruct__pretty_print(TestStruct* var, uint32 indent) {
-    uint32 count = ARRAY_LENGTH(TestStruct__fields);
+void struct__pretty_print(void* var, FieldInfo* fields, uint32 count, uint32 indent, IndentToken indent_token) {
     printf("{\n");
     for (uint32 i = 0; i < count; i++) {
-        FieldInfo field = TestStruct__fields[i];
-        print_indent(indent+1);
+        FieldInfo field = fields[i];
+        print_indent(indent+1, indent_token);
         printf(field.name);
         printf(": ");
-        introspect_field_pretty_print(field, var, indent+1);
+        introspect_field_pretty_print(field, var, indent+1, indent_token);
         printf(",\n");
     }
-    print_indent(indent);
+    print_indent(indent, indent_token);
     printf("}");
 }
 
+#define just_print(Type) Type##__print0
+#define just_pretty_print(Type) Type##__pretty_print0
+#define just_pretty_print_with(Type) Type##__pretty_print_with0
+
+void TestStruct__print(TestStruct* var) {
+    struct__print(var, TestStruct__fields, ARRAY_LENGTH(TestStruct__fields));
+}
+void TestStruct__pretty_print_with(TestStruct* var, uint32 indent, IndentToken indent_token) {
+    struct__pretty_print(var, TestStruct__fields, ARRAY_LENGTH(TestStruct__fields), indent, indent_token);
+}
+void TestStruct__pretty_print(TestStruct* var, uint32 indent) {
+    TestStruct__pretty_print_with(var, 0, default_indent_token());
+}
+void TestStruct__print0(TestStruct* var) {
+    TestStruct__print(var);
+    printf("\n");
+}
+void TestStruct__pretty_print0(TestStruct* var) {
+    TestStruct__pretty_print(var, 0);
+    printf("\n");
+}
+void TestStruct__pretty_print_with0(TestStruct* var, IndentToken indent_token) {
+    TestStruct__pretty_print_with(var, 0, indent_token);
+    printf("\n");
+}
+
 void InnerTestStruct__print(InnerTestStruct* var) {
+    struct__print(var, InnerTestStruct__fields, ARRAY_LENGTH(InnerTestStruct__fields));
     // printf("{ ");
     // printf("count: "); usize__print(&var->count); printf(", ");
     // printf("capacity: "); usize__print(&var->capacity); printf(", ");
     // printf("items: "); printf("[0x%p]", var->items); uint32_array__print(var->items, var->count);
     // printf(" }");
-
-    uint32 count = ARRAY_LENGTH(InnerTestStruct__fields);
-    printf("{ ");
-    for (uint32 i = 0; i < count; i++) {
-        FieldInfo field = InnerTestStruct__fields[i];
-        printf(field.name);
-        printf(": ");
-        introspect_field_print(field, var);
-        if (i != count-1) {
-            printf(", ");
-        }
-    }
-    printf(" }");
 }
-
+void InnerTestStruct__pretty_print_with(InnerTestStruct* var, uint32 indent, IndentToken indent_token) {
+    struct__pretty_print(var, InnerTestStruct__fields, ARRAY_LENGTH(InnerTestStruct__fields), indent, indent_token);
+}
 void InnerTestStruct__pretty_print(InnerTestStruct* var, uint32 indent) {
-    uint32 count = ARRAY_LENGTH(InnerTestStruct__fields);
-    printf("{\n");
-    for (uint32 i = 0; i < count; i++) {
-        FieldInfo field = InnerTestStruct__fields[i];
-        print_indent(indent+1);
-        printf(field.name);
-        printf(": ");
-        introspect_field_pretty_print(field, var, indent+1);
-        printf(",\n");
-    }
-    print_indent(indent);
-    printf("}");
+    InnerTestStruct__pretty_print_with(var, 0, default_indent_token());
+}
+void InnerTestStruct__print0(InnerTestStruct* var) {
+    InnerTestStruct__print(var);
+    printf("\n");
+}
+void InnerTestStruct__pretty_print0(InnerTestStruct* var) {
+    InnerTestStruct__pretty_print(var, 0);
+    printf("\n");
+}
+void InnerTestStruct__pretty_print_with0(InnerTestStruct* var, IndentToken indent_token) {
+    InnerTestStruct__pretty_print_with(var, 0, indent_token);
+    printf("\n");
 }
 
 void introspect_field_print(FieldInfo field, void* var) {
@@ -196,6 +233,7 @@ void introspect_field_print(FieldInfo field, void* var) {
         else if (field.is_dynarray) {
             uint32** items_ptr = field_ptr;
             usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
+            ptr__print((void**)items_ptr);
             uint32_array__print(*items_ptr, *count);
         }
         else {
@@ -231,7 +269,7 @@ void introspect_field_print(FieldInfo field, void* var) {
     }
 }
 
-void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent) {
+void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, IndentToken indent_token) {
     void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
     switch (field.type) {
     case TYPE_bool:
@@ -242,12 +280,13 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent) {
             uint32_ptr__print(field_ptr);
         }
         else if (field.is_array) {
-            uint32_array__print(field_ptr, field.count);
+            uint32_array__pretty_print(field_ptr, field.count, indent, indent_token);
         }
         else if (field.is_dynarray) {
             uint32** items_ptr = field_ptr;
             usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
-            uint32_array__print(*items_ptr, *count);
+            ptr__print((void**)items_ptr);
+            uint32_array__pretty_print(*items_ptr, *count, indent, indent_token);
         }
         else {
             uint32__print(field_ptr);
@@ -272,10 +311,10 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent) {
         float32__print(field_ptr);
         break;
     case TYPE_TestStruct:
-        TestStruct__pretty_print(field_ptr, indent);
+        TestStruct__pretty_print_with(field_ptr, indent, indent_token);
         break;
     case TYPE_InnerTestStruct:
-        InnerTestStruct__pretty_print(field_ptr, indent);
+        InnerTestStruct__pretty_print_with(field_ptr, indent, indent_token);
         break;
     default:
         break;
@@ -453,8 +492,13 @@ int main() {
         if (IsKeyPressed(KEY_SPACE)) {
             reset_test_tweens(tweens);
             reset_test_tween_sequence(&tween_seq);
-            // TestStruct__print(&test_struct);
-            TestStruct__pretty_print(&test_struct, 0);
+            printf("---\n");
+            just_print(TestStruct)(&test_struct);
+            printf("---\n");
+            just_pretty_print(TestStruct)(&test_struct);
+            printf("---\n");
+            just_pretty_print_with(TestStruct)(&test_struct, (IndentToken) {.token = " ", .count = 4});
+            printf("---\n");
         }
 
         for (uint32 i = 0; i < COUNT; i++) {
