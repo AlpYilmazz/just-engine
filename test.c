@@ -17,7 +17,8 @@ typedef struct {
     float32 float_field;
     uint32* ptr_field;
     uint32 arr_field[10];
-    InnerTestStruct struct_field;
+    InnerTestStruct struct_field1;
+    InnerTestStruct struct_field2;
 } TestStruct;
 
 typedef enum {
@@ -26,11 +27,12 @@ typedef enum {
     TYPE_int32,
     TYPE_usize,
     TYPE_float32,
+    TYPE_struct,
     TYPE_TestStruct,
     TYPE_InnerTestStruct,
 } Type;
 
-typedef struct {
+typedef struct FieldInfo {
     Type type;
     char* name;
     void* ptr;
@@ -42,7 +44,17 @@ typedef struct {
     // --
     bool is_dynarray;
     void* count_ptr;
+    // --
+    bool is_struct;
+    uint32 field_count;
+    struct FieldInfo* fields;
+    // --
 } FieldInfo;
+
+#define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
+
+FieldInfo InnerTestStruct__fields[3];
+FieldInfo TestStruct__fields[8];
 
 FieldInfo TestStruct__fields[] = {
     { .type = TYPE_bool, .name = "bool_field", .ptr = &(((TestStruct*)(0))->bool_field) },
@@ -51,7 +63,11 @@ FieldInfo TestStruct__fields[] = {
     { .type = TYPE_float32, .name = "float_field", .ptr = &(((TestStruct*)(0))->float_field) },
     { .type = TYPE_uint32, .name = "ptr_field", .ptr = &(((TestStruct*)(0))->ptr_field), .is_ptr = true },
     { .type = TYPE_uint32, .name = "arr_field", .ptr = &(((TestStruct*)(0))->arr_field), .is_array = true, .count = 10 },
-    { .type = TYPE_InnerTestStruct, .name = "struct_field", .ptr = &(((TestStruct*)(0))->struct_field) },
+    { .type = TYPE_InnerTestStruct, .name = "struct_field1", .ptr = &(((TestStruct*)(0))->struct_field1) },
+    {
+        .type = TYPE_struct, .name = "struct_field2", .ptr = &(((TestStruct*)(0))->struct_field2),
+        .is_struct = true, .field_count = ARRAY_LENGTH(InnerTestStruct__fields), .fields = InnerTestStruct__fields
+    },
 };
 
 FieldInfo InnerTestStruct__fields[] = {
@@ -60,8 +76,6 @@ FieldInfo InnerTestStruct__fields[] = {
     // { .type = TYPE_uint32, .name = "items", .ptr = &(((InnerTestStruct*)(0))->items), .is_ptr = true },
     { .type = TYPE_uint32, .name = "items", .ptr = &(((InnerTestStruct*)(0))->items), .is_dynarray = true, .count_ptr = &(((InnerTestStruct*)(0))->count) },
 };
-
-#define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
 
 typedef struct {
     char* token;
@@ -258,6 +272,9 @@ void introspect_field_print(FieldInfo field, void* var) {
     case TYPE_float32:
         float32__print(field_ptr);
         break;
+    case TYPE_struct:
+        struct__print(field_ptr, field.fields, field.field_count);
+        break;
     case TYPE_TestStruct:
         TestStruct__print(field_ptr);
         break;
@@ -309,6 +326,9 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         break;
     case TYPE_float32:
         float32__print(field_ptr);
+        break;
+    case TYPE_struct:
+        struct__pretty_print(field_ptr, field.fields, field.field_count, indent, indent_token);
         break;
     case TYPE_TestStruct:
         TestStruct__pretty_print_with(field_ptr, indent, indent_token);
@@ -471,7 +491,7 @@ int main() {
     // -----
 
     uint32 val = 15;
-    uint32 items[2] = {1, 2};
+    uint32 items[4] = {1, 2, 3, 4};
     TestStruct test_struct = {
         .bool_field = true,
         .uint_field = 14,
@@ -479,8 +499,13 @@ int main() {
         .float_field = 17.899,
         .ptr_field = &val,
         .arr_field = {0},
-        .struct_field = (InnerTestStruct) {
+        .struct_field1 = (InnerTestStruct) {
             .count = 2,
+            .capacity = 4,
+            .items = items,
+        },
+        .struct_field2 = (InnerTestStruct) {
+            .count = 4,
             .capacity = 4,
             .items = items,
         },
