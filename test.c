@@ -124,6 +124,10 @@ void uint32_array__print(uint32* arr, usize count) {
     printf(" ]");
 }
 void uint32_array__pretty_print(uint32* arr, usize count, uint32 indent, IndentToken indent_token) {
+    if (count == 0) {
+        printf("[]");
+        return;
+    }
     printf("[\n");
     for (uint32 i = 0; i < count; i++) {
         print_indent(indent+1, indent_token);
