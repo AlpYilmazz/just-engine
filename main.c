@@ -768,6 +768,17 @@
 //     return 0;
 // }
 
+#define FRAME_DELAY 60
+typedef struct {
+    uint32 count_back;
+    Socket socket;
+    Buffer buffer;
+} BufferWrite;
+
+#define WRITE_QUEUE_SIZE 100
+uint32 write_queue_cursor = 0;
+BufferWrite write_queue[WRITE_QUEUE_SIZE] = {0};
+
 void echo_on_write(WriteContext context, void* arg) {
     void* msg_buffer = arg;
     free(msg_buffer);
@@ -775,7 +786,13 @@ void echo_on_write(WriteContext context, void* arg) {
 
 bool server_on_read(ReadContext context, BufferSlice read_buffer, void* arg) {
     Buffer echo_msg = buffer_clone(read_buffer);
-    network_write_buffer(context.socket, echo_msg, echo_on_write, echo_msg.bytes);
+    write_queue[write_queue_cursor++] = (BufferWrite) {
+        .count_back = FRAME_DELAY,
+        .socket = context.socket,
+        .buffer = echo_msg,
+    };
+    write_queue_cursor %= WRITE_QUEUE_SIZE;
+    // network_write_buffer(context.socket, echo_msg, echo_on_write, echo_msg.bytes);
     return true;
 }
 
@@ -785,10 +802,10 @@ void server_on_accept(uint32 server_id, Socket socket, void* arg) {
 
 int main() {
     SET_LOG_LEVEL(LOG_LEVEL_WARN);
-    SET_LOG_LEVEL(LOG_LEVEL_TRACE);
+    // SET_LOG_LEVEL(LOG_LEVEL_TRACE);
 
     InitWindow(1000, 1000, "Test");
-    SetTargetFPS(1);
+    SetTargetFPS(60);
 
     configure_network_system((NetworkConfig) {
         .configure_server = true,
@@ -814,6 +831,16 @@ int main() {
         tick_timer(&timer, delta_time);
         if (timer_is_finished(&timer)) {
             JUST_LOG_INFO("-- ALIVE --\n");
+        }
+
+        for (uint32 i = 0; i < WRITE_QUEUE_SIZE; i++) {
+            BufferWrite* bw = &write_queue[i];
+            if (bw->count_back > 0) {
+                bw->count_back--;
+                if (bw->count_back == 0) {
+                    network_write_buffer(bw->socket, bw->buffer, echo_on_write, bw->buffer.bytes);
+                }
+            }
         }
 
         BeginDrawing();

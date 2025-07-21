@@ -23,6 +23,24 @@
         } \
     } while(0)
 
+#define dynarray_reserve(arr, reserve_count) \
+    do { \
+        usize new_capacity = (arr).count + reserve_count; \
+        if ((arr).capacity < new_capacity) { \
+            (arr).capacity = new_capacity; \
+            (arr).items = realloc((arr).items, (arr).capacity * sizeof((arr).items[0])); \
+        } \
+    } while(0)
+
+#define dynarray_reserve_custom(arr, items_field, reserve_count) \
+    do { \
+        usize new_capacity = (arr).count + reserve_count; \
+        if ((arr).capacity < new_capacity) { \
+            (arr).capacity = new_capacity; \
+            (arr)items_field = realloc((arr)items_field, (arr).capacity * sizeof((arr)items_field[0])); \
+        } \
+    } while(0)
+
 #define dynarray_push_back(arr, item) \
     do { \
         const uint32 DYNARRAY_INITIAL_CAPACITY = 2; \
