@@ -348,7 +348,7 @@
 // void on_write(Socket socket, SocketAddr addr, void* arg) {
 //     JUST_LOG_INFO("Write Made\n");
 //     Buffer* buffer = arg;
-//     free(buffer);
+//     std_free(buffer);
 // }
 
 // void server_write_frame_input(uint32 frame, PlayerInput frame_input) {
@@ -374,7 +374,7 @@
 //     FillBuffer* read_fill = arg;
 
 //     if (read_buffer.length == 0) {
-//         free(read_fill->bytes);
+//         std_free(read_fill->bytes);
 //         return true; // should_remove
 //     }
     
@@ -781,7 +781,7 @@ BufferWrite write_queue[WRITE_QUEUE_SIZE] = {0};
 
 void echo_on_write(WriteContext context, void* arg) {
     void* msg_buffer = arg;
-    free(msg_buffer);
+    std_free(msg_buffer);
 }
 
 bool server_on_read(ReadContext context, BufferSlice read_buffer, void* arg) {

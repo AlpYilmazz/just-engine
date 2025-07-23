@@ -1,5 +1,6 @@
 #include <windows.h>
-#include <stdlib.h>
+
+#include "justcstd.h"
 
 // DO NOT INCLUDE
 // Sync objects are opeque
@@ -19,7 +20,7 @@ SRWLock* alloc_create_srw_lock() {
     #ifdef MULTITHREADED
 
     SRWLOCK lock_win = SRWLOCK_INIT;
-    lock = malloc(sizeof(SRWLock));
+    lock = std_malloc(sizeof(SRWLock));
     lock->lock = lock_win;
 
     #endif
@@ -29,7 +30,7 @@ SRWLock* alloc_create_srw_lock() {
 
 void free_srw_lock(SRWLock* lock) {
     #ifdef MULTITHREADED
-    free(lock);
+    std_free(lock);
     #endif
 }
 

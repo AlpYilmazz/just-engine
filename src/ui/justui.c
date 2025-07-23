@@ -791,7 +791,7 @@ UIElementId put_ui_element(UIElementStore* store, UIElement* elem, MemoryLayout 
     
     UIElement* elem_ptr = bump_alloc_aligned(&store->memory, layout);
     // UIElement* elem_ptr = bump_alloc(&store->memory, layout.size);
-    memcpy(elem_ptr, elem, layout.size);
+    std_memcpy(elem_ptr, elem, layout.size);
     elem_ptr->id = id;
 
     store->elems[store->count] = (void*)elem_ptr;

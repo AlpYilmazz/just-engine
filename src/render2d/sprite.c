@@ -1,10 +1,9 @@
-#include <stdlib.h>
-#include <string.h>
 #include <assert.h>
 
 #include "raylib.h"
 #include "raymath.h"
 
+#include "justcstd.h"
 #include "base.h"
 #include "logging.h"
 
@@ -25,10 +24,10 @@ SpriteEntityId spawn_sprite(
     if (sprite_store->capacity == 0) {
         sprite_store->capacity = INITIAL_CAPACITY;
 
-        sprite_store->slot_occupied = malloc(sprite_store->capacity * sizeof(bool));
-        sprite_store->generations = malloc(sprite_store->capacity * sizeof(uint32));
-        sprite_store->transforms = malloc(sprite_store->capacity * sizeof(SpriteTransform));
-        sprite_store->sprites = malloc(sprite_store->capacity * sizeof(Sprite));
+        sprite_store->slot_occupied = std_malloc(sprite_store->capacity * sizeof(bool));
+        sprite_store->generations = std_malloc(sprite_store->capacity * sizeof(uint32));
+        sprite_store->transforms = std_malloc(sprite_store->capacity * sizeof(SpriteTransform));
+        sprite_store->sprites = std_malloc(sprite_store->capacity * sizeof(Sprite));
     }
     else if (sprite_store->count == sprite_store->capacity) {
         if (sprite_store->free_count > 0) {
@@ -43,10 +42,10 @@ SpriteEntityId spawn_sprite(
 
         sprite_store->capacity = GROWTH_FACTOR * sprite_store->capacity;
 
-        sprite_store->slot_occupied = realloc(sprite_store->slot_occupied, sprite_store->capacity * sizeof(bool));
-        sprite_store->generations = realloc(sprite_store->generations, sprite_store->capacity * sizeof(uint32));
-        sprite_store->transforms = realloc(sprite_store->transforms, sprite_store->capacity * sizeof(SpriteTransform));
-        sprite_store->sprites = realloc(sprite_store->sprites, sprite_store->capacity * sizeof(Sprite));
+        sprite_store->slot_occupied = std_realloc(sprite_store->slot_occupied, sprite_store->capacity * sizeof(bool));
+        sprite_store->generations = std_realloc(sprite_store->generations, sprite_store->capacity * sizeof(uint32));
+        sprite_store->transforms = std_realloc(sprite_store->transforms, sprite_store->capacity * sizeof(SpriteTransform));
+        sprite_store->sprites = std_realloc(sprite_store->sprites, sprite_store->capacity * sizeof(Sprite));
     }
 
     for (uint32 i = old_capacity; i < sprite_store->capacity; i++) {
@@ -79,10 +78,10 @@ bool sprite_is_valid(SpriteStore* sprite_store, SpriteEntityId sprite_id) {
 }
 
 void destroy_sprite_store(SpriteStore* sprite_store) {
-    free(sprite_store->slot_occupied);
-    free(sprite_store->generations);
-    free(sprite_store->transforms);
-    free(sprite_store->sprites);
+    std_free(sprite_store->slot_occupied);
+    std_free(sprite_store->generations);
+    std_free(sprite_store->transforms);
+    std_free(sprite_store->sprites);
 }
 
 void render_sprites_push_back(SortedRenderSprites* render_sprites, RenderSprite render_sprite) {
@@ -91,11 +90,11 @@ void render_sprites_push_back(SortedRenderSprites* render_sprites, RenderSprite 
 
     if (render_sprites->capacity == 0) {
         render_sprites->capacity = INITIAL_CAPACITY;
-        render_sprites->sprites = malloc(render_sprites->capacity * sizeof(RenderSprite));
+        render_sprites->sprites = std_malloc(render_sprites->capacity * sizeof(RenderSprite));
     }
     else if (render_sprites->count == render_sprites->capacity) {
         render_sprites->capacity = GROWTH_FACTOR * render_sprites->capacity;
-        render_sprites->sprites = realloc(render_sprites->sprites, render_sprites->capacity * sizeof(RenderSprite));
+        render_sprites->sprites = std_realloc(render_sprites->sprites, render_sprites->capacity * sizeof(RenderSprite));
     }
 
     render_sprites->sprites[render_sprites->count] = render_sprite;

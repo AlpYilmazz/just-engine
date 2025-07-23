@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "justcstd.h"
 #include "task.h"
 
 // DO NOT INCLUDE
@@ -21,7 +22,7 @@ TaskQueue task_queue_new_empty(unsigned int capacity) {
     return (TaskQueue) {
         .capacity = capacity,
         .count = 0,
-        .queue = malloc(capacity * sizeof(Task)),
+        .queue = std_malloc(capacity * sizeof(Task)),
         .head = 0,
         .tail = 0,
     };
@@ -30,7 +31,7 @@ TaskQueue task_queue_new_empty(unsigned int capacity) {
 void task_queue_destroy(TaskQueue* tq) {
     tq->capacity = 0;
     tq->count = 0;
-    free(tq->queue);
+    std_free(tq->queue);
     tq->head= 0;
     tq->tail = 0;
 }
@@ -89,11 +90,11 @@ ThreadPool* thread_pool_create(unsigned int n_threads, unsigned int task_queue_c
     unsigned int N_THREADS = n_threads;
     unsigned int TASK_QUEUE_CAPACITY = task_queue_capacity;
 
-    ThreadPool* thread_pool = malloc(sizeof(ThreadPool));
+    ThreadPool* thread_pool = std_malloc(sizeof(ThreadPool));
     thread_pool->n_threads = N_THREADS;
-    // thread_pool->thread_ids = malloc(N_THREADS * sizeof(DWORD));
-    thread_pool->thread_ids = malloc(N_THREADS * sizeof(unsigned int));
-    thread_pool->threads = malloc(N_THREADS * sizeof(HANDLE));
+    // thread_pool->thread_ids = std_malloc(N_THREADS * sizeof(DWORD));
+    thread_pool->thread_ids = std_malloc(N_THREADS * sizeof(unsigned int));
+    thread_pool->threads = std_malloc(N_THREADS * sizeof(HANDLE));
     thread_pool->task_queue = task_queue_new_empty(TASK_QUEUE_CAPACITY);
     InitializeCriticalSection(&thread_pool->task_queue_lock);
     InitializeConditionVariable(&thread_pool->task_queue_notify);
@@ -159,11 +160,11 @@ void thread_pool_free(ThreadPool* pool) {
     //     return;
     // }
 
-    free(pool->thread_ids);
-    free(pool->threads);
+    std_free(pool->thread_ids);
+    std_free(pool->threads);
     task_queue_destroy(&pool->task_queue);
     DeleteCriticalSection(&pool->task_queue_lock);
-    free(pool);
+    std_free(pool);
 }
 
 void thread_pool_shutdown(ThreadPool* pool, ThreadPoolShutdown shutdown) {

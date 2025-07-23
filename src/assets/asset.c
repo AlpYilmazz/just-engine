@@ -1,8 +1,8 @@
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "raylib.h"
 
+#include "justcstd.h"
 #include "base.h"
 #include "asset.h"
 

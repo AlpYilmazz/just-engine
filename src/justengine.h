@@ -1,12 +1,35 @@
 #pragma once
 
-#include "stdlib.h"
-#include "stdio.h"
-#include "string.h"
+#include <stdio.h>
 
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
+
+#define __HEAEDER_JUSTCSTD
+#ifdef __HEAEDER_JUSTCSTD
+
+#define STD_EXIT_SUCCESS 0
+#define STD_EXIT_FAILURE 1
+
+typedef unsigned long long size_t;
+
+// stdlib.h
+
+void std_exit(int _Code);
+void* std_malloc(size_t _Size);
+void* std_realloc(void *_Memory, size_t _NewSize);
+void std_free(void *_Memory);
+
+// string.h
+
+void* std_memcpy(void *__restrict__ _Dst, const void *__restrict__ _Src, size_t _Size);
+
+// stdio.h
+
+int std_snprintf(char *__restrict__ __stream, size_t __n, const char *__restrict__ __format, ...);
+
+#endif // __HEAEDER_JUSTCSTD
 
 #define __HEADER_LOGGING
 #ifdef __HEADER_LOGGING
@@ -30,7 +53,8 @@ void JUST_LOG_WARN(const char* format, ...);
 void JUST_LOG_ERROR(const char* format, ...);
 void JUST_LOG_PANIC(const char* format, ...);
 
-#define JUST_DEV_MARK() printf("-- [%s] [%d] --\n", __FILE__, __LINE__)
+
+#define JUST_DEV_MARK() printf("-- [%s:%d] --\n", __FILE__, __LINE__)
 
 #endif // __HEAEDER_LOGGING
 
@@ -53,8 +77,6 @@ typedef     double                  float64;
 typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
-
-#define branchless_if(cond, on_true, on_false) ( ( ((cond) != 0) * (on_true) ) + ( ((cond) == 0) * (on_false) ) )
 
 #define Option(Type) DeclType_Option_##Type
 #define Option_None {0}
@@ -85,8 +107,10 @@ DECLARE__Option(char);
 
 #define SIGNOF(x) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
 
-#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
-#define UNREACHABLE() { JUST_LOG_PANIC("UNREACHABLE: [%s] [%d]\n", __FILE__, __LINE__); exit(EXIT_FAILURE); }
+#define branchless_if(cond, on_true, on_false) ( ( ((cond) != 0) * (on_true) ) + ( ((cond) == 0) * (on_false) ) )
+
+#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); std_exit(STD_EXIT_FAILURE); }
+#define UNREACHABLE() { JUST_LOG_PANIC("UNREACHABLE: [%s:%d]\n", __FILE__, __LINE__); std_exit(STD_EXIT_FAILURE); }
 
 typedef struct {
     uint32 id;
@@ -124,8 +148,8 @@ static inline BufferSlice buffer_into_slice(Buffer buffer) {
 }
 
 static inline Buffer buffer_clone(Buffer buffer) {
-    byte* bytes_clone = malloc(buffer.length);
-    memcpy(bytes_clone, buffer.bytes, buffer.length);
+    byte* bytes_clone = std_malloc(buffer.length);
+    std_memcpy(bytes_clone, buffer.bytes, buffer.length);
     return (Buffer) {
         .length = buffer.length,
         .bytes = bytes_clone,
@@ -401,7 +425,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     do { \
         if ((arr).capacity > 0) { \
             (arr).count = 0; \
-            free((arr).items); \
+            std_free((arr).items); \
         } \
     } while(0)
 
@@ -409,7 +433,25 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     do { \
         if ((arr).capacity > 0) { \
             (arr).count = 0; \
-            free((arr)items_field); \
+            std_free((arr)items_field); \
+        } \
+    } while(0)
+
+#define dynarray_reserve(arr, reserve_count) \
+    do { \
+        usize new_capacity = (arr).count + reserve_count; \
+        if ((arr).capacity < new_capacity) { \
+            (arr).capacity = new_capacity; \
+            (arr).items = std_realloc((arr).items, (arr).capacity * sizeof((arr).items[0])); \
+        } \
+    } while(0)
+
+#define dynarray_reserve_custom(arr, items_field, reserve_count) \
+    do { \
+        usize new_capacity = (arr).count + reserve_count; \
+        if ((arr).capacity < new_capacity) { \
+            (arr).capacity = new_capacity; \
+            (arr)items_field = std_realloc((arr)items_field, (arr).capacity * sizeof((arr)items_field[0])); \
         } \
     } while(0)
 
@@ -420,11 +462,11 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 \
         if ((arr).capacity == 0) { \
             (arr).capacity = DYNARRAY_INITIAL_CAPACITY; \
-            (arr).items = malloc((arr).capacity * sizeof((item))); \
+            (arr).items = std_malloc((arr).capacity * sizeof((item))); \
         } \
         else if ((arr).count == (arr).capacity) { \
             (arr).capacity = DYNARRAY_GROWTH_FACTOR * (arr).capacity; \
-            (arr).items = realloc((arr).items, (arr).capacity * sizeof((item))); \
+            (arr).items = std_realloc((arr).items, (arr).capacity * sizeof((item))); \
         } \
         \
         (arr).items[(arr).count] = (item); \
@@ -438,11 +480,11 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 \
         if ((arr).capacity == 0) { \
             (arr).capacity = DYNARRAY_INITIAL_CAPACITY; \
-            (arr)items_field = malloc((arr).capacity * sizeof((item))); \
+            (arr)items_field = std_malloc((arr).capacity * sizeof((item))); \
         } \
         else if ((arr).count == (arr).capacity) { \
             (arr).capacity = DYNARRAY_GROWTH_FACTOR * (arr).capacity; \
-            (arr)items_field = realloc((arr)items_field, (arr).capacity * sizeof((item))); \
+            (arr)items_field = std_realloc((arr)items_field, (arr).capacity * sizeof((item))); \
         } \
         \
         (arr)items_field[(arr).count] = (item); \
@@ -455,8 +497,8 @@ static inline Vector2 vector2_yx(Vector2 vec) {
         (src_arr).count = (dst_arr).count; \
         (src_arr).capacity = (dst_arr).count; \
         (src_arr).items = (dst_arr).items; \
-        (src_arr).items = malloc(size); \
-        memcpy((src_arr).items, (dst_arr).items, size); \
+        (src_arr).items = std_malloc(size); \
+        std_memcpy((src_arr).items, (dst_arr).items, size); \
     } while(0)
 
 #define dynarray_clone_custom(dst_arr, src_arr, items_field) \
@@ -465,19 +507,19 @@ static inline Vector2 vector2_yx(Vector2 vec) {
         (src_arr).count = (dst_arr).count; \
         (src_arr).capacity = (dst_arr).count; \
         (src_arr)items_field = (dst_arr)items_field; \
-        (src_arr)items_field = malloc(size); \
-        memcpy((src_arr)items_field, (dst_arr)items_field, size); \
+        (src_arr)items_field = std_malloc(size); \
+        std_memcpy((src_arr)items_field, (dst_arr)items_field, size); \
     } while(0)
 
 static inline Buffer* malloc_buffer(usize size) {
-    Buffer* buffer = malloc(sizeof(Buffer) + size); // Buffer + [bytes]
+    Buffer* buffer = std_malloc(sizeof(Buffer) + size); // Buffer + [bytes]
     buffer->length = size;
     buffer->bytes = (byte*) (buffer + 1);
     return buffer;
 }
 
 static inline FillBuffer* malloc_fillbuffer(usize size) {
-    FillBuffer* fillbuffer = malloc(sizeof(FillBuffer) + size); // FillBuffer + [bytes]
+    FillBuffer* fillbuffer = std_malloc(sizeof(FillBuffer) + size); // FillBuffer + [bytes]
     fillbuffer->length = size;
     fillbuffer->bytes = (byte*) (fillbuffer + 1);
     fillbuffer->cursor = fillbuffer->bytes;
@@ -539,16 +581,41 @@ void* arena_alloc_aligned(ArenaAllocator* arena_allocator, MemoryLayout layout);
 #define __HEADER_MEMORY_JUSTSTRING
 #ifdef __HEADER_MEMORY_JUSTSTRING
 
+usize cstr_length(const char* cstr);
+char* cstr_nclone(const char* cstr, usize count);
+char* cstr_clone(const char* cstr);
+
+#define cstr_alloc_format(cstr_out, format, ...) \
+    do { \
+        int32 cstr_alloc_format__count = std_snprintf(NULL, 0, format, __VA_ARGS__); \
+        (cstr_out) = std_malloc(cstr_alloc_format__count + 1); \
+        std_snprintf((cstr_out), cstr_alloc_format__count + 1, format, __VA_ARGS__); \
+    } while (0)
+
+#define cstr_hinted_alloc_format(cstr_out, count_hint, format, ...) \
+    do { \
+        usize assert__count_hint = count_hint; \
+        (cstr_out) = std_malloc(count_hint + 1); \
+        int32 cstr_hinted_alloc_format__count = std_snprintf((cstr_out), count_hint + 1, format, __VA_ARGS__); \
+        if (cstr_hinted_alloc_format__count > count_hint) { \
+            std_free((cstr_out)); \
+            (cstr_out) = std_malloc(cstr_hinted_alloc_format__count + 1); \
+            std_snprintf((cstr_out), cstr_hinted_alloc_format__count + 1, format, __VA_ARGS__); \
+        } \
+    } while (0)
+
 typedef struct {
     usize count;
     usize capacity;
-    char* str;
+    union {
+        char* str;
+        char* cstr;
+    };
 } String;
 
 typedef struct {
     usize count;
     char* str;
-    char temp_hold;
 } StringView;
 
 typedef struct {
@@ -574,24 +641,54 @@ typedef struct {
     StringBuilderNode* tail;
 } StringBuilder;
 
-usize cstr_length(char* cstr);
-char* cstr_nclone(char* cstr, usize count);
-
-char* string_as_cstr(String string);
-char* string_view_as_cstr_acquire(StringView* string_view);
-void string_view_as_cstr_release(StringView* string_view);
-
 String string_new();
 String string_from_cstr(char* cstr);
 void free_string(String string);
 
-void string_append_cstr(String* string_dst, char* cstr_src);
+char* string_as_cstr(String string);
+
+#define string_view_use_as_cstr(string_view_in, cstr_use, CodeBlock) \
+    do { \
+        char string_view_use_as_cstr__temp_hold = (string_view_in).str[(string_view_in).count]; \
+        (string_view_in).str[(string_view_in).count] = '\0'; \
+        cstr_use = (string_view_in).str; \
+        CodeBlock; \
+        (string_view_in).str[(string_view_in).count] = string_view_use_as_cstr__temp_hold; \
+    } while (0)
+
+void string_nappend_cstr(String* string, char* cstr, usize count);
+void string_append_cstr(String* string, char* cstr);
+
+#define string_append_format(string, format, ...) \
+    do { \
+        int32 string_append_format__count = std_snprintf(NULL, 0, format, __VA_ARGS__); \
+        dynarray_reserve_custom((string), .str, string_append_format__count + 1); \
+        std_snprintf((string).str + (string).count, string_append_format__count + 1, format, __VA_ARGS__); \
+        (string).count += string_append_format__count; \
+    } while (0)
+
+#define string_hinted_append_format(string, count_hint, format, ...) \
+    do { \
+        usize assert__count_hint = count_hint; \
+        dynarray_reserve_custom((string), .str, count_hint + 1); \
+        int32 string_hinted_append_format__count = std_snprintf((string).str + (string).count, count_hint + 1, format, __VA_ARGS__); \
+        if (string_hinted_append_format__count > count_hint) { \
+            dynarray_reserve_custom((string), .str, string_hinted_append_format__count + 1); \
+            std_snprintf((string).str + (string).count, string_hinted_append_format__count + 1, format, __VA_ARGS__); \
+        } \
+        (string).count += string_hinted_append_format__count; \
+    } while (0)
+
 StringView string_view(String string, usize start, usize count);
 StringViewPair string_split_at(String string, usize index);
 
 StringBuilder string_builder_new();
+void string_builder_nappend(StringBuilder* builder, char* cstr, usize count);
+void string_builder_nappend_free(StringBuilder* builder, char* cstr, usize count);
 void string_builder_append(StringBuilder* builder, char* cstr);
 void string_builder_append_free(StringBuilder* builder, char* cstr);
+void string_builder_append_string(StringBuilder* builder, String string);
+void string_builder_append_string_free(StringBuilder* builder, String string);
 String build_string(StringBuilder* builder);
 
 #endif // __HEADER_MEMORY_JUSTSTRING
@@ -645,16 +742,16 @@ void srw_lock_release_shared(SRWLock* lock);
 
 #define SRW_LOCK_EXCLUSIVE_ZONE(SRW_LOCK, CodeBlock) \
     do {\
-    srw_lock_acquire_exclusive(SRW_LOCK);\
+        srw_lock_acquire_exclusive(SRW_LOCK);\
         do { CodeBlock; } while(0);\
-    srw_lock_release_exclusive(SRW_LOCK);\
+        srw_lock_release_exclusive(SRW_LOCK);\
     } while (0)
 
 #define SRW_LOCK_SHARED_ZONE(SRW_LOCK, CodeBlock) \
     do {\
-    srw_lock_acquire_shared(SRW_LOCK);\
+        srw_lock_acquire_shared(SRW_LOCK);\
         do { CodeBlock; } while(0);\
-    srw_lock_release_shared(SRW_LOCK);\
+        srw_lock_release_shared(SRW_LOCK);\
     } while (0)
 
 #endif // __HEADER_THREAD_THREADSYNC
@@ -948,11 +1045,11 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
 \
         if (buffer->capacity == 0) {\
             buffer->capacity = INITIAL_CAPACITY;\
-            buffer->items = malloc(buffer->capacity * sizeof(*&item));\
+            buffer->items = std_malloc(buffer->capacity * sizeof(*&item));\
         }\
         else if (buffer->count == buffer->capacity) {\
             buffer->capacity = GROWTH_FACTOR * buffer->capacity;\
-            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*&item));\
+            buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*&item));\
         }\
 \
         buffer->items[buffer->count] = item;\
@@ -966,14 +1063,14 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
 \
         if (buffer->capacity == 0) {\
             buffer->capacity = __max(INITIAL_CAPACITY, count);\
-            buffer->items = malloc(buffer->capacity * sizeof(*items));\
+            buffer->items = std_malloc(buffer->capacity * sizeof(*items));\
         }\
         else if (buffer->count + count > buffer->capacity) {\
             buffer->capacity = __max(GROWTH_FACTOR * buffer->capacity, buffer->count + count);\
-            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*items));\
+            buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*items));\
         }\
 \
-        memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
+        std_memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
         buffer->count += count;\
 \
     }\
@@ -1081,11 +1178,11 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
 \
         if (buffer->capacity == 0) {\
             buffer->capacity = INITIAL_CAPACITY;\
-            buffer->items = malloc(buffer->capacity * sizeof(*&item));\
+            buffer->items = std_malloc(buffer->capacity * sizeof(*&item));\
         }\
         else if (buffer->count == buffer->capacity) {\
             buffer->capacity = GROWTH_FACTOR * buffer->capacity;\
-            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*&item));\
+            buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*&item));\
         }\
 \
         buffer->items[buffer->count] = item;\
@@ -1099,14 +1196,14 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
 \
         if (buffer->capacity == 0) {\
             buffer->capacity = __max(INITIAL_CAPACITY, count);\
-            buffer->items = malloc(buffer->capacity * sizeof(*items));\
+            buffer->items = std_malloc(buffer->capacity * sizeof(*items));\
         }\
         else if (buffer->count + count > buffer->capacity) {\
             buffer->capacity = __max(GROWTH_FACTOR * buffer->capacity, buffer->count + count);\
-            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*items));\
+            buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*items));\
         }\
 \
-        memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
+        std_memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
         buffer->count += count;\
 \
     }\

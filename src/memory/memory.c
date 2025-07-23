@@ -1,5 +1,4 @@
-#include <stdlib.h>
-
+#include "justcstd.h"
 #include "base.h"
 
 #include "memory.h"
@@ -25,7 +24,7 @@ void* ptr_align_up(void* ptr, usize align) {
 // BumpAllocator
 
 BumpAllocator make_bump_allocator_with_size(usize size) {
-    byte* base = malloc(size);
+    byte* base = std_malloc(size);
     return (BumpAllocator) {
         .base = base,
         .cursor = base,
@@ -38,7 +37,7 @@ BumpAllocator make_bump_allocator() {
 }
 
 void free_bump_allocator(BumpAllocator* bump_allocator) {
-    free(bump_allocator->base);
+    std_free(bump_allocator->base);
 }
 
 void reset_bump_allocator(BumpAllocator* bump_allocator) {
@@ -62,7 +61,7 @@ void* bump_alloc_aligned(BumpAllocator* bump_allocator, MemoryLayout layout) {
 // ArenaRegion
 
 ArenaRegion* alloc_create_new_arena_region(usize region_size) {
-    ArenaRegion* region = malloc(sizeof(ArenaRegion) + region_size);
+    ArenaRegion* region = std_malloc(sizeof(ArenaRegion) + region_size);
     region->next_region = NULL;
     region->total_size = region_size;
     region->free_size = region_size;
@@ -71,7 +70,7 @@ ArenaRegion* alloc_create_new_arena_region(usize region_size) {
 }
 
 void free_arena_region(ArenaRegion* region) {
-    free(region);
+    std_free(region);
 }
 
 void reset_arena_region(ArenaRegion* region) {

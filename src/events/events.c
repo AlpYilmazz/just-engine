@@ -1,7 +1,6 @@
-#include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
 
+#include "justcstd.h"
 #include "core.h"
 #include "thread/threadsync.h"
 #include "assets/asset.h"
@@ -18,11 +17,11 @@ void TextureAssetEvent__event_buffer_push_back(EventBuffer_TextureAssetEvent* bu
 
     if (buffer->capacity == 0) {
         buffer->capacity = INITIAL_CAPACITY;
-        buffer->items = malloc(buffer->capacity * sizeof(*&item));
+        buffer->items = std_malloc(buffer->capacity * sizeof(*&item));
     }
     else if (buffer->count == buffer->capacity) {
         buffer->capacity = GROWTH_FACTOR * buffer->capacity;
-        buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*&item));
+        buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*&item));
     }
 
     buffer->items[buffer->count] = item;
@@ -34,15 +33,15 @@ void TextureAssetEvent__event_buffer_push_back_batch(EventBuffer_TextureAssetEve
     const uint32 GROWTH_FACTOR = 2;
 
     if (buffer->capacity == 0) {
-        buffer->capacity = __max(INITIAL_CAPACITY, count);
-        buffer->items = malloc(buffer->capacity * sizeof(*items));
+        buffer->capacity = MAX(INITIAL_CAPACITY, count);
+        buffer->items = std_malloc(buffer->capacity * sizeof(*items));
     }
     else if (buffer->count + count > buffer->capacity) {
-        buffer->capacity = __max(GROWTH_FACTOR * buffer->capacity, buffer->count + count);
-        buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*items));
+        buffer->capacity = MAX(GROWTH_FACTOR * buffer->capacity, buffer->count + count);
+        buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*items));
     }
 
-    memcpy(buffer->items + buffer->count, items, count * sizeof(*items));
+    std_memcpy(buffer->items + buffer->count, items, count * sizeof(*items));
     buffer->count += count;
 }
 

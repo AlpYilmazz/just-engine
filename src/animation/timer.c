@@ -67,7 +67,7 @@ SequenceTimer new_sequence_timer(float32* checkpoints, uint32 count, TimerMode m
 
 // allocates
 SequenceTimer new_sequence_timer_evenly_spaced(float32 time_between, uint32 count, TimerMode mode) {
-    float32* checkpoints = malloc(count * sizeof(float32));
+    float32* checkpoints = std_malloc(count * sizeof(float32));
     for (uint32 i = 0; i < count; i++) {
         checkpoints[i] = time_between * (i+1);
     }

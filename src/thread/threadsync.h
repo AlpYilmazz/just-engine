@@ -15,16 +15,16 @@ void srw_lock_release_shared(SRWLock* lock);
 
 #define SRW_LOCK_EXCLUSIVE_ZONE(SRW_LOCK, CodeBlock) \
     do {\
-    srw_lock_acquire_exclusive(SRW_LOCK);\
+        srw_lock_acquire_exclusive(SRW_LOCK);\
         do { CodeBlock; } while(0);\
-    srw_lock_release_exclusive(SRW_LOCK);\
+        srw_lock_release_exclusive(SRW_LOCK);\
     } while (0)
 
 #define SRW_LOCK_SHARED_ZONE(SRW_LOCK, CodeBlock) \
     do {\
-    srw_lock_acquire_shared(SRW_LOCK);\
+        srw_lock_acquire_shared(SRW_LOCK);\
         do { CodeBlock; } while(0);\
-    srw_lock_release_shared(SRW_LOCK);\
+        srw_lock_release_shared(SRW_LOCK);\
     } while (0)
 
 // typedef void AwakableSleep;

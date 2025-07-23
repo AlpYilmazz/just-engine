@@ -1,9 +1,8 @@
 #pragma once
 
-#include <stdlib.h>
-#include <string.h>
 #include <stdbool.h>
 
+#include "justcstd.h"
 #include "logging.h"
 
 typedef     unsigned char           uint8;
@@ -22,8 +21,6 @@ typedef     double                  float64;
 typedef     uint64                  usize;
 typedef     unsigned char           byte;
 // typedef     uint8                   bool;
-
-#define branchless_if(cond, on_true, on_false) ( ( ((cond) != 0) * (on_true) ) + ( ((cond) == 0) * (on_false) ) )
 
 #define Option(Type) DeclType_Option_##Type
 #define Option_None {0}
@@ -49,13 +46,15 @@ DECLARE__Option(char);
 #define LATER_INIT {0}
 #define UNINIT {0}
 
-#define MAX(a, b) ((a >= b) ? a : b)
-#define MIN(a, b) ((a <= b) ? a : b)
+#define MAX(a, b) (((a) >= (b)) ? (a) : (b))
+#define MIN(a, b) (((a) <= (b)) ? (a) : (b))
 
-#define SIGNOF(x) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
+#define SIGNOF(x) ( ((x) == 0) ? 0 : ( ((x) > 0) ? 1 : -1 ) )
 
-#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); exit(EXIT_FAILURE); }
-#define UNREACHABLE() { JUST_LOG_PANIC("UNREACHABLE: [%s] [%d]\n", __FILE__, __LINE__); exit(EXIT_FAILURE); }
+#define branchless_if(cond, on_true, on_false) ( ( ((cond) != 0) * (on_true) ) + ( ((cond) == 0) * (on_false) ) )
+
+#define PANIC(...) { JUST_LOG_PANIC(__VA_ARGS__); std_exit(STD_EXIT_FAILURE); }
+#define UNREACHABLE() { JUST_LOG_PANIC("UNREACHABLE: [%s:%d]\n", __FILE__, __LINE__); std_exit(STD_EXIT_FAILURE); }
 
 typedef struct {
     uint32 id;
@@ -93,8 +92,8 @@ static inline BufferSlice buffer_into_slice(Buffer buffer) {
 }
 
 static inline Buffer buffer_clone(Buffer buffer) {
-    byte* bytes_clone = malloc(buffer.length);
-    memcpy(bytes_clone, buffer.bytes, buffer.length);
+    byte* bytes_clone = std_malloc(buffer.length);
+    std_memcpy(bytes_clone, buffer.bytes, buffer.length);
     return (Buffer) {
         .length = buffer.length,
         .bytes = bytes_clone,

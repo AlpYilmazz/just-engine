@@ -1,10 +1,10 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 
 #include "raylib.h"
 #include "raymath.h"
 
+#include "justcstd.h"
 #include "base.h"
 #include "logging.h"
 #include "memory/memory.h"

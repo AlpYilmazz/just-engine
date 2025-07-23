@@ -348,7 +348,7 @@ void SYSTEM_UPDATE_player_transform(
 void on_write(SOCKET socket, SocketAddr addr, void* arg) {
     JUST_LOG_INFO("Write Made\n");
     Buffer* buffer = arg;
-    free(buffer);
+    std_free(buffer);
 }
 
 void server_write_frame_input(uint32 frame, PlayerInput frame_input) {
@@ -374,7 +374,7 @@ bool on_read(SOCKET socket, SocketAddr addr, BufferSlice read_buffer, void* arg)
     FillBuffer* read_fill = arg;
 
     if (read_buffer.length == 0) {
-        free(read_fill->bytes);
+        std_free(read_fill->bytes);
         return true; // should_remove
     }
     

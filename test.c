@@ -533,6 +533,39 @@ int main() {
             just_pretty_print_with(TestStruct)(&test_struct, (IndentToken) {.token = " ", .count = 4});
             printf("---\n");
         }
+        if (IsKeyPressed(KEY_P)) {
+            StringBuilder builder = string_builder_new();
+
+            String string1 = string_new();
+            string_append_format(string1, "line1: %d, %d\n", 1, 2);
+            string_append_format(string1, "[again] line1: %d, %d\n", 1, 2);
+            string_hinted_append_format(string1, 12 + 3, "line2: %d, %d\n", 2, 3);
+            string_builder_append_string(&builder, string1);
+
+            String string2 = string_new();
+            string_append_cstr(&string2, "This is a cstr.");
+            string_builder_append_string(&builder, string2);
+
+            String result_string = build_string(&builder);
+
+            printf("-----\n");
+            for (uint32 i = 0; i < result_string.count + 1; i++) {
+                char c = result_string.str[i];
+                if (c == '\0') {
+                    printf("\\0");
+                }
+                else if (c == '\n') {
+                    printf("\\n");
+                }
+                else {
+                    printf("%c", c);
+                }
+            }
+            printf("\n");
+            printf("-----\n");
+            printf("[len: %d]\n\"%s\"\n", result_string.count, result_string.cstr);
+            printf("-----\n");
+        }
 
         for (uint32 i = 0; i < COUNT; i++) {
             Vector2 pos = tween_tick(Vector2)(&tweens[i], delta_time);

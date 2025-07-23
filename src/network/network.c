@@ -1,7 +1,6 @@
 // #include <winsock2.h>
 // #include <ws2tcpip.h>
 // #include <windows.h>
-// #include <stdlib.h>
 // #include <process.h>
 // #include <stdatomic.h>
 // #include <stdio.h>
@@ -780,7 +779,7 @@
 
 // void spin_network_worker() {
 //     #define NETWORK_BUFFER_LEN 10000
-//     byte* NETWORK_BUFFER_MEMORY = malloc(NETWORK_BUFFER_LEN);
+//     byte* NETWORK_BUFFER_MEMORY = std_malloc(NETWORK_BUFFER_LEN);
 //     Buffer NETWORK_BUFFER = {
 //         .bytes = NETWORK_BUFFER_MEMORY,
 //         .length = NETWORK_BUFFER_LEN,
@@ -1125,7 +1124,7 @@
 
 //     // SOCKADDR_IN sockaddr = {0};
 //     // sockaddr.sin_family = AF_INET;
-//     // memcpy(&sockaddr.sin_addr.s_addr, hostaddr->h_addr, hostaddr->h_length);
+//     // std_memcpy(&sockaddr.sin_addr.s_addr, hostaddr->h_addr, hostaddr->h_length);
 //     // sockaddr.sin_port = htons(addr.port);
 
 //     // int32 result = connect(socket, (SOCKADDR*) &sockaddr, sizeof(sockaddr));

@@ -1,9 +1,7 @@
-#include <stdlib.h>
-#include <string.h>
-
 #include "raylib.h"
 #include "raymath.h"
 
+#include "justcstd.h"
 #include "base.h"
 
 #include "collision.h"
@@ -13,9 +11,9 @@ AABBColliderSet clone_aabb_collider_set(AABBColliderSet* set) {
 
     AABBColliderSet set_clone = *set;
     set_clone.capacity = set->count;
-    set_clone.colliders = malloc(size);
+    set_clone.colliders = std_malloc(size);
 
-    memcpy(set_clone.colliders, set->colliders, size);
+    std_memcpy(set_clone.colliders, set->colliders, size);
 
     return set_clone;
 }

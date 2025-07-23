@@ -113,11 +113,11 @@
 \
         if (buffer->capacity == 0) {\
             buffer->capacity = INITIAL_CAPACITY;\
-            buffer->items = malloc(buffer->capacity * sizeof(*&item));\
+            buffer->items = std_malloc(buffer->capacity * sizeof(*&item));\
         }\
         else if (buffer->count == buffer->capacity) {\
             buffer->capacity = GROWTH_FACTOR * buffer->capacity;\
-            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*&item));\
+            buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*&item));\
         }\
 \
         buffer->items[buffer->count] = item;\
@@ -131,14 +131,14 @@
 \
         if (buffer->capacity == 0) {\
             buffer->capacity = __max(INITIAL_CAPACITY, count);\
-            buffer->items = malloc(buffer->capacity * sizeof(*items));\
+            buffer->items = std_malloc(buffer->capacity * sizeof(*items));\
         }\
         else if (buffer->count + count > buffer->capacity) {\
             buffer->capacity = __max(GROWTH_FACTOR * buffer->capacity, buffer->count + count);\
-            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*items));\
+            buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*items));\
         }\
 \
-        memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
+        std_memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
         buffer->count += count;\
 \
     }\
@@ -246,11 +246,11 @@
 \
         if (buffer->capacity == 0) {\
             buffer->capacity = INITIAL_CAPACITY;\
-            buffer->items = malloc(buffer->capacity * sizeof(*&item));\
+            buffer->items = std_malloc(buffer->capacity * sizeof(*&item));\
         }\
         else if (buffer->count == buffer->capacity) {\
             buffer->capacity = GROWTH_FACTOR * buffer->capacity;\
-            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*&item));\
+            buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*&item));\
         }\
 \
         buffer->items[buffer->count] = item;\
@@ -264,14 +264,14 @@
 \
         if (buffer->capacity == 0) {\
             buffer->capacity = __max(INITIAL_CAPACITY, count);\
-            buffer->items = malloc(buffer->capacity * sizeof(*items));\
+            buffer->items = std_malloc(buffer->capacity * sizeof(*items));\
         }\
         else if (buffer->count + count > buffer->capacity) {\
             buffer->capacity = __max(GROWTH_FACTOR * buffer->capacity, buffer->count + count);\
-            buffer->items = realloc(buffer->items, buffer->capacity * sizeof(*items));\
+            buffer->items = std_realloc(buffer->items, buffer->capacity * sizeof(*items));\
         }\
 \
-        memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
+        std_memcpy(buffer->items + buffer->count, items, count * sizeof(*items));\
         buffer->count += count;\
 \
     }\

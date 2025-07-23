@@ -1,12 +1,12 @@
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "raylib.h"
 
-#include "asset.h"
-#include "thread/threadpool.h"
+#include "justcstd.h"
 #include "logging.h"
+#include "memory/juststring.h"
+#include "thread/threadpool.h"
+#include "asset.h"
 
 #include "assetserver.h"
 
@@ -50,8 +50,8 @@ void asyncio_file_load_image_task(TaskArgVoid* arg) {
     );
 
     CLEANUP:
-    free(this_arg->filepath);
-    free(this_arg);
+    std_free(this_arg->filepath);
+    std_free(this_arg);
 }
 
 TextureHandle asyncio_file_load_image(
@@ -61,15 +61,15 @@ TextureHandle asyncio_file_load_image(
     TextureHandle handle = texture_assets_reserve_texture_slot(server->RES_texture_assets);
 
     uint32 path_len =
-        strlen(server->asset_folder)// "assets"
+        cstr_length(server->asset_folder)// "assets"
         + 1                             // '/'
-        + strlen(filepath)              // "image.png"
+        + cstr_length(filepath)              // "image.png"
         + 1;                            // '\0'
-    char* path = malloc(path_len * sizeof(char));
+    char* path = std_malloc(path_len * sizeof(char));
     sprintf(path, "%s/%s", server->asset_folder, filepath);
     path[path_len-1] = '\0'; // does sprintf add this
 
-    AsyncioFileLoadImageTaskArg* arg = malloc(sizeof(AsyncioFileLoadImageTaskArg));
+    AsyncioFileLoadImageTaskArg* arg = std_malloc(sizeof(AsyncioFileLoadImageTaskArg));
     *arg = (AsyncioFileLoadImageTaskArg) {
         .RES_texture_assets_events = server->RES_texture_assets_events,
         .RES_texture_assets = server->RES_texture_assets,

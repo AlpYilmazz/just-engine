@@ -21,4 +21,4 @@ void JUST_LOG_WARN(const char* format, ...);
 void JUST_LOG_ERROR(const char* format, ...);
 void JUST_LOG_PANIC(const char* format, ...);
 
-#define JUST_DEV_MARK() printf("-- [%s] [%d] --\n", __FILE__, __LINE__)
+#define JUST_DEV_MARK() printf("-- [%s:%d] --\n", __FILE__, __LINE__)

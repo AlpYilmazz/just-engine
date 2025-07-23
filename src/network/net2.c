@@ -1,7 +1,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
-#include <stdlib.h>
 #include <process.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -12,6 +11,7 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
+#include "justcstd.h"
 #include "core.h"
 #include "logging.h"
 #include "thread/threadsync.h"
@@ -1975,7 +1975,7 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
 // DWORD WINAPI thread_pool_worker_thread(LPVOID lpParam);
 uint32 __stdcall network_thread_main(void* thread_param) {
     #define NETWORK_BUFFER_LEN 10000
-    byte* NETWORK_BUFFER_MEMORY = malloc(NETWORK_BUFFER_LEN);
+    byte* NETWORK_BUFFER_MEMORY = std_malloc(NETWORK_BUFFER_LEN);
     Buffer NETWORK_BUFFER = {
         .bytes = NETWORK_BUFFER_MEMORY,
         .length = NETWORK_BUFFER_LEN,
@@ -1988,7 +1988,7 @@ uint32 __stdcall network_thread_main(void* thread_param) {
     // Cleanup
     free_ssl_contexts();
     free_srw_lock(NETWORK_THREAD_LOCK);
-    free(NETWORK_BUFFER_MEMORY);
+    std_free(NETWORK_BUFFER_MEMORY);
 
     _endthreadex(0);
 }

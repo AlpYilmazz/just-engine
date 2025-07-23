@@ -11,7 +11,7 @@
     do { \
         if ((arr).capacity > 0) { \
             (arr).count = 0; \
-            free((arr).items); \
+            std_free((arr).items); \
         } \
     } while(0)
 
@@ -19,7 +19,7 @@
     do { \
         if ((arr).capacity > 0) { \
             (arr).count = 0; \
-            free((arr)items_field); \
+            std_free((arr)items_field); \
         } \
     } while(0)
 
@@ -28,7 +28,7 @@
         usize new_capacity = (arr).count + reserve_count; \
         if ((arr).capacity < new_capacity) { \
             (arr).capacity = new_capacity; \
-            (arr).items = realloc((arr).items, (arr).capacity * sizeof((arr).items[0])); \
+            (arr).items = std_realloc((arr).items, (arr).capacity * sizeof((arr).items[0])); \
         } \
     } while(0)
 
@@ -37,7 +37,7 @@
         usize new_capacity = (arr).count + reserve_count; \
         if ((arr).capacity < new_capacity) { \
             (arr).capacity = new_capacity; \
-            (arr)items_field = realloc((arr)items_field, (arr).capacity * sizeof((arr)items_field[0])); \
+            (arr)items_field = std_realloc((arr)items_field, (arr).capacity * sizeof((arr)items_field[0])); \
         } \
     } while(0)
 
@@ -48,11 +48,11 @@
 \
         if ((arr).capacity == 0) { \
             (arr).capacity = DYNARRAY_INITIAL_CAPACITY; \
-            (arr).items = malloc((arr).capacity * sizeof((item))); \
+            (arr).items = std_malloc((arr).capacity * sizeof((item))); \
         } \
         else if ((arr).count == (arr).capacity) { \
             (arr).capacity = DYNARRAY_GROWTH_FACTOR * (arr).capacity; \
-            (arr).items = realloc((arr).items, (arr).capacity * sizeof((item))); \
+            (arr).items = std_realloc((arr).items, (arr).capacity * sizeof((item))); \
         } \
         \
         (arr).items[(arr).count] = (item); \
@@ -66,11 +66,11 @@
 \
         if ((arr).capacity == 0) { \
             (arr).capacity = DYNARRAY_INITIAL_CAPACITY; \
-            (arr)items_field = malloc((arr).capacity * sizeof((item))); \
+            (arr)items_field = std_malloc((arr).capacity * sizeof((item))); \
         } \
         else if ((arr).count == (arr).capacity) { \
             (arr).capacity = DYNARRAY_GROWTH_FACTOR * (arr).capacity; \
-            (arr)items_field = realloc((arr)items_field, (arr).capacity * sizeof((item))); \
+            (arr)items_field = std_realloc((arr)items_field, (arr).capacity * sizeof((item))); \
         } \
         \
         (arr)items_field[(arr).count] = (item); \
@@ -83,8 +83,8 @@
         (src_arr).count = (dst_arr).count; \
         (src_arr).capacity = (dst_arr).count; \
         (src_arr).items = (dst_arr).items; \
-        (src_arr).items = malloc(size); \
-        memcpy((src_arr).items, (dst_arr).items, size); \
+        (src_arr).items = std_malloc(size); \
+        std_memcpy((src_arr).items, (dst_arr).items, size); \
     } while(0)
 
 #define dynarray_clone_custom(dst_arr, src_arr, items_field) \
@@ -93,19 +93,19 @@
         (src_arr).count = (dst_arr).count; \
         (src_arr).capacity = (dst_arr).count; \
         (src_arr)items_field = (dst_arr)items_field; \
-        (src_arr)items_field = malloc(size); \
-        memcpy((src_arr)items_field, (dst_arr)items_field, size); \
+        (src_arr)items_field = std_malloc(size); \
+        std_memcpy((src_arr)items_field, (dst_arr)items_field, size); \
     } while(0)
 
 static inline Buffer* malloc_buffer(usize size) {
-    Buffer* buffer = malloc(sizeof(Buffer) + size); // Buffer + [bytes]
+    Buffer* buffer = std_malloc(sizeof(Buffer) + size); // Buffer + [bytes]
     buffer->length = size;
     buffer->bytes = (byte*) (buffer + 1);
     return buffer;
 }
 
 static inline FillBuffer* malloc_fillbuffer(usize size) {
-    FillBuffer* fillbuffer = malloc(sizeof(FillBuffer) + size); // FillBuffer + [bytes]
+    FillBuffer* fillbuffer = std_malloc(sizeof(FillBuffer) + size); // FillBuffer + [bytes]
     fillbuffer->length = size;
     fillbuffer->bytes = (byte*) (fillbuffer + 1);
     fillbuffer->cursor = fillbuffer->bytes;
