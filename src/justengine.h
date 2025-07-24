@@ -413,6 +413,187 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 
 #endif // __HEADER_BASE
 
+#define __HEADER_INTROSPECT_INTROSPECT
+#ifdef __HEADER_INTROSPECT_INTROSPECT
+
+/**
+ * Used on struct/enum definitions
+*/
+#define introspect(...) 
+
+/**
+ * Used on struct field definitions
+*/
+#define alias(...) 
+#define function_ptr(...) 
+
+// TODO
+/**
+ * TODO:
+ * - handle enum types
+ * - handle void type (ofc void*, not void)
+ * - handle multi layer pointers (e.g. uint32***)
+ * - handle type aliasing with `alias()`
+ * - function pointer `function_ptr()`
+ */
+
+typedef enum {
+    TYPE_void, // TODO
+    TYPE_char,
+    TYPE_byte,
+    TYPE_bool,
+    TYPE_uint8,
+    TYPE_uint16,
+    TYPE_uint32,
+    TYPE_uint64,
+    TYPE_int8,
+    TYPE_int16,
+    TYPE_int32,
+    TYPE_int64,
+    TYPE_usize,
+    TYPE_float32,
+    TYPE_float64,
+    TYPE_struct,
+} Type;
+
+typedef struct FieldInfo {
+    Type type;
+    char* name;
+    void* ptr;
+    // --
+    bool is_ptr;
+    uint32 ref_depth;
+    // --
+    bool is_array;
+    usize count;
+    // --
+    bool is_cstr;
+    // --
+    bool is_dynarray;
+    bool is_string;
+    void* count_ptr;
+    // --
+    usize struct_size;
+    uint32 field_count;
+    struct FieldInfo* fields;
+    // --
+} FieldInfo;
+
+typedef struct {
+    char* token;
+    uint32 count;
+} IndentToken;
+
+static inline IndentToken default_indent_token();
+void print_indent(uint32 indent_count, IndentToken indent_token);
+
+#define just_print(Type) Type##__print0
+#define just_pretty_print(Type) Type##__pretty_print0
+#define just_pretty_print_with(Type) Type##__pretty_print_with0
+#define just_array_print(Type) Type##_array__print0
+#define just_array_pretty_print(Type) Type##_array__pretty_print0
+#define just_array_pretty_print_with(Type) Type##_array__pretty_print_with0
+
+// -----
+
+#define __DECLARE__print_functions__stdout(TYPE) \
+    void TYPE##__print(TYPE var); \
+    void TYPE##_ptr__print(TYPE* ptr); \
+    void TYPE##_array__print(TYPE* arr, usize count); \
+    void TYPE##_array__pretty_print(TYPE* arr, usize count, uint32 indent, IndentToken indent_token); \
+    void TYPE##_dynarray__print(TYPE* arr, usize count); \
+    void TYPE##_dynarray__pretty_print(TYPE* arr, usize count, uint32 indent, IndentToken indent_token); \
+\
+    typedef enum { TYPE##__VARIANT__DECLARE__print_functions__stdout = 0 } TYPE##__ENUM__DECLARE__print_functions__stdout
+
+void ptr__print(void* var);
+
+__DECLARE__print_functions__stdout(char);
+__DECLARE__print_functions__stdout(byte);
+__DECLARE__print_functions__stdout(bool);
+__DECLARE__print_functions__stdout(uint8);
+__DECLARE__print_functions__stdout(uint16);
+__DECLARE__print_functions__stdout(uint32);
+__DECLARE__print_functions__stdout(uint64);
+__DECLARE__print_functions__stdout(int8);
+__DECLARE__print_functions__stdout(int16);
+__DECLARE__print_functions__stdout(int32);
+__DECLARE__print_functions__stdout(int64);
+__DECLARE__print_functions__stdout(float32);
+__DECLARE__print_functions__stdout(float64);
+__DECLARE__print_functions__stdout(usize);
+
+void char_cstr__print(char* cstr);
+void char_string__print(char* str, usize count);
+
+void struct__print(void* var, FieldInfo* fields, uint32 field_count);
+void struct__pretty_print(void* var, FieldInfo* fields, uint32 field_count, uint32 indent, IndentToken indent_token);
+void struct_ptr__print(void** ptr, FieldInfo* fields, uint32 field_count);
+void struct_ptr__pretty_print(void** ptr, FieldInfo* fields, uint32 field_count, uint32 indent, IndentToken indent_token);
+void struct_array__print(void* arr, usize count, uint32 struct_size, FieldInfo* fields, uint32 field_count);
+void struct_array__pretty_print(void* arr, usize count, uint32 struct_size, FieldInfo* fields, uint32 field_count, uint32 indent, IndentToken indent_token);
+void struct_dynarray__print(void* arr, usize count, uint32 struct_size, FieldInfo* fields, uint32 field_count);
+void struct_dynarray__pretty_print(void* arr, usize count, uint32 struct_size, FieldInfo* fields, uint32 field_count, uint32 indent, IndentToken indent_token);
+
+void introspect_field_print(FieldInfo field, void* var);
+void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, IndentToken indent_token);
+
+
+// -----
+
+#define __IMPL_____generate_print_functions(TYPE) \
+    static inline void TYPE##__print(TYPE* var) { \
+        struct__print(var, TYPE##__fields, ARRAY_LENGTH(TYPE##__fields)); \
+    } \
+    static inline void TYPE##__pretty_print_with(TYPE* var, uint32 indent, IndentToken indent_token) { \
+        struct__pretty_print(var, TYPE##__fields, ARRAY_LENGTH(TYPE##__fields), indent, indent_token); \
+    } \
+    static inline void TYPE##__pretty_print(TYPE* var, uint32 indent) { \
+        TYPE##__pretty_print_with(var, 0, default_indent_token()); \
+    } \
+\
+    static inline void TYPE##_array__print(TYPE* var, usize count) { \
+        struct_array__print(var, count, sizeof(TYPE), TYPE##__fields, ARRAY_LENGTH(TYPE##__fields)); \
+    } \
+    static inline void TYPE##_array__pretty_print_with(TYPE* var, usize count, uint32 indent, IndentToken indent_token) { \
+        struct_array__pretty_print(var, count, sizeof(TYPE), TYPE##__fields, ARRAY_LENGTH(TYPE##__fields), indent, indent_token); \
+    } \
+    static inline void TYPE##_array__pretty_print(TYPE* var, usize count, uint32 indent) { \
+        TYPE##_array__pretty_print_with(var, count, 0, default_indent_token()); \
+    } \
+\
+    static inline void TYPE##__print0(TYPE* var) { \
+        TYPE##__print(var); \
+        printf("\n"); \
+    } \
+    static inline void TYPE##__pretty_print0(TYPE* var) { \
+        TYPE##__pretty_print(var, 0); \
+        printf("\n"); \
+    } \
+    static inline void TYPE##__pretty_print_with0(TYPE* var, IndentToken indent_token) { \
+        TYPE##__pretty_print_with(var, 0, indent_token); \
+        printf("\n"); \
+    } \
+\
+    static inline void TYPE##_array__print0(TYPE* var, usize count) { \
+        TYPE##_array__print(var, count); \
+        printf("\n"); \
+    } \
+    static inline void TYPE##_array__pretty_print0(TYPE* var, usize count) { \
+        TYPE##_array__pretty_print(var, count, 0); \
+        printf("\n"); \
+    } \
+    static inline void TYPE##_array__pretty_print_with0(TYPE* var, usize count, IndentToken indent_token) { \
+        TYPE##_array__pretty_print_with(var, count, 0, indent_token); \
+        printf("\n"); \
+    } \
+\
+    typedef enum { TYPE##__VARIANT__IMPL_____generate_print_functions = 0 } TYPE##__IMPL_____generate_print_functions
+
+// -----
+
+#endif // __HEADER_INTROSPECT_INTROSPECT
+
 #define __HEADER_MEMORY_MEMORY
 #ifdef __HEADER_MEMORY_MEMORY
 
@@ -642,10 +823,11 @@ typedef struct {
 } StringBuilder;
 
 String string_new();
+String string_with_capacity(usize capacity);
 String string_from_cstr(char* cstr);
 void free_string(String string);
 
-char* string_as_cstr(String string);
+bool string_equals(String s1, String s2);
 
 #define string_view_use_as_cstr(string_view_in, cstr_use, CodeBlock) \
     do { \
@@ -658,6 +840,7 @@ char* string_as_cstr(String string);
 
 void string_nappend_cstr(String* string, char* cstr, usize count);
 void string_append_cstr(String* string, char* cstr);
+String new_string_merged(String s1, String s2);
 
 #define string_append_format(string, format, ...) \
     do { \
@@ -679,17 +862,31 @@ void string_append_cstr(String* string, char* cstr);
         (string).count += string_hinted_append_format__count; \
     } while (0)
 
-StringView string_view(String string, usize start, usize count);
+StringView string_slice_view(String string, usize start, usize count);
 StringViewPair string_split_at(String string, usize index);
 
 StringBuilder string_builder_new();
-void string_builder_nappend(StringBuilder* builder, char* cstr, usize count);
-void string_builder_nappend_free(StringBuilder* builder, char* cstr, usize count);
-void string_builder_append(StringBuilder* builder, char* cstr);
-void string_builder_append_free(StringBuilder* builder, char* cstr);
-void string_builder_append_string(StringBuilder* builder, String string);
-void string_builder_append_string_free(StringBuilder* builder, String string);
 String build_string(StringBuilder* builder);
+void string_builder_nappend_cstr(StringBuilder* builder, char* cstr, usize count);
+void string_builder_nappend_cstr_owned(StringBuilder* builder, char* cstr, usize count);
+void string_builder_append_cstr(StringBuilder* builder, char* cstr);
+void string_builder_append_cstr_owned(StringBuilder* builder, char* cstr);
+void string_builder_append_string(StringBuilder* builder, String string);
+void string_builder_append_string_owned(StringBuilder* builder, String string);
+
+#define string_builder_append_format(string_builder_ptr, format, ...) \
+    do { \
+        String string_builder_append_format__string = string_new(); \
+        string_append_format(string_builder_append_format__string, format, __VA_ARGS__); \
+        string_builder_append_string_owned(string_builder_ptr, string_builder_append_format__string); \
+    } while(0)
+
+#define string_builder_hinted_append_format(string_builder_ptr, count_hint, format, ...) \
+    do { \
+        String string_builder_append_format__string = string_new(); \
+        string_hinted_append_format(string_builder_append_format__string, count_hint, format, __VA_ARGS__); \
+        string_builder_append_string_owned(string_builder_ptr, string_builder_append_format__string); \
+    } while(0)
 
 #endif // __HEADER_MEMORY_JUSTSTRING
 
@@ -999,7 +1196,9 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
     bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
-    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed);
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed); \
+\
+    typedef enum { TYPE_EVENT##__VARIANT__DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED = 0 } TYPE_EVENT##__ENUM__DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -1033,7 +1232,9 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
     bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
-    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed);
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed); \
+\
+    typedef enum { TYPE_EVENT##__VARIANT__DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED = 0 } TYPE_EVENT##__ENUM__DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -1166,7 +1367,9 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
 \
         *set_consumed = &event->consumed;\
         return *event;\
-    }
+    } \
+\
+    typedef enum { TYPE_EVENT##__VARIANT__IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED = 0 } TYPE_EVENT##__ENUM__IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -1308,7 +1511,9 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
 \
         *set_consumed = &event->consumed;\
         return *event;\
-    }
+    } \
+\
+    typedef enum { TYPE_EVENT##__VARIANT__IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED = 0 } TYPE_EVENT##__ENUM__IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED
 
 // -------------------------------------------------------------------------------------------------------------------
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core.h"
+
 /**
  * Use matching versions of DECLARE and DEFINE_IMPL macros
  * Both ACCESS_SINGLE_THREADED or ACCESS_MULTI_THREADED
@@ -67,7 +69,9 @@
     bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
-    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed);
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed); \
+\
+    typedef enum { TYPE_EVENT##__VARIANT__DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED = 0 } TYPE_EVENT##__ENUM__DECLARE__EVENT_SYSTEM__ACCESS_SINGLE_THREADED
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -101,7 +105,9 @@
     bool TYPE_EVENT##__events_iter_has_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_read_next(EventsIter_##TYPE_EVENT* iter);\
     TYPE_EVENT TYPE_EVENT##__events_iter_consume_next(EventsIter_##TYPE_EVENT* iter);\
-    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed);
+    TYPE_EVENT TYPE_EVENT##__events_iter_maybe_consume_next(EventsIter_##TYPE_EVENT* iter, bool** set_consumed); \
+\
+    typedef enum { TYPE_EVENT##__VARIANT__DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED = 0 } TYPE_EVENT##__ENUM__DECLARE__EVENT_SYSTEM__ACCESS_MULTI_THREADED
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -234,7 +240,9 @@
 \
         *set_consumed = &event->consumed;\
         return *event;\
-    }
+    } \
+\
+    typedef enum { TYPE_EVENT##__VARIANT__IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED = 0 } TYPE_EVENT##__ENUM__IMPL_____EVENT_SYSTEM__ACCESS_SINGLE_THREADED
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -376,6 +384,8 @@
 \
         *set_consumed = &event->consumed;\
         return *event;\
-    }
+    } \
+\
+    typedef enum { TYPE_EVENT##__VARIANT__IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED = 0 } TYPE_EVENT##__ENUM__IMPL_____EVENT_SYSTEM__ACCESS_MULTI_THREADED
 
 // -------------------------------------------------------------------------------------------------------------------

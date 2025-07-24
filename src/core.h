@@ -46,6 +46,8 @@ DECLARE__Option(char);
 #define LATER_INIT {0}
 #define UNINIT {0}
 
+#define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
+
 #define MAX(a, b) (((a) >= (b)) ? (a) : (b))
 #define MIN(a, b) (((a) <= (b)) ? (a) : (b))
 

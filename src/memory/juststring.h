@@ -64,10 +64,11 @@ typedef struct {
 } StringBuilder;
 
 String string_new();
+String string_with_capacity(usize capacity);
 String string_from_cstr(char* cstr);
 void free_string(String string);
 
-char* string_as_cstr(String string);
+bool string_equals(String s1, String s2);
 
 #define string_view_use_as_cstr(string_view_in, cstr_use, CodeBlock) \
     do { \
@@ -80,6 +81,7 @@ char* string_as_cstr(String string);
 
 void string_nappend_cstr(String* string, char* cstr, usize count);
 void string_append_cstr(String* string, char* cstr);
+String new_string_merged(String s1, String s2);
 
 #define string_append_format(string, format, ...) \
     do { \
@@ -101,14 +103,30 @@ void string_append_cstr(String* string, char* cstr);
         (string).count += string_hinted_append_format__count; \
     } while (0)
 
-StringView string_view(String string, usize start, usize count);
+StringView string_slice_view(String string, usize start, usize count);
 StringViewPair string_split_at(String string, usize index);
 
 StringBuilder string_builder_new();
-void string_builder_nappend(StringBuilder* builder, char* cstr, usize count);
-void string_builder_nappend_free(StringBuilder* builder, char* cstr, usize count);
-void string_builder_append(StringBuilder* builder, char* cstr);
-void string_builder_append_free(StringBuilder* builder, char* cstr);
-void string_builder_append_string(StringBuilder* builder, String string);
-void string_builder_append_string_free(StringBuilder* builder, String string);
 String build_string(StringBuilder* builder);
+void string_builder_nappend_cstr(StringBuilder* builder, char* cstr, usize count);
+void string_builder_nappend_cstr_owned(StringBuilder* builder, char* cstr, usize count);
+void string_builder_append_cstr(StringBuilder* builder, char* cstr);
+void string_builder_append_cstr_owned(StringBuilder* builder, char* cstr);
+void string_builder_append_string(StringBuilder* builder, String string);
+void string_builder_append_string_owned(StringBuilder* builder, String string);
+
+#define string_builder_append_format(string_builder_ptr, format, ...) \
+    do { \
+        String string_builder_append_format__string = string_new(); \
+        string_append_format(string_builder_append_format__string, format, __VA_ARGS__); \
+        string_builder_append_string_owned(string_builder_ptr, string_builder_append_format__string); \
+    } while(0)
+
+#define string_builder_hinted_append_format(string_builder_ptr, count_hint, format, ...) \
+    do { \
+        String string_builder_append_format__string = string_new(); \
+        string_hinted_append_format(string_builder_append_format__string, count_hint, format, __VA_ARGS__); \
+        string_builder_append_string_owned(string_builder_ptr, string_builder_append_format__string); \
+    } while(0)
+
+// -
