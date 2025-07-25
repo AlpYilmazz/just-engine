@@ -18,7 +18,8 @@
  * TODO:
  * - handle enum types
  * - handle void type (ofc void*, not void)
- * - handle multi layer pointers (e.g. uint32***)
+ * - handle multi layer pointers (i.e. uint32***)
+ * - handle multi dimension arrays (i.e. arr[3][5][6])
  * - handle type aliasing with `alias()`
  * - function pointer `function_ptr()`
  */
@@ -44,14 +45,17 @@ typedef enum {
 
 typedef struct FieldInfo {
     Type type;
+    char* type_str;
     char* name;
     void* ptr;
     // --
     bool is_ptr;
-    uint32 ref_depth;
+    uint32 ptr_depth;
     // --
     bool is_array;
-    usize count;
+    usize count; // total array length
+    usize array_dim;
+    usize array_dim_counts[10]; // max 10 dimensions
     // --
     bool is_cstr;
     // --
@@ -70,7 +74,7 @@ typedef struct {
     uint32 count;
 } IndentToken;
 
-static inline IndentToken default_indent_token();
+#define DEFAULT_INDENT_TOKEN ((IndentToken){ .count = 1, .token = "\t" })
 void print_indent(uint32 indent_count, IndentToken indent_token);
 
 #define just_print(Type) Type##__print0
@@ -135,7 +139,7 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         struct__pretty_print(var, TYPE##__fields, ARRAY_LENGTH(TYPE##__fields), indent, indent_token); \
     } \
     static inline void TYPE##__pretty_print(TYPE* var, uint32 indent) { \
-        TYPE##__pretty_print_with(var, 0, default_indent_token()); \
+        TYPE##__pretty_print_with(var, 0, DEFAULT_INDENT_TOKEN); \
     } \
 \
     static inline void TYPE##_array__print(TYPE* var, usize count) { \
@@ -145,7 +149,7 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         struct_array__pretty_print(var, count, sizeof(TYPE), TYPE##__fields, ARRAY_LENGTH(TYPE##__fields), indent, indent_token); \
     } \
     static inline void TYPE##_array__pretty_print(TYPE* var, usize count, uint32 indent) { \
-        TYPE##_array__pretty_print_with(var, count, 0, default_indent_token()); \
+        TYPE##_array__pretty_print_with(var, count, 0, DEFAULT_INDENT_TOKEN); \
     } \
 \
     static inline void TYPE##__print0(TYPE* var) { \

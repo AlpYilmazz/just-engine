@@ -102,6 +102,8 @@ DECLARE__Option(char);
 #define LATER_INIT {0}
 #define UNINIT {0}
 
+#define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
+
 #define MAX(a, b) ((a >= b) ? a : b)
 #define MIN(a, b) ((a <= b) ? a : b)
 
@@ -458,6 +460,7 @@ typedef enum {
 
 typedef struct FieldInfo {
     Type type;
+    char* type_str;
     char* name;
     void* ptr;
     // --
@@ -465,7 +468,9 @@ typedef struct FieldInfo {
     uint32 ref_depth;
     // --
     bool is_array;
-    usize count;
+    usize count; // total array length
+    usize array_dim;
+    usize array_dim_counts[10]; // max 10 dimensions
     // --
     bool is_cstr;
     // --
@@ -484,7 +489,7 @@ typedef struct {
     uint32 count;
 } IndentToken;
 
-static inline IndentToken default_indent_token();
+#define DEFAULT_INDENT_TOKEN ((IndentToken){ .count = 1, .token = "\t" })
 void print_indent(uint32 indent_count, IndentToken indent_token);
 
 #define just_print(Type) Type##__print0
@@ -549,7 +554,7 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         struct__pretty_print(var, TYPE##__fields, ARRAY_LENGTH(TYPE##__fields), indent, indent_token); \
     } \
     static inline void TYPE##__pretty_print(TYPE* var, uint32 indent) { \
-        TYPE##__pretty_print_with(var, 0, default_indent_token()); \
+        TYPE##__pretty_print_with(var, 0, DEFAULT_INDENT_TOKEN); \
     } \
 \
     static inline void TYPE##_array__print(TYPE* var, usize count) { \
@@ -559,7 +564,7 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         struct_array__pretty_print(var, count, sizeof(TYPE), TYPE##__fields, ARRAY_LENGTH(TYPE##__fields), indent, indent_token); \
     } \
     static inline void TYPE##_array__pretty_print(TYPE* var, usize count, uint32 indent) { \
-        TYPE##_array__pretty_print_with(var, count, 0, default_indent_token()); \
+        TYPE##_array__pretty_print_with(var, count, 0, DEFAULT_INDENT_TOKEN); \
     } \
 \
     static inline void TYPE##__print0(TYPE* var) { \
@@ -762,6 +767,9 @@ void* arena_alloc_aligned(ArenaAllocator* arena_allocator, MemoryLayout layout);
 #define __HEADER_MEMORY_JUSTSTRING
 #ifdef __HEADER_MEMORY_JUSTSTRING
 
+bool char_is_eof(char ch);
+bool char_is_whitespace(char ch);
+
 usize cstr_length(const char* cstr);
 char* cstr_nclone(const char* cstr, usize count);
 char* cstr_clone(const char* cstr);
@@ -809,25 +817,17 @@ typedef struct {
     StringView second;
 } StringViewPair;
 
-typedef struct StringBuilderNode {
-    struct StringBuilderNode* next;
-    bool auto_free;
-    usize count;
-    char* str;
-} StringBuilderNode;
-
-typedef struct {
-    usize total_count;
-    StringBuilderNode* head;
-    StringBuilderNode* tail;
-} StringBuilder;
-
 String string_new();
 String string_with_capacity(usize capacity);
 String string_from_cstr(char* cstr);
 void free_string(String string);
 
-bool string_equals(String s1, String s2);
+bool ss_equals(String s1, String s2);
+bool scs_equals(String s, char* cs);
+bool ssv_equals(String s, StringView sv);
+bool svcs_equals(StringView sv, char* cs);
+
+uint64 sv_parse_int(StringView sv);
 
 #define string_view_use_as_cstr(string_view_in, cstr_use, CodeBlock) \
     do { \
@@ -862,8 +862,65 @@ String new_string_merged(String s1, String s2);
         (string).count += string_hinted_append_format__count; \
     } while (0)
 
+StringView string_as_view(String string);
 StringView string_slice_view(String string, usize start, usize count);
+StringView string_view_slice_view(StringView string_view, usize start, usize count);
 StringViewPair string_split_at(String string, usize index);
+StringViewPair string_view_split_at(StringView string_view, usize index);
+
+void print_string_view(StringView string_view);
+void print_string(String string);
+
+typedef struct {
+    StringView cursor;
+} StringWordsIter;
+
+StringWordsIter string_view_iter_words(StringView string_view);
+StringWordsIter string_iter_words(String string);
+bool next_word(StringWordsIter* words_iter, StringView* word_out);
+
+typedef struct {
+    StringView cursor;
+} StringVarDelimIter;
+
+StringVarDelimIter string_view_iter_delim_var(StringView string_view);
+StringVarDelimIter string_iter_delim_var(String string);
+bool next_item_until_delim(StringVarDelimIter* delim_iter, char delim, StringView* item_out);
+
+typedef struct {
+    uint32 id;
+    String token;
+} StringToken;
+
+typedef struct {
+    uint32 id;
+    bool free_word;
+    StringView token;
+} StringTokenOut;
+
+typedef struct {
+    StringView cursor;
+    usize token_count;
+    StringToken* tokens;
+} StringTokenIter;
+
+StringTokenIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count);
+StringTokenIter string_iter_tokens(String string, StringToken* tokens, usize token_count);
+void free_tokens_iter(StringTokenIter* tokens_iter);
+bool next_token(StringTokenIter* tokens_iter, StringTokenOut* token_out);
+
+typedef struct StringBuilderNode {
+    struct StringBuilderNode* next;
+    bool auto_free;
+    usize count;
+    char* str;
+} StringBuilderNode;
+
+typedef struct {
+    usize total_count;
+    StringBuilderNode* head;
+    StringBuilderNode* tail;
+} StringBuilder;
 
 StringBuilder string_builder_new();
 String build_string(StringBuilder* builder);
@@ -887,6 +944,8 @@ void string_builder_append_string_owned(StringBuilder* builder, String string);
         string_hinted_append_format(string_builder_append_format__string, count_hint, format, __VA_ARGS__); \
         string_builder_append_string_owned(string_builder_ptr, string_builder_append_format__string); \
     } while(0)
+
+// -
 
 #endif // __HEADER_MEMORY_JUSTSTRING
 

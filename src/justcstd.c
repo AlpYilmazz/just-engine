@@ -25,6 +25,10 @@ void std_free(void *_Memory) {
 
 // string.h
 
+int std_memcmp(const void *_Buf1, const void *_Buf2, size_t _Size) {
+    return memcmp(_Buf1, _Buf2, _Size);
+}
+
 void* std_memcpy(void *__restrict__ _Dst, const void *__restrict__ _Src, size_t _Size) {
     return memcpy(_Dst, _Src, _Size);
 }

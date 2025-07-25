@@ -1,6 +1,12 @@
 
 #include "introspect.h"
 
+void print_indent(uint32 indent_count, IndentToken indent_token) {
+    for (uint32 i = 0; i < indent_count * indent_token.count; i++) {
+        printf("%s", indent_token.token);
+    }
+}
+
 #define __IMPL_____print_functions__stdout(TYPE, format) \
     void TYPE##__print(TYPE var) { \
         printf(format, var); \
@@ -210,7 +216,8 @@ void struct_array__pretty_print(void* arr, usize count, uint32 struct_size, Fiel
     for (uint32 i = 0; i < count; i++) {
         void* var = (((byte*)arr) + (struct_size * i));
         print_indent(indent+1, indent_token);
-        struct__pretty_print(var, fields, field_count, indent, indent_token);
+        struct__pretty_print(var, fields, field_count, indent+1, indent_token);
+        printf(",\n");
     }
     print_indent(indent, indent_token);
     printf("]");
