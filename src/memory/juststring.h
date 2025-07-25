@@ -55,7 +55,7 @@ typedef struct {
 
 String string_new();
 String string_with_capacity(usize capacity);
-String string_from_cstr(char* cstr);
+String string_from_cstr(const char* cstr);
 void free_string(String string);
 
 bool ss_equals(String s1, String s2);
@@ -128,6 +128,13 @@ typedef struct {
     uint32 id;
     String token;
 } StringToken;
+
+typedef struct {
+    uint32 id;
+    const char* token;
+} StaticStringToken;
+
+StringToken* string_tokens_from_static(StaticStringToken* static_tokens, usize count);
 
 typedef struct {
     uint32 id;

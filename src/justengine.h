@@ -894,6 +894,13 @@ typedef struct {
 
 typedef struct {
     uint32 id;
+    const char* token;
+} StaticStringToken;
+
+StringToken* string_tokens_from_static(StaticStringToken* static_tokens, usize count);
+
+typedef struct {
+    uint32 id;
     bool free_word;
     StringView token;
 } StringTokenOut;

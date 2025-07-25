@@ -8,21 +8,79 @@ typedef struct {
     bool bool_arr  [ 3];
     const char const * const_field; alias(bool) mode(dynarray, count: count)
     long long int lli; alias(int64)
+    unsigned long int a;
+    // long unsigned long int b;
+    short c;
 } StructName;
 
 typedef enum {
+    // --
     Token_const = 0,
+    // --
+    Token_unsigned_short,
+    Token_unsigned_long,
+    Token_unsigned_long_long,
+    // --
+    Token_unsigned_short_int,
+    Token_unsigned_long_int,
+    Token_unsigned_long_long_int,
+    // --
+    Token_short,
+    Token_long,
+    Token_long_long,
+    // --
+    Token_short_int,
+    Token_long_int,
+    Token_long_long_int,
+    // --
     Token_star,
+    Token_comma,
+    Token_colon,
     Token_semicolon,
+    // --
+    Token_paren_open,
+    Token_paren_close,
     Token_sq_paren_open,
     Token_sq_paren_close,
-    Token_long_long_int,
+    // --
+    Token_introspect_extension_alias,
+    // --
+    Token_introspect_extension_mode,
+    // --
 } FieldParseTokens;
+
+StaticStringToken field_parse_tokens__static[] = {
+    (StaticStringToken) { .id = Token_const, .token = "const" },
+
+    (StaticStringToken) { .id = Token_unsigned_short, .token = "unsigned short" },
+    (StaticStringToken) { .id = Token_unsigned_long, .token = "unsigned long" },
+    (StaticStringToken) { .id = Token_unsigned_long_long, .token = "unsigned long long" },
+
+    (StaticStringToken) { .id = Token_unsigned_short_int, .token = "unsigned short int" },
+    (StaticStringToken) { .id = Token_unsigned_long_int, .token = "unsigned long int" },
+    (StaticStringToken) { .id = Token_unsigned_long_long_int, .token = "unsigned long long int" },
+
+    (StaticStringToken) { .id = Token_short, .token = "short" },
+    (StaticStringToken) { .id = Token_long, .token = "long" },
+    (StaticStringToken) { .id = Token_long_long, .token = "long long" },
+
+    (StaticStringToken) { .id = Token_short_int, .token = "short int" },
+    (StaticStringToken) { .id = Token_long_int, .token = "long int" },
+    (StaticStringToken) { .id = Token_long_long_int, .token = "long long int" },
+
+    (StaticStringToken) { .id = Token_star, .token = "*" },
+    (StaticStringToken) { .id = Token_comma, .token = "," },
+    (StaticStringToken) { .id = Token_colon, .token = ":" },
+    (StaticStringToken) { .id = Token_semicolon, .token = ";" },
+    (StaticStringToken) { .id = Token_paren_open, .token = "(" },
+    (StaticStringToken) { .id = Token_paren_close, .token = ")" },
+    (StaticStringToken) { .id = Token_sq_paren_open, .token = "[" },
+    (StaticStringToken) { .id = Token_sq_paren_close, .token = "]" },
+};
 
 typedef enum {
     FieldParse_Begin,
     FieldParse_AfterType,
-    FieldParse_CountingPtr,
     FieldParse_AfterName,
     FieldParse_End,
 } FieldParseState;
@@ -50,44 +108,86 @@ void assert_all_star(StringView sv) {
 }
 
 FieldInfo parse_struct_field(StringView field_def) {
-    StringToken field_parse_tokens[] = {
-        (StringToken) {
-            .id = Token_const,
-            .token = string_from_cstr("const"),
-        },
-        (StringToken) {
-            .id = Token_star,
-            .token = string_from_cstr("*"),
-        },
-        (StringToken) {
-            .id = Token_semicolon,
-            .token = string_from_cstr(";"),
-        },
-        (StringToken) {
-            .id = Token_sq_paren_open,
-            .token = string_from_cstr("["),
-        },
-        (StringToken) {
-            .id = Token_sq_paren_close,
-            .token = string_from_cstr("]"),
-        },
-        (StringToken) {
-            .id = Token_long_long_int,
-            .token = string_from_cstr("long long int"),
-        },
-    };
-    StringTokenIter tokens_iters = string_view_iter_tokens(field_def, field_parse_tokens, ARRAY_LENGTH(field_parse_tokens));
+    usize tokens_count = ARRAY_LENGTH(field_parse_tokens__static);
+    StringToken* field_parse_tokens = string_tokens_from_static(field_parse_tokens__static, tokens_count);
+    StringTokenIter tokens_iters = string_view_iter_tokens(field_def, field_parse_tokens, tokens_count);
     StringTokenOut token;
 
     FieldInfo field_info = {0};
     FieldExtensions field_ext = {0};
     FieldParseState state = FieldParse_Begin;
     uint32 count = 0;
+    bool in_array_def = false;
 
     while (next_token(&tokens_iters, &token)) {
         printf("token: %d -> ", token.id);
         print_string_view(token.token);
         printf("\n");
+
+        switch (state) {
+        case FieldParse_Begin:
+            if (token.free_word) {
+                field_info.type_str = cstr_nclone(token.token.str, token.token.count);
+                state = FieldParse_AfterType;
+            }
+            switch (token.id) {
+            case Token_const:
+                break;
+            case Token_unsigned_short:
+            case Token_unsigned_long:
+            case Token_unsigned_long_long:
+            case Token_unsigned_short_int:
+            case Token_unsigned_long_int:
+            case Token_unsigned_long_long_int:
+            case Token_short:
+            case Token_long:
+            case Token_long_long:
+            case Token_short_int:
+            case Token_long_int:
+            case Token_long_long_int:
+                field_info.type_str = cstr_nclone(token.token.str, token.token.count);
+                state = FieldParse_AfterType;
+                break;
+            }
+            break;
+        case FieldParse_AfterType:
+            if (token.free_word) {
+                field_info.name = cstr_nclone(token.token.str, token.token.count);
+                state = FieldParse_AfterName;
+            }
+            switch (token.id) {
+            case Token_star:
+                field_info.is_ptr = true;
+                field_info.ref_depth++;
+                break;
+            }
+            break;
+        case FieldParse_AfterName:
+            if (in_array_def) {
+                field_info.array_dim++;
+                if (field_info.count == 0){
+                    field_info.count = 1;
+                }
+                uint64 dim = sv_parse_int(token.token);
+                field_info.count *= dim;
+                field_info.array_dim_counts[field_info.array_dim] = dim;
+            }
+            switch (token.id) {
+            case Token_sq_paren_open:
+                in_array_def = true;
+                break;
+            case Token_sq_paren_close:
+                in_array_def = false;
+                break;
+            case Token_semicolon:
+                state = FieldParse_End;
+                break;
+            }
+            break;
+        case FieldParse_End:
+            // TODO
+            break;
+        }
     }
     return field_info;
 

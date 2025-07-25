@@ -50,7 +50,7 @@ String string_with_capacity(usize capacity) {
     return s;
 }
 
-String string_from_cstr(char* cstr) {
+String string_from_cstr(const char* cstr) {
     usize count = cstr_length(cstr);
     return (String) {
         .count = count,
@@ -264,6 +264,17 @@ bool next_item_until_delim(StringVarDelimIter* delim_iter, char delim, StringVie
     *item_out = string_view_slice_view(delim_iter->cursor, 0, i);
 
     return true;
+}
+
+StringToken* string_tokens_from_static(StaticStringToken* static_tokens, usize count) {
+    StringToken* tokens = std_malloc(sizeof(StringToken) * count);
+    for (usize i = 0; i < count; i++) {
+        tokens[i] = (StringToken) {
+            .id = static_tokens[i].id,
+            .token = string_from_cstr(static_tokens[i].token),
+        };
+    }
+    return tokens;
 }
 
 StringTokenIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count) {
