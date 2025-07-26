@@ -1,12 +1,20 @@
 #include "justengine.h"
 
-#define mode(...) 
-#define ext(...)
+#ifdef PRE_INTROSPECT_PASS
+    #define mode() _mode()
+#else
+    #define mode() 
+    #define _mode() 
+#endif
+
+// run preprocessor only with PRE_INTROSPECT_PASS defined
+// run introspect generator
+// run normal compilation without PRE_INTROSPECT_PASS defined
 
 typedef struct {
     uint32* * field_name;
     bool bool_arr  [ 3];
-    const char const * const_field; alias(bool) mode(dynarray, count: count)
+    const char const * const_field; alias(bool) mode_dynarray(count: count) mode()
     long long int lli; alias(int64)
     unsigned long int a;
     // long unsigned long int b;
@@ -44,8 +52,9 @@ typedef enum {
     Token_sq_paren_close,
     // --
     Token_introspect_extension_alias,
-    // --
-    Token_introspect_extension_mode,
+    Token_introspect_extension_mode_cstr,
+    Token_introspect_extension_mode_dynarray,
+    Token_introspect_extension_mode_string,
     // --
 } FieldParseTokens;
 
@@ -76,6 +85,11 @@ StaticStringToken field_parse_tokens__static[] = {
     (StaticStringToken) { .id = Token_paren_close, .token = ")" },
     (StaticStringToken) { .id = Token_sq_paren_open, .token = "[" },
     (StaticStringToken) { .id = Token_sq_paren_close, .token = "]" },
+
+    (StaticStringToken) { .id = Token_introspect_extension_alias, .token = "_alias" },
+    (StaticStringToken) { .id = Token_introspect_extension_mode_cstr, .token = "_cstr" },
+    (StaticStringToken) { .id = Token_introspect_extension_mode_dynarray, .token = "_dynarray" },
+    (StaticStringToken) { .id = Token_introspect_extension_mode_string, .token = "_string" },
 };
 
 typedef enum {
@@ -84,6 +98,14 @@ typedef enum {
     FieldParse_AfterName,
     FieldParse_End,
 } FieldParseState;
+
+typedef enum {
+    FieldExtensionNone,
+    FieldExtension_alias,
+    FieldExtension_mode_cstr,
+    FieldExtension_mode_dynarray,
+    FieldExtension_mode_string,
+} FieldExtensionType;
 
 typedef struct {
     // --
@@ -115,8 +137,9 @@ FieldInfo parse_struct_field(StringView field_def) {
 
     FieldInfo field_info = {0};
     FieldExtensions field_ext = {0};
+
     FieldParseState state = FieldParse_Begin;
-    uint32 count = 0;
+    FieldExtensionType current_ext = FieldExtensionNone;
     bool in_array_def = false;
 
     while (next_token(&tokens_iters, &token)) {
@@ -185,7 +208,44 @@ FieldInfo parse_struct_field(StringView field_def) {
             }
             break;
         case FieldParse_End:
-            // TODO
+            if (current_ext == FieldExtensionNone) {
+                switch (token.id) {
+                case Token_introspect_extension_alias:
+                    current_ext = FieldExtension_alias;
+                    break;
+                case Token_introspect_extension_mode_cstr:
+                    current_ext = FieldExtension_mode_cstr;
+                    break;
+                case Token_introspect_extension_mode_dynarray:
+                    current_ext = FieldExtension_mode_dynarray;
+                    break;
+                case Token_introspect_extension_mode_string:
+                    current_ext = FieldExtension_mode_string;
+                    break;
+                }
+                if (!next_token(&tokens_iters, &token)) {
+                    PANIC("Extension syntax error.\n");
+                }
+                if (token.id != Token_paren_open) {
+                    PANIC("Extension syntax error.\n");
+                }
+            }
+            else {
+                switch (current_ext) {
+                case FieldExtension_alias:
+                    if (!next_token(&tokens_iters, &token)) {
+                        PANIC("Extension syntax error.\n");
+                    }
+                    // field_ext.
+                    break;
+                case FieldExtension_mode_cstr:
+                    break;
+                case FieldExtension_mode_dynarray:
+                    break;
+                case FieldExtension_mode_string:
+                    break;
+                }
+            }
             break;
         }
     }
@@ -299,11 +359,6 @@ FieldInfo parse_struct_field(StringView field_def) {
 }
 
 int main() {
-uint32* * field_name;
-    bool bool_arr  [ 3];
-    const char const * const_field; alias(bool) mode(dynarray, count: count)
-    long long int lli; alias(int64)
-
     String fields[] = {
         string_from_cstr("uint32* * field_name;"),
         string_from_cstr("bool bool_arr  [ 3];"),

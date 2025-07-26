@@ -11,7 +11,10 @@
  * Used on struct field definitions
 */
 #define alias(...) 
-#define function_ptr(...) 
+#define mode_cstr(...) 
+#define mode_dynarray(...) 
+#define mode_string(...) 
+#define mode_function_ptr(...) 
 
 // TODO
 /**
