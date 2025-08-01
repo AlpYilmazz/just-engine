@@ -15,8 +15,8 @@ introspect()
 typedef struct {
     uint32* * field_name;
     bool bool_arr  [ 3];
-    const char const * const_field; alias(bool) mode_dynarray(count: count) mode(count: count)
-    long long int lli; alias(int64);
+    const char const * const_field      alias(bool) mode_dynarray(count: count) mode(count: count);
+    long long int lli                   alias(int64);
     unsigned long int a;
     // long unsigned long int b;
     short c;
@@ -56,6 +56,7 @@ typedef enum {
     Token_introspect_extension_mode_cstr,
     Token_introspect_extension_mode_dynarray,
     Token_introspect_extension_mode_string,
+    Token_introspect_extension_key_count,
     // --
 } FieldParseTokens;
 
@@ -91,6 +92,7 @@ StaticStringToken field_parse_tokens__static[] = {
     (StaticStringToken) { .id = Token_introspect_extension_mode_cstr, .token = "_cstr" },
     (StaticStringToken) { .id = Token_introspect_extension_mode_dynarray, .token = "_dynarray" },
     (StaticStringToken) { .id = Token_introspect_extension_mode_string, .token = "_string" },
+    (StaticStringToken) { .id = Token_introspect_extension_key_count, .token = "count" },
 };
 
 typedef enum {
@@ -110,14 +112,15 @@ typedef enum {
 
 typedef struct {
     // --
-    char* _alias;
+    bool ext_alias;
+    char* type_alias;
     // --
-    bool mode_cstr;
+    bool ext_mode_cstr;
     // --
-    bool mode_dynarray;
+    bool ext_mode_dynarray;
     char* dynarray_count_field;
     // --
-    bool mode_string;
+    bool ext_mode_string;
     char* string_count_field;
     // --
 } FieldExtensions;
@@ -133,7 +136,7 @@ void assert_all_star(StringView sv) {
 FieldInfo parse_struct_field(StringView field_def) {
     usize tokens_count = ARRAY_LENGTH(field_parse_tokens__static);
     StringToken* field_parse_tokens = string_tokens_from_static(field_parse_tokens__static, tokens_count);
-    StringTokenIter tokens_iters = string_view_iter_tokens(field_def, field_parse_tokens, tokens_count);
+    StringTokensIter tokens_iter = string_view_iter_tokens(field_def, field_parse_tokens, tokens_count);
     StringTokenOut token;
 
     FieldInfo field_info = {0};
@@ -143,7 +146,7 @@ FieldInfo parse_struct_field(StringView field_def) {
     FieldExtensionType current_ext = FieldExtensionNone;
     bool in_array_def = false;
 
-    while (next_token(&tokens_iters, &token)) {
+    while (next_token(&tokens_iter, &token)) {
         printf("token: %d -> ", token.id);
         print_string_view(token.token);
         printf("\n");
@@ -192,9 +195,12 @@ FieldInfo parse_struct_field(StringView field_def) {
                 if (field_info.count == 0){
                     field_info.count = 1;
                 }
-                uint64 dim = sv_parse_int(token.token);
+                uint64 dim;
+                bool success = sv_parse_uint64(token.token, &dim);
                 field_info.count *= dim;
                 field_info.array_dim_counts[field_info.array_dim] = dim;
+
+                in_array_def = false;
             }
             switch (token.id) {
             case Token_sq_paren_open:
@@ -205,6 +211,44 @@ FieldInfo parse_struct_field(StringView field_def) {
                 break;
             case Token_semicolon:
                 state = FieldParse_End;
+                break;
+            // --
+            case Token_introspect_extension_alias:
+                field_ext.ext_alias = true;
+                expect_token(&tokens_iter, Token_paren_open);
+                if (next_token(&tokens_iter, &token)) {
+                    if (token.free_word) {
+                        field_ext.type_alias = string_from_view(token.token).cstr;
+                    }
+                    else {
+                        PANIC("Extension syntax error.\n");
+                    }
+                }
+                else {
+                    PANIC("Extension syntax error.\n");
+                }
+                expect_token(&tokens_iter, Token_paren_close);
+                break;
+            case Token_introspect_extension_mode_cstr:
+                field_ext.ext_mode_cstr = true;
+                expect_token(&tokens_iter, Token_paren_open);
+                expect_token(&tokens_iter, Token_paren_close);
+                break;
+            case Token_introspect_extension_mode_dynarray:
+                field_ext.ext_mode_dynarray = true;
+                expect_token(&tokens_iter, Token_paren_open);
+                expect_token(&tokens_iter, Token_introspect_extension_key_count);
+                expect_token(&tokens_iter, Token_colon);
+                if (next_token(&tokens_iter, &token)) {
+                    field_ext.dynarray_count_field = string_from_view(token.token).cstr;
+                }
+                else {
+                    PANIC("Extension syntax error.\n");
+                }
+                expect_token(&tokens_iter, Token_paren_close);
+                break;
+            case Token_introspect_extension_mode_string:
+                current_ext = FieldExtension_mode_string;
                 break;
             }
             break;
@@ -224,7 +268,7 @@ FieldInfo parse_struct_field(StringView field_def) {
                     current_ext = FieldExtension_mode_string;
                     break;
                 }
-                if (!next_token(&tokens_iters, &token)) {
+                if (!next_token(&tokens_iter, &token)) {
                     PANIC("Extension syntax error.\n");
                 }
                 if (token.id != Token_paren_open) {
@@ -234,7 +278,7 @@ FieldInfo parse_struct_field(StringView field_def) {
             else {
                 switch (current_ext) {
                 case FieldExtension_alias:
-                    if (!next_token(&tokens_iters, &token)) {
+                    if (!next_token(&tokens_iter, &token)) {
                         PANIC("Extension syntax error.\n");
                     }
                     // field_ext.
@@ -361,8 +405,188 @@ FieldInfo parse_struct_field(StringView field_def) {
 
 #include <process.h>
 
-void generate_introspect_for_struct(StringBuilder* GEN, String struct_def) {
+typedef struct {
+    FieldInfo field_info;
+    FieldExtensions field_ext;
+} FieldInfoExt;
 
+typedef struct {
+    String type_name;
+    usize count;
+    usize capacity;
+    FieldInfoExt* fields;
+} StructInfo;
+
+typedef struct {
+    usize count;
+    usize capacity;
+    StructInfo* structs;
+} IntrospectedStructs;
+
+IntrospectedStructs INTROSPECTED_STRUCTS = {0};
+
+bool already_introspected(String type_name) {
+    for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
+        if (ss_equals(INTROSPECTED_STRUCTS.structs[i].type_name, type_name)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+StructInfo generate_introspect_for_struct(String struct_def) {
+    usize curly_paren_open;
+    usize curly_paren_close;
+    for (usize i = 0; i < struct_def.count; i++) {
+        if (struct_def.str[i] == '{') {
+            curly_paren_open = i;
+            break;
+        }
+    }
+    for (int64 i = struct_def.count-1; i >= 0; i--) {
+        if (struct_def.str[i] == '}') {
+            curly_paren_close = i;
+            break;
+        }
+    }
+
+    if (curly_paren_open >= curly_paren_close) {
+        PANIC("Syntax error: curly paren\n");
+    }
+    
+    StructInfo struct_info = {0};
+
+    struct_info.type_name = string_from_view(string_view_trim(string_slice_view(struct_def, curly_paren_close + 1, struct_def.count-1 - curly_paren_close - 1)));
+    StringView struct_fields = string_slice_view(struct_def, curly_paren_open + 1, curly_paren_close - curly_paren_open - 1);
+
+    usize tokens_count = ARRAY_LENGTH(field_parse_tokens__static);
+    StringToken* field_parse_tokens = string_tokens_from_static(field_parse_tokens__static, tokens_count);
+    StringTokensIter tokens_iter = string_view_iter_tokens(struct_fields, field_parse_tokens, tokens_count);
+    StringTokenOut token;
+
+    int32 field_i = -1;
+    FieldInfo field_info = {0};
+    FieldExtensions field_ext = {0};
+    FieldParseState state = FieldParse_Begin;
+    FieldExtensionType current_ext = FieldExtensionNone;
+    bool in_array_def = false;
+
+    while (next_token(&tokens_iter, &token)) {
+        switch (state) {
+        case FieldParse_Begin:
+            if (token.free_word) {
+                field_info.type_str = cstr_nclone(token.token.str, token.token.count);
+                state = FieldParse_AfterType;
+            }
+            switch (token.id) {
+            case Token_const:
+                break;
+            case Token_unsigned_short:
+            case Token_unsigned_long:
+            case Token_unsigned_long_long:
+            case Token_unsigned_short_int:
+            case Token_unsigned_long_int:
+            case Token_unsigned_long_long_int:
+            case Token_short:
+            case Token_long:
+            case Token_long_long:
+            case Token_short_int:
+            case Token_long_int:
+            case Token_long_long_int:
+                field_info.type_str = cstr_nclone(token.token.str, token.token.count);
+                state = FieldParse_AfterType;
+                break;
+            }
+            break;
+        case FieldParse_AfterType:
+            if (token.free_word) {
+                field_info.name = cstr_nclone(token.token.str, token.token.count);
+                state = FieldParse_AfterName;
+            }
+            switch (token.id) {
+            case Token_star:
+                field_info.is_ptr = true;
+                field_info.ref_depth++;
+                break;
+            }
+            break;
+        case FieldParse_AfterName:
+            if (in_array_def) {
+                field_info.array_dim++;
+                if (field_info.count == 0){
+                    field_info.count = 1;
+                }
+                uint64 dim;
+                bool success = sv_parse_uint64(token.token, &dim);
+                field_info.count *= dim;
+                field_info.array_dim_counts[field_info.array_dim] = dim;
+
+                in_array_def = false;
+            }
+            switch (token.id) {
+            case Token_sq_paren_open:
+                in_array_def = true;
+                break;
+            case Token_sq_paren_close:
+                in_array_def = false;
+                break;
+            case Token_semicolon:
+                state = FieldParse_Begin;
+                // TODO: reset
+                break;
+            // --
+            case Token_introspect_extension_alias:
+                field_ext.ext_alias = true;
+                expect_token(&tokens_iter, Token_paren_open);
+                if (next_token(&tokens_iter, &token)) {
+                    if (token.free_word) {
+                        field_ext.type_alias = string_from_view(token.token).cstr;
+                    }
+                    else {
+                        PANIC("Extension syntax error.\n");
+                    }
+                }
+                else {
+                    PANIC("Extension syntax error.\n");
+                }
+                expect_token(&tokens_iter, Token_paren_close);
+                break;
+            case Token_introspect_extension_mode_cstr:
+                field_ext.ext_mode_cstr = true;
+                expect_token(&tokens_iter, Token_paren_open);
+                expect_token(&tokens_iter, Token_paren_close);
+                break;
+            case Token_introspect_extension_mode_dynarray:
+                field_ext.ext_mode_dynarray = true;
+                expect_token(&tokens_iter, Token_paren_open);
+                expect_token(&tokens_iter, Token_introspect_extension_key_count);
+                expect_token(&tokens_iter, Token_colon);
+                if (next_token(&tokens_iter, &token)) {
+                    field_ext.dynarray_count_field = string_from_view(token.token).cstr;
+                }
+                else {
+                    PANIC("Extension syntax error.\n");
+                }
+                expect_token(&tokens_iter, Token_paren_close);
+                break;
+            case Token_introspect_extension_mode_string:
+                field_ext.ext_mode_string = true;
+                expect_token(&tokens_iter, Token_paren_open);
+                expect_token(&tokens_iter, Token_introspect_extension_key_count);
+                expect_token(&tokens_iter, Token_colon);
+                if (next_token(&tokens_iter, &token)) {
+                    field_ext.string_count_field = string_from_view(token.token).cstr;
+                }
+                else {
+                    PANIC("Extension syntax error.\n");
+                }
+                expect_token(&tokens_iter, Token_paren_close);
+                break;
+            }
+        }
+    }
+
+    free_tokens_iter(&tokens_iter);
 }
 
 typedef enum {
@@ -371,7 +595,7 @@ typedef enum {
     STATE_CURLY_PAREN_CLOSE_RECEIVED,
 } ParseStructDefState;
 
-bool generate_introspect(StringBuilder* GEN, String int_filename) {
+bool generate_introspect(String int_filename) {
     FILE* file = fopen(int_filename.cstr, "r");
     if (file == NULL) {
         JUST_LOG_ERROR("Error opening file");
@@ -403,7 +627,7 @@ bool generate_introspect(StringBuilder* GEN, String int_filename) {
                 break;
             case STATE_CURLY_PAREN_CLOSE_RECEIVED:
                 if (ch == ';') {
-                    generate_introspect_for_struct(GEN, struct_def_str);
+                    generate_introspect_for_struct(struct_def_str);
                     clear_string(&struct_def_str);
                     gen_introspect = false;
                     state = STATE_STRUCT_BEGIN;
@@ -414,6 +638,9 @@ bool generate_introspect(StringBuilder* GEN, String int_filename) {
         else {
             if (ch == cmd_introspect.str[i]) {
                 i++;
+            }
+            else {
+                i = 0;
             }
             if (i == cmd_introspect.count) {
                 i = 0;
@@ -466,7 +693,6 @@ int main() {
         process_ids[i] = spawn_result;
     }
 
-    StringBuilder GEN = string_builder_new();
     bool success = true;
     for (usize i = 0; i < FILE_COUNT; i++) {
         int32 exit_status;
@@ -480,7 +706,7 @@ int main() {
 
         String int_filename = int_filenames[i];
         if (success) {
-            success &= generate_introspect(&GEN, int_filename);
+            success &= generate_introspect(int_filename);
         }
     }
 

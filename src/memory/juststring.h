@@ -56,6 +56,7 @@ typedef struct {
 String string_new();
 String string_with_capacity(usize capacity);
 String string_from_cstr(const char* cstr);
+String string_from_view(StringView string_view);
 void clear_string(String* string);
 void free_string(String string);
 
@@ -64,7 +65,7 @@ bool scs_equals(String s, char* cs);
 bool ssv_equals(String s, StringView sv);
 bool svcs_equals(StringView sv, char* cs);
 
-uint64 sv_parse_int(StringView sv);
+bool sv_parse_uint64(StringView sv, uint64* out);
 
 #define string_view_use_as_cstr(string_view_in, cstr_use, CodeBlock) \
     do { \
@@ -140,7 +141,7 @@ typedef struct {
 StringToken* string_tokens_from_static(StaticStringToken* static_tokens, usize count);
 
 typedef struct {
-    uint32 id;
+    int64 id;
     bool free_word;
     StringView token;
 } StringTokenOut;
@@ -149,12 +150,23 @@ typedef struct {
     StringView cursor;
     usize token_count;
     StringToken* tokens;
-} StringTokenIter;
+} StringTokensIter;
 
-StringTokenIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count);
-StringTokenIter string_iter_tokens(String string, StringToken* tokens, usize token_count);
-void free_tokens_iter(StringTokenIter* tokens_iter);
-bool next_token(StringTokenIter* tokens_iter, StringTokenOut* token_out);
+StringTokensIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count);
+StringTokensIter string_iter_tokens(String string, StringToken* tokens, usize token_count);
+void free_tokens_iter(StringTokensIter* tokens_iter);
+bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out);
+#define expect_token(tokens_iter_ptr, expected_token_id) \
+    do { \
+        StringTokenOut expect_token__token; \
+        bool expect_token__result = next_token((tokens_iter_ptr), &expect_token__token); \
+        if (!expect_token__result) { \
+            PANIC("Token expect failed, no token\n"); \
+        } \
+        if ((expected_token_id) != expect_token__token.id) { \
+            PANIC("Token expect failed, expected: %d, result: %d\n", (expected_token_id), expect_token__token.id); \
+        } \
+    } while (0)
 
 typedef struct StringBuilderNode {
     struct StringBuilderNode* next;

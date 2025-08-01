@@ -59,6 +59,16 @@ String string_from_cstr(const char* cstr) {
     };
 }
 
+String string_from_view(StringView string_view) {
+    if (string_view.count == 0) {
+        return string_new();
+    }
+    String string = string_with_capacity(string_view.count + 1);
+    std_memcpy(string_view.str, string.str, string_view.count);
+    string.str[string_view.count] = '\0';
+    return string;
+}
+
 void clear_string(String* string) {
     if (string->count > 0) {
         string->str[0] = '\0';
@@ -97,14 +107,18 @@ bool svcs_equals(StringView sv, char* cs) {
     return std_memcmp(sv.str, cs, sv.count) == 0;
 }
 
-uint64 sv_parse_int(StringView sv) {
+bool sv_parse_uint64(StringView sv, uint64* out) {
     uint64 num = 0;
     uint64 factor = 1;
     for (usize i = sv.count-1; i >= 0; i--) {
         uint64 digit = sv.str[i] - '0';
+        if (digit < 0 || 9 < digit) {
+            return false;
+        }
         num += digit * factor;
         factor *= 10;
     }
+    *out = num;
 }
 
 void string_push_char(String* string, char ch) {
@@ -291,19 +305,19 @@ StringToken* string_tokens_from_static(StaticStringToken* static_tokens, usize c
     return tokens;
 }
 
-StringTokenIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count) {
-    return (StringTokenIter) {
+StringTokensIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count) {
+    return (StringTokensIter) {
         .cursor = string_view,
         .token_count = token_count,
         .tokens = tokens,
     };
 }
 
-StringTokenIter string_iter_tokens(String string, StringToken* tokens, usize token_count) {
+StringTokensIter string_iter_tokens(String string, StringToken* tokens, usize token_count) {
     return string_view_iter_tokens(string_as_view(string), tokens, token_count);
 }
 
-bool next_token(StringTokenIter* tokens_iter, StringTokenOut* token_out) {
+bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
     StringView start = tokens_iter->cursor;
 
     usize word_start_inc = 0;
@@ -319,7 +333,7 @@ bool next_token(StringTokenIter* tokens_iter, StringTokenOut* token_out) {
                 word_end_exc = i;
                 in_word = false;
                 *token_out = (StringTokenOut) {
-                    .id = 0,
+                    .id = -1,
                     .free_word = true,
                     .token = string_view_slice_view(start, word_start_inc, word_end_exc - word_start_inc),
                 };
@@ -354,7 +368,7 @@ bool next_token(StringTokenIter* tokens_iter, StringTokenOut* token_out) {
                     // printf("\n");
                     if (trimmed.count > 0) {
                         *token_out = (StringTokenOut) {
-                            .id = 0,
+                            .id = -1,
                             .free_word = true,
                             .token = trimmed,
                         };
@@ -380,7 +394,7 @@ bool next_token(StringTokenIter* tokens_iter, StringTokenOut* token_out) {
     if (in_word) {
         word_end_exc = i;
         *token_out = (StringTokenOut) {
-            .id = 0,
+            .id = -1,
             .free_word = true,
             .token = string_view_slice_view(start, word_start_inc, word_end_exc - word_start_inc),
         };
