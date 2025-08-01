@@ -464,11 +464,9 @@ StructInfo generate_introspect_for_struct(String struct_def) {
     StringTokensIter tokens_iter = string_view_iter_tokens(struct_fields, field_parse_tokens, tokens_count);
     StringTokenOut token;
 
-    int32 field_i = -1;
+    FieldParseState state = FieldParse_Begin;
     FieldInfo field_info = {0};
     FieldExtensions field_ext = {0};
-    FieldParseState state = FieldParse_Begin;
-    FieldExtensionType current_ext = FieldExtensionNone;
     bool in_array_def = false;
 
     while (next_token(&tokens_iter, &token)) {
@@ -531,10 +529,19 @@ StructInfo generate_introspect_for_struct(String struct_def) {
                 in_array_def = false;
                 break;
             case Token_semicolon:
+                FieldInfoExt field_info_ext = {
+                    .field_info = field_info,
+                    .field_ext = field_ext,
+                };
+                dynarray_push_back_custom(struct_info, .fields, field_info_ext);
+                
                 state = FieldParse_Begin;
-                // TODO: reset
+                field_info = (FieldInfo) {0};
+                field_ext = (FieldExtensions) {0};
+                in_array_def = false;
+
                 break;
-            // --
+            // -- extensions --
             case Token_introspect_extension_alias:
                 field_ext.ext_alias = true;
                 expect_token(&tokens_iter, Token_paren_open);
