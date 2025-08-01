@@ -823,6 +823,7 @@ typedef struct {
 String string_new();
 String string_with_capacity(usize capacity);
 String string_from_cstr(char* cstr);
+void clear_string(String* string);
 void free_string(String string);
 
 bool ss_equals(String s1, String s2);
@@ -840,6 +841,8 @@ uint64 sv_parse_int(StringView sv);
         CodeBlock; \
         (string_view_in).str[(string_view_in).count] = string_view_use_as_cstr__temp_hold; \
     } while (0)
+
+void string_push_char(String* string, char ch);
 
 void string_nappend_cstr(String* string, char* cstr, usize count);
 void string_append_cstr(String* string, char* cstr);

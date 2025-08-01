@@ -1,21 +1,22 @@
 #include "justengine.h"
 
 #ifdef PRE_INTROSPECT_PASS
-    #define mode() _mode()
+    #define mode(...) _mode(__VA_ARGS__)
 #else
-    #define mode() 
-    #define _mode() 
+    #define mode(...) 
+    #define _mode(...) 
 #endif
 
 // run preprocessor only with PRE_INTROSPECT_PASS defined
 // run introspect generator
 // run normal compilation without PRE_INTROSPECT_PASS defined
 
+introspect()
 typedef struct {
     uint32* * field_name;
     bool bool_arr  [ 3];
-    const char const * const_field; alias(bool) mode_dynarray(count: count) mode()
-    long long int lli; alias(int64)
+    const char const * const_field; alias(bool) mode_dynarray(count: count) mode(count: count)
+    long long int lli; alias(int64);
     unsigned long int a;
     // long unsigned long int b;
     short c;
@@ -358,7 +359,137 @@ FieldInfo parse_struct_field(StringView field_def) {
     // }
 }
 
+#include <process.h>
+
+void generate_introspect_for_struct(StringBuilder* GEN, String struct_def) {
+
+}
+
+typedef enum {
+    STATE_STRUCT_BEGIN = 0,
+    STATE_CURLY_PAREN_OPEN_RECEIVED,
+    STATE_CURLY_PAREN_CLOSE_RECEIVED,
+} ParseStructDefState;
+
+bool generate_introspect(StringBuilder* GEN, String int_filename) {
+    FILE* file = fopen(int_filename.cstr, "r");
+    if (file == NULL) {
+        JUST_LOG_ERROR("Error opening file");
+        return false;
+    }
+
+    String cmd_introspect = string_from_cstr("_introspect ");
+
+    uint32 i = 0;
+    bool gen_introspect = false;
+    
+    String struct_def_str = string_with_capacity(100);
+    ParseStructDefState state = STATE_STRUCT_BEGIN;
+
+    char ch;
+    while ((ch = fgetc(file)) != EOF) {
+        if (gen_introspect) {
+            string_push_char(&struct_def_str, ch);
+            switch (state) {
+            case STATE_STRUCT_BEGIN:
+                if (ch == '{') {
+                    state = STATE_CURLY_PAREN_OPEN_RECEIVED;
+                }
+                break;
+            case STATE_CURLY_PAREN_OPEN_RECEIVED:
+                if (ch == '}') {
+                    state = STATE_CURLY_PAREN_CLOSE_RECEIVED;
+                }
+                break;
+            case STATE_CURLY_PAREN_CLOSE_RECEIVED:
+                if (ch == ';') {
+                    generate_introspect_for_struct(GEN, struct_def_str);
+                    clear_string(&struct_def_str);
+                    gen_introspect = false;
+                    state = STATE_STRUCT_BEGIN;
+                }
+                break;
+            }
+        }
+        else {
+            if (ch == cmd_introspect.str[i]) {
+                i++;
+            }
+            if (i == cmd_introspect.count) {
+                i = 0;
+                gen_introspect = true;
+            }
+        }
+    }
+}
+
 int main() {
+    String INTROSPECT_FILE_SUFFIX_EXT = string_from_cstr(".int");
+    // new_string_merged(filename, INTROSPECT_FILE_SUFFIX_EXT);
+
+    String filenames[] = {
+        string_from_cstr("introspect/main.c"),
+        string_from_cstr("introspect/main.c"),
+        string_from_cstr("introspect/main.c"),
+    };
+    #define FILE_COUNT ARRAY_LENGTH(filenames)
+
+    String int_filenames[FILE_COUNT] = {
+        string_from_cstr("introspect/main.c.int"),
+        string_from_cstr("introspect/main.c.int"),
+        string_from_cstr("introspect/main.c.int"),
+    };
+    usize process_ids[FILE_COUNT] = {0};
+
+    for (usize i = 0; i < FILE_COUNT; i++) {
+        String filename = filenames[i];
+        String int_filename = int_filenames[i];
+
+        usize spawn_result = _spawnlp(
+            _P_NOWAIT,
+            "gcc",
+            "gcc",
+            "-Ijustengine/include",
+            "-IC:/dev/vendor/openssl-3.5.0/include",
+            "-DPRE_INTROSPECT_PASS",
+            "-E",
+            "-P",
+            filename.cstr,
+            "-o",
+            int_filename.cstr,
+            NULL
+        );
+        if (spawn_result == -1) {
+            PANIC("Failed to create process\n");
+        }
+
+        process_ids[i] = spawn_result;
+    }
+
+    StringBuilder GEN = string_builder_new();
+    bool success = true;
+    for (usize i = 0; i < FILE_COUNT; i++) {
+        int32 exit_status;
+        usize wait_result = _cwait(&exit_status, process_ids[i], _WAIT_CHILD);
+        if (wait_result == -1) {
+            PANIC("Failed to wait process\n");
+        }
+        if (exit_status != 0) {
+            PANIC("Proces exited with non-zero status\n");
+        }
+
+        String int_filename = int_filenames[i];
+        if (success) {
+            success &= generate_introspect(&GEN, int_filename);
+        }
+    }
+
+    if (!success) {
+        PANIC("Introspect failed\n");
+    }
+
+    return 0;
+
     String fields[] = {
         string_from_cstr("uint32* * field_name;"),
         string_from_cstr("bool bool_arr  [ 3];"),
@@ -371,4 +502,6 @@ int main() {
         parse_struct_field(string_as_view(fields[i]));
         printf("-----\n");
     }
+    
+    return 0;
 }

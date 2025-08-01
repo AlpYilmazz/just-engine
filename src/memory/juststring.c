@@ -59,6 +59,13 @@ String string_from_cstr(const char* cstr) {
     };
 }
 
+void clear_string(String* string) {
+    if (string->count > 0) {
+        string->str[0] = '\0';
+        string->count = 0;
+    }
+}
+
 void free_string(String string) {
     std_free(string.str);
 }
@@ -98,6 +105,13 @@ uint64 sv_parse_int(StringView sv) {
         num += digit * factor;
         factor *= 10;
     }
+}
+
+void string_push_char(String* string, char ch) {
+    dynarray_reserve_custom(*string, .str, 1 + 1);
+    string->str[string->count] = ch;
+    string->count++;
+    string->str[string->count] = '\0';
 }
 
 static inline void string_nappend_cstr_cap_unchecked(String* string, char* cstr, usize count) {
