@@ -434,7 +434,7 @@ bool already_introspected(String type_name) {
     return false;
 }
 
-StructInfo generate_introspect_for_struct(String struct_def) {
+void generate_introspect_for_struct(String struct_def) {
     usize curly_paren_open;
     usize curly_paren_close;
     for (usize i = 0; i < struct_def.count; i++) {
@@ -455,8 +455,13 @@ StructInfo generate_introspect_for_struct(String struct_def) {
     }
     
     StructInfo struct_info = {0};
-
     struct_info.type_name = string_from_view(string_view_trim(string_slice_view(struct_def, curly_paren_close + 1, struct_def.count-1 - curly_paren_close - 1)));
+
+    if (already_introspected(struct_info.type_name)) {
+        JUST_LOG_INFO("Introspection already generated for type: %s.\n", struct_info.type_name.cstr);
+        return;
+    }
+
     StringView struct_fields = string_slice_view(struct_def, curly_paren_open + 1, curly_paren_close - curly_paren_open - 1);
 
     usize tokens_count = ARRAY_LENGTH(field_parse_tokens__static);
