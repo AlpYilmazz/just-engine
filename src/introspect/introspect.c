@@ -67,6 +67,31 @@ void ptr__print(void* var) {
     }
 }
 
+void ptr_array__print(void** arr, usize count) {
+    printf("[ ");
+    for (usize i = 0; i < count; i++) {
+        ptr__print(arr[i]);
+        if (i != count-1) {
+            printf(", ");
+        }
+    }
+    printf(" ]");
+}
+void ptr_array__pretty_print(void** arr, usize count, uint32 indent, IndentToken indent_token) {
+    if (count == 0) {
+        printf("[]");
+        return;
+    }
+    printf("[\n");
+    for (usize i = 0; i < count; i++) {
+        print_indent(indent+1, indent_token);
+        ptr__print(arr[i]);
+        printf(",\n");
+    }
+    print_indent(indent, indent_token);
+    printf("]");
+}
+
 __IMPL_____print_functions__stdout(char, "%c");
 __IMPL_____print_functions__stdout(byte, "%.2x");
 // __IMPL_____print_functions__stdout(bool, "%hhu");
@@ -240,18 +265,24 @@ void struct_dynarray__pretty_print(void* arr, usize count, uint32 struct_size, F
 #define field_print(TYPE, field) \
     do { \
         void* field_ptr = (void*)(((usize)var) + ((usize)(field).ptr)); \
-        if ((field).is_ptr) { \
-            TYPE** var_ptr = field_ptr; \
-            TYPE##_ptr__print(*var_ptr); \
-        } \
-        else if ((field).is_array) { \
-            TYPE* var_ptr = field_ptr; \
-            TYPE##_array__print(var_ptr, (field).count); \
-        } \
-        else if ((field).is_dynarray) { \
+        if ((field).is_dynarray) { \
             TYPE** items_ptr = field_ptr; \
             usize* count = (void*)(((usize)var) + ((usize)(field).count_ptr)); \
             TYPE##_dynarray__print(*items_ptr, *count); \
+        } \
+        else if ((field).is_array) { \
+            if ((field).is_ptr) { \
+                void** var_ptr = field_ptr; \
+                ptr_array__print(var_ptr, (field).count); \
+            } \
+            else { \
+                TYPE* var_ptr = field_ptr; \
+                TYPE##_array__print(var_ptr, (field).count); \
+            } \
+        } \
+        else if ((field).is_ptr) { \
+            TYPE** var_ptr = field_ptr; \
+            TYPE##_ptr__print(*var_ptr); \
         } \
         else { \
             TYPE* var_ptr = field_ptr; \
@@ -262,18 +293,24 @@ void struct_dynarray__pretty_print(void* arr, usize count, uint32 struct_size, F
 #define field_pretty_print(TYPE, field, ...) \
     do { \
         void* field_ptr = (void*)(((usize)var) + ((usize)(field).ptr)); \
-        if ((field).is_ptr) { \
-            TYPE** var_ptr = field_ptr; \
-            TYPE##_ptr__print(*var_ptr); \
-        } \
-        else if ((field).is_array) { \
-            TYPE* var_ptr = field_ptr; \
-            TYPE##_array__pretty_print(var_ptr, (field).count, __VA_ARGS__); \
-        } \
-        else if ((field).is_dynarray) { \
+        if ((field).is_dynarray) { \
             TYPE** items_ptr = field_ptr; \
             usize* count = (void*)(((usize)var) + ((usize)(field).count_ptr)); \
             TYPE##_dynarray__pretty_print(*items_ptr, *count, __VA_ARGS__); \
+        } \
+        else if ((field).is_array) { \
+            if ((field).is_ptr) { \
+                void** var_ptr = field_ptr; \
+                ptr_array__pretty_print(var_ptr, (field).count, __VA_ARGS__); \
+            } \
+            else { \
+                TYPE* var_ptr = field_ptr; \
+                TYPE##_array__pretty_print(var_ptr, (field).count, __VA_ARGS__); \
+            } \
+        } \
+        else if ((field).is_ptr) { \
+            TYPE** var_ptr = field_ptr; \
+            TYPE##_ptr__print(*var_ptr); \
         } \
         else { \
             TYPE* var_ptr = field_ptr; \
@@ -294,27 +331,34 @@ void introspect_field_print(FieldInfo field, void* var) {
     }
     case TYPE_char: {
         void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
-        if (field.is_ptr) {
-            char** var_ptr = field_ptr;
-            char_ptr__print(*var_ptr);
-        }
-        else if (field.is_array) {
-            char* var_ptr = field_ptr;
-            char_array__print(var_ptr, field.count);
-        }
-        else if (field.is_cstr) {
+
+        if (field.is_cstr) {
             char** cstr_ptr = field_ptr;
             char_cstr__print(*cstr_ptr);
+        }
+        else if (field.is_string) {
+            char** str_ptr = field_ptr;
+            usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
+            char_string__print(*str_ptr, *count);
         }
         else if (field.is_dynarray) {
             char** items_ptr = field_ptr;
             usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
             char_dynarray__print(*items_ptr, *count);
         }
-        else if (field.is_string) {
-            char** str_ptr = field_ptr;
-            usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
-            char_string__print(*str_ptr, *count);
+        else if (field.is_array) {
+            if (field.is_ptr) {
+                void** var_ptr = field_ptr;
+                ptr_array__print(var_ptr, field.count);
+            }
+            else {
+                char* var_ptr = field_ptr;
+                char_array__print(var_ptr, field.count);
+            }
+        }
+        else if (field.is_ptr) {
+            char** var_ptr = field_ptr;
+            char_ptr__print(*var_ptr);
         }
         else {
             char* var_ptr = field_ptr;
@@ -362,17 +406,23 @@ void introspect_field_print(FieldInfo field, void* var) {
         break;
     case TYPE_struct: {
         void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
-        if ((field).is_ptr) {
-            void** var_ptr = field_ptr;
-            struct_ptr__print(*var_ptr, field.fields, field.field_count);
-        }
-        else if ((field).is_array) {
-            struct_array__print(field_ptr, field.count, field.struct_size, field.fields, field.field_count);
-        }
-        else if ((field).is_dynarray) {
+        if ((field).is_dynarray) {
             void** items_ptr = field_ptr;
             usize* count = (void*)(((usize)var) + ((usize)(field).count_ptr));
             struct_dynarray__print(*items_ptr, *count, field.struct_size, field.fields, field.field_count);
+        }
+        else if ((field).is_array) {
+            if (field.is_ptr) {
+                void** items_ptr = field_ptr;
+                ptr_array__print(items_ptr, field.count);
+            }
+            else {
+                struct_array__print(field_ptr, field.count, field.struct_size, field.fields, field.field_count);
+            }
+        }
+        else if ((field).is_ptr) {
+            void** var_ptr = field_ptr;
+            struct_ptr__print(*var_ptr, field.fields, field.field_count);
         }
         else {
             struct__print(field_ptr, field.fields, field.field_count);
@@ -389,27 +439,33 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
     switch (field.type) {
     case TYPE_char: {
         void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
-        if (field.is_ptr) {
-            char** var_ptr = field_ptr;
-            char_ptr__print(*var_ptr);
-        }
-        else if (field.is_array) {
-            char* var_ptr = field_ptr;
-            char_array__pretty_print(var_ptr, field.count, indent, indent_token);
-        }
-        else if (field.is_cstr) {
+        if (field.is_cstr) {
             char** cstr_ptr = field_ptr;
             char_cstr__print(*cstr_ptr);
+        }
+        else if (field.is_string) {
+            char** str_ptr = field_ptr;
+            usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
+            char_string__print(*str_ptr, *count);
         }
         else if (field.is_dynarray) {
             char** items_ptr = field_ptr;
             usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
             char_dynarray__pretty_print(*items_ptr, *count, indent, indent_token);
         }
-        else if (field.is_string) {
-            char** str_ptr = field_ptr;
-            usize* count = (void*)(((usize)var) + ((usize)field.count_ptr));
-            char_string__print(*str_ptr, *count);
+        else if (field.is_array) {
+            if (field.is_ptr) {
+                void** var_ptr = field_ptr;
+                ptr_array__pretty_print(var_ptr, field.count, indent, indent_token);
+            }
+            else {
+                char* var_ptr = field_ptr;
+                char_array__pretty_print(var_ptr, field.count, indent, indent_token);
+            }
+        }
+        else if (field.is_ptr) {
+            char** var_ptr = field_ptr;
+            char_ptr__print(*var_ptr);
         }
         else {
             char* var_ptr = field_ptr;
@@ -457,17 +513,23 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         break;
     case TYPE_struct: {
         void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
-        if ((field).is_ptr) {
-            void** var_ptr = field_ptr;
-            struct_ptr__pretty_print(*var_ptr, field.fields, field.field_count, indent, indent_token);
-        }
-        else if ((field).is_array) {
-            struct_array__pretty_print(field_ptr, field.count, field.struct_size, field.fields, field.field_count, indent, indent_token);
-        }
-        else if ((field).is_dynarray) {
+        if ((field).is_dynarray) {
             void** items_ptr = field_ptr;
             usize* count = (void*)(((usize)var) + ((usize)(field).count_ptr));
             struct_dynarray__pretty_print(*items_ptr, *count, field.struct_size, field.fields, field.field_count, indent, indent_token);
+        }
+        else if ((field).is_array) {
+            if (field.is_ptr) {
+                void** items_ptr = field_ptr;
+                ptr_array__pretty_print(items_ptr, field.count, indent, indent_token);
+            }
+            else {
+                struct_array__pretty_print(field_ptr, field.count, field.struct_size, field.fields, field.field_count, indent, indent_token);
+            }
+        }
+        else if ((field).is_ptr) {
+            void** var_ptr = field_ptr;
+            struct_ptr__pretty_print(*var_ptr, field.fields, field.field_count, indent, indent_token);
         }
         else {
             struct__pretty_print(field_ptr, field.fields, field.field_count, indent, indent_token);

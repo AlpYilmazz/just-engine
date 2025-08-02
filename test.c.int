@@ -5635,14 +5635,12 @@ void JUST_SYSTEM_RENDER_draw_ui_elements();
 void JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers();
 void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage();
 void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage);
+_introspect__just_to_make_sure_no_token_overlap__
 typedef struct {
-    uint32* * field_name;
-    _Bool bool_arr [ 3];
-    const char const * const_field _mode_dynarray__just_to_make_sure_no_token_overlap__(count: count);
-    long long int lli _alias__just_to_make_sure_no_token_overlap__(int64);
-    unsigned long int a;
-    short c;
-} StructName;
+    usize count;
+    usize capacity;
+    char* str _mode_string__just_to_make_sure_no_token_overlap__(count: count);
+} TestString;
 _introspect__just_to_make_sure_no_token_overlap__
 typedef struct {
     usize count;
@@ -5654,656 +5652,308 @@ typedef struct {
     _Bool bool_field;
     uint32 uint_field;
     int32 int_field;
-    int cint_field;
+    int cint_field _alias__just_to_make_sure_no_token_overlap__(int32);
     float32 float_field;
     uint32* ptr_field;
     uint32 arr_field[10];
     char* cstr_field _mode_cstr__just_to_make_sure_no_token_overlap__();
     uint32* dynarray_field _mode_dynarray__just_to_make_sure_no_token_overlap__(count: uint_field);
+    TestString string_field;
     InnerTestStruct struct_field;
     InnerTestStruct struct_arr_field[3];
 } TestStruct;
-typedef enum {
-    Token_const = 0,
-    Token_unsigned_char,
-    Token_unsigned_int,
-    Token_unsigned_short,
-    Token_unsigned_long,
-    Token_unsigned_long_long,
-    Token_unsigned_short_int,
-    Token_unsigned_long_int,
-    Token_unsigned_long_long_int,
-    Token_short,
-    Token_long,
-    Token_long_long,
-    Token_short_int,
-    Token_long_int,
-    Token_long_long_int,
-    Token_star,
-    Token_comma,
-    Token_colon,
-    Token_semicolon,
-    Token_paren_open,
-    Token_paren_close,
-    Token_sq_paren_open,
-    Token_sq_paren_close,
-    Token_introspect_extension_alias,
-    Token_introspect_extension_mode_cstr,
-    Token_introspect_extension_mode_dynarray,
-    Token_introspect_extension_mode_string,
-    Token_introspect_extension_key_count,
-} FieldParseTokens;
-StaticStringToken field_parse_tokens__static[] = {
-    (StaticStringToken) { .id = Token_const, .token = "const" },
-    (StaticStringToken) { .id = Token_unsigned_char, .token = "unsigned char" },
-    (StaticStringToken) { .id = Token_unsigned_int, .token = "unsigned int" },
-    (StaticStringToken) { .id = Token_unsigned_short, .token = "unsigned short" },
-    (StaticStringToken) { .id = Token_unsigned_long, .token = "unsigned long" },
-    (StaticStringToken) { .id = Token_unsigned_long_long, .token = "unsigned long long" },
-    (StaticStringToken) { .id = Token_unsigned_short_int, .token = "unsigned short int" },
-    (StaticStringToken) { .id = Token_unsigned_long_int, .token = "unsigned long int" },
-    (StaticStringToken) { .id = Token_unsigned_long_long_int, .token = "unsigned long long int" },
-    (StaticStringToken) { .id = Token_short, .token = "short" },
-    (StaticStringToken) { .id = Token_long, .token = "long" },
-    (StaticStringToken) { .id = Token_long_long, .token = "long long" },
-    (StaticStringToken) { .id = Token_short_int, .token = "short int" },
-    (StaticStringToken) { .id = Token_long_int, .token = "long int" },
-    (StaticStringToken) { .id = Token_long_long_int, .token = "long long int" },
-    (StaticStringToken) { .id = Token_star, .token = "*" },
-    (StaticStringToken) { .id = Token_comma, .token = "," },
-    (StaticStringToken) { .id = Token_colon, .token = ":" },
-    (StaticStringToken) { .id = Token_semicolon, .token = ";" },
-    (StaticStringToken) { .id = Token_paren_open, .token = "(" },
-    (StaticStringToken) { .id = Token_paren_close, .token = ")" },
-    (StaticStringToken) { .id = Token_sq_paren_open, .token = "[" },
-    (StaticStringToken) { .id = Token_sq_paren_close, .token = "]" },
-    (StaticStringToken) { .id = Token_introspect_extension_alias, .token = "_alias__just_to_make_sure_no_token_overlap__" },
-    (StaticStringToken) { .id = Token_introspect_extension_mode_cstr, .token = "_mode_cstr__just_to_make_sure_no_token_overlap__" },
-    (StaticStringToken) { .id = Token_introspect_extension_mode_dynarray, .token = "_mode_dynarray__just_to_make_sure_no_token_overlap__" },
-    (StaticStringToken) { .id = Token_introspect_extension_mode_string, .token = "_mode_string__just_to_make_sure_no_token_overlap__" },
-    (StaticStringToken) { .id = Token_introspect_extension_key_count, .token = "count" },
-};
-typedef enum {
-    FieldParse_Begin,
-    FieldParse_AfterType,
-    FieldParse_AfterName,
-    FieldParse_End,
-} FieldParseState;
-typedef enum {
-    FieldExtensionNone,
-    FieldExtension_alias,
-    FieldExtension_mode_cstr,
-    FieldExtension_mode_dynarray,
-    FieldExtension_mode_string,
-} FieldExtensionType;
-typedef struct {
-    _Bool ext_alias;
-    char* type_alias;
-    _Bool ext_mode_cstr;
-    _Bool ext_mode_dynarray;
-    char* dynarray_count_field;
-    _Bool ext_mode_string;
-    char* string_count_field;
-} FieldExtensions;
-__attribute__ ((__dllimport__)) char **__attribute__((__cdecl__)) __p__acmdln(void);
-__attribute__ ((__dllimport__)) wchar_t **__attribute__((__cdecl__)) __p__wcmdln(void);
-typedef void (__attribute__((__cdecl__)) *_PVFV)(void);
-typedef int (__attribute__((__cdecl__)) *_PIFV)(void);
-typedef void (__attribute__((__cdecl__)) *_PVFI)(int);
-typedef struct _onexit_table_t {
-    _PVFV* _first;
-    _PVFV* _last;
-    _PVFV* _end;
-} _onexit_table_t;
-typedef int (__attribute__((__cdecl__)) *_onexit_t)(void);
-__attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) _initialize_onexit_table(_onexit_table_t*);
-__attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) _register_onexit_function(_onexit_table_t*,_onexit_t);
-__attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) _execute_onexit_table(_onexit_table_t*);
-__attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) _crt_atexit(_PVFV func);
-__attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) _crt_at_quick_exit(_PVFV func);
-typedef unsigned short _ino_t;
-typedef unsigned short ino_t;
-typedef unsigned int _dev_t;
-typedef unsigned int dev_t;
-__extension__
-typedef long long _pid_t;
-typedef _pid_t pid_t;
-typedef unsigned short _mode_t;
-typedef _mode_t mode_t;
-typedef unsigned int useconds_t;
-struct timespec {
-  time_t tv_sec;
-  long tv_nsec;
-};
-struct itimerspec {
-  struct timespec it_interval;
-  struct timespec it_value;
-};
-__extension__
-typedef unsigned long long _sigset_t;
-  typedef void (__attribute__((__cdecl__)) *_beginthread_proc_type)(void *);
-  typedef unsigned (__attribute__((__stdcall__)) *_beginthreadex_proc_type)(void *);
-  __attribute__ ((__dllimport__)) uintptr_t __attribute__((__cdecl__)) _beginthread(_beginthread_proc_type _StartAddress,unsigned _StackSize,void *_ArgList);
-  __attribute__ ((__dllimport__)) void __attribute__((__cdecl__)) _endthread(void) __attribute__ ((__noreturn__));
-  __attribute__ ((__dllimport__)) uintptr_t __attribute__((__cdecl__)) _beginthreadex(void *_Security,unsigned _StackSize,_beginthreadex_proc_type _StartAddress,void *_ArgList,unsigned _InitFlag,unsigned *_ThrdAddr);
-  __attribute__ ((__dllimport__)) void __attribute__((__cdecl__)) _endthreadex(unsigned _Retval) __attribute__ ((__noreturn__));
-  void __attribute__((__cdecl__)) __attribute__ ((__nothrow__)) exit(int _Code) __attribute__ ((__noreturn__));
-  void __attribute__((__cdecl__)) __attribute__ ((__nothrow__)) _exit(int _Code) __attribute__ ((__noreturn__));
-  void __attribute__((__cdecl__)) __attribute__ ((__nothrow__)) quick_exit(int _Code) __attribute__ ((__noreturn__));
-  void __attribute__((__cdecl__)) _Exit(int) __attribute__ ((__noreturn__));
        
-  void __attribute__((__cdecl__)) __attribute__ ((__noreturn__)) abort(void);
-       
-  typedef void (__attribute__((__stdcall__)) *_tls_callback_type)(void*,unsigned long,void*);
-  __attribute__ ((__dllimport__)) void __attribute__((__cdecl__)) _register_thread_local_exe_atexit_callback(_tls_callback_type callback);
-  void __attribute__((__cdecl__)) __attribute__ ((__nothrow__)) _cexit(void);
-  void __attribute__((__cdecl__)) __attribute__ ((__nothrow__)) _c_exit(void);
-  __attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) _getpid(void);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _cwait(int *_TermStat,intptr_t _ProcHandle,int _Action);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _execl(const char *_Filename,const char *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _execle(const char *_Filename,const char *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _execlp(const char *_Filename,const char *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _execlpe(const char *_Filename,const char *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _execv(const char *_Filename,const char *const *_ArgList);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _execve(const char *_Filename,const char *const *_ArgList,const char *const *_Env);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _execvp(const char *_Filename,const char *const *_ArgList);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _execvpe(const char *_Filename,const char *const *_ArgList,const char *const *_Env);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _spawnl(int _Mode,const char *_Filename,const char *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _spawnle(int _Mode,const char *_Filename,const char *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _spawnlp(int _Mode,const char *_Filename,const char *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _spawnlpe(int _Mode,const char *_Filename,const char *_ArgList,...);
-  int __attribute__((__cdecl__)) system(const char *_Command);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _wexecl(const wchar_t *_Filename,const wchar_t *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _wexecle(const wchar_t *_Filename,const wchar_t *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _wexeclp(const wchar_t *_Filename,const wchar_t *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _wexeclpe(const wchar_t *_Filename,const wchar_t *_ArgList,...);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _wexecv(const wchar_t *_Filename,const wchar_t *const *_ArgList);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _wexecve(const wchar_t *_Filename,const wchar_t *const *_ArgList,const wchar_t *const *_Env);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _wexecvp(const wchar_t *_Filename,const wchar_t *const *_ArgList);
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) _wexecvpe(const wchar_t *_Filename,const wchar_t *const *_ArgList,const wchar_t *const *_Env);
-  __attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) _wsystem(const wchar_t *_Command);
-  intptr_t __attribute__((__cdecl__)) _loaddll(char *_Filename);
-  int __attribute__((__cdecl__)) _unloaddll(intptr_t _Handle);
-  int (__attribute__((__cdecl__)) *__attribute__((__cdecl__)) _getdllprocaddr(intptr_t _Handle,char *_ProcedureName,intptr_t _Ordinal))(void);
-  int __attribute__((__cdecl__)) getpid(void) ;
-  intptr_t __attribute__((__cdecl__)) cwait(int *_TermStat,intptr_t _ProcHandle,int _Action) ;
-  int __attribute__((__cdecl__)) execl(const char *_Filename,const char *_ArgList,...) ;
-  int __attribute__((__cdecl__)) execle(const char *_Filename,const char *_ArgList,...) ;
-  int __attribute__((__cdecl__)) execlp(const char *_Filename,const char *_ArgList,...) ;
-  int __attribute__((__cdecl__)) execlpe(const char *_Filename,const char *_ArgList,...) ;
-  intptr_t __attribute__((__cdecl__)) spawnl(int,const char *_Filename,const char *_ArgList,...) ;
-  intptr_t __attribute__((__cdecl__)) spawnle(int,const char *_Filename,const char *_ArgList,...) ;
-  intptr_t __attribute__((__cdecl__)) spawnlp(int,const char *_Filename,const char *_ArgList,...) ;
-  intptr_t __attribute__((__cdecl__)) spawnlpe(int,const char *_Filename,const char *_ArgList,...) ;
-  __attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) execv(const char *_Filename,char *const _ArgList[]) ;
-  __attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) execve(const char *_Filename,char *const _ArgList[],char *const _Env[]) ;
-  __attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) execvp(const char *_Filename,char *const _ArgList[]) ;
-  __attribute__ ((__dllimport__)) int __attribute__((__cdecl__)) execvpe(const char *_Filename,char *const _ArgList[],char *const _Env[]) ;
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) spawnv(int,const char *_Filename,char *const _ArgList[]) ;
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) spawnve(int,const char *_Filename,char *const _ArgList[],char *const _Env[]) ;
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) spawnvp(int,const char *_Filename,char *const _ArgList[]) ;
-  __attribute__ ((__dllimport__)) intptr_t __attribute__((__cdecl__)) spawnvpe(int,const char *_Filename,char *const _ArgList[],char *const _Env[]) ;
-typedef struct {
-    FieldInfo field_info;
-    FieldExtensions field_ext;
-} FieldInfoExt;
-typedef struct {
-    String type_name;
-    usize count;
-    usize capacity;
-    FieldInfoExt* fields;
-} StructInfo;
-typedef struct {
-    usize count;
-    usize capacity;
-    StructInfo* structs;
-} IntrospectedStructs;
-IntrospectedStructs INTROSPECTED_STRUCTS = {0};
-_Bool already_introspected(String type_name) {
-    for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
-        if (ss_equals(INTROSPECTED_STRUCTS.structs[i].type_name, type_name)) {
-            return 1;
-        }
-    }
-    return 0;
-}
-typedef struct {
-    char* name;
-    Type type;
-} TypeNameMapping;
-Type type_of_field(FieldInfoExt* field) {
-    char* type_name_cs = field->field_info.type_str;
-    if (field->field_ext.ext_alias) {
-        type_name_cs = field->field_ext.type_alias;
-    }
-    String type_name = string_from_cstr(type_name_cs);
-    TypeNameMapping type_map[] = {
-        { .name = "void", .type = TYPE_void},
-        { .name = "char", .type = TYPE_char},
-        { .name = "byte", .type = TYPE_byte},
-        { .name = "bool", .type = TYPE_bool},
-        { .name = "_Bool", .type = TYPE_bool},
-        { .name = "uint8", .type = TYPE_uint8},
-        { .name = "uint16", .type = TYPE_uint16},
-        { .name = "uint32", .type = TYPE_uint32},
-        { .name = "uint64", .type = TYPE_uint64},
-        { .name = "int8", .type = TYPE_int8},
-        { .name = "int16", .type = TYPE_int16},
-        { .name = "int32", .type = TYPE_int32},
-        { .name = "int64", .type = TYPE_int64},
-        { .name = "usize", .type = TYPE_usize},
-        { .name = "float32", .type = TYPE_float32},
-        { .name = "float64", .type = TYPE_float64},
-        { .name = "int", .type = TYPE_int32},
-        { .name = "float", .type = TYPE_float32},
-        { .name = "double", .type = TYPE_float64},
-        { .name = "unsigned char", .type = TYPE_byte},
-        { .name = "unsigned int", .type = TYPE_uint32},
-        { .name = "unsigned short", .type = TYPE_uint16},
-        { .name = "unsigned long", .type = TYPE_uint32},
-        { .name = "unsigned long long", .type = TYPE_uint64},
-        { .name = "unsigned short int", .type = TYPE_uint16},
-        { .name = "unsigned long int", .type = TYPE_uint32},
-        { .name = "unsigned long long int", .type = TYPE_uint64},
-        { .name = "short", .type = TYPE_int16},
-        { .name = "long", .type = TYPE_int32},
-        { .name = "long long", .type = TYPE_int64},
-        { .name = "short int", .type = TYPE_int16},
-        { .name = "long int", .type = TYPE_int32},
-        { .name = "long long int", .type = TYPE_int64},
+static FieldInfo InnerTestStruct__fields[3];
+static FieldInfo TestStruct__fields[11];
+static FieldInfo InnerTestStruct__fields[] = {
+ {
+  .type = TYPE_usize, .name = "count", .ptr = &(((InnerTestStruct*)(0))->count),
+ },
+ {
+  .type = TYPE_usize, .name = "capacity", .ptr = &(((InnerTestStruct*)(0))->capacity),
+ },
+ {
+  .type = TYPE_uint32, .name = "items", .ptr = &(((InnerTestStruct*)(0))->items),
+  .is_ptr = 1, .ptr_depth = 1,
+  .is_dynarray = 1, .count_ptr = &(((InnerTestStruct*)(0))->count),
+ },
+};
+static FieldInfo TestStruct__fields[] = {
+ {
+  .type = TYPE_bool, .name = "bool_field", .ptr = &(((TestStruct*)(0))->bool_field),
+ },
+ {
+  .type = TYPE_uint32, .name = "uint_field", .ptr = &(((TestStruct*)(0))->uint_field),
+ },
+ {
+  .type = TYPE_int32, .name = "int_field", .ptr = &(((TestStruct*)(0))->int_field),
+ },
+ {
+  .type = TYPE_int32, .name = "cint_field", .ptr = &(((TestStruct*)(0))->cint_field),
+ },
+ {
+  .type = TYPE_float32, .name = "float_field", .ptr = &(((TestStruct*)(0))->float_field),
+ },
+ {
+  .type = TYPE_uint32, .name = "ptr_field", .ptr = &(((TestStruct*)(0))->ptr_field),
+  .is_ptr = 1, .ptr_depth = 1,
+ },
+ {
+  .type = TYPE_uint32, .name = "arr_field", .ptr = &(((TestStruct*)(0))->arr_field),
+  .is_array = 1, .count = 10, .array_dim = 1, .array_dim_counts = {10},
+ },
+ {
+  .type = TYPE_char, .name = "cstr_field", .ptr = &(((TestStruct*)(0))->cstr_field),
+  .is_ptr = 1, .ptr_depth = 1,
+  .is_cstr = 1,
+ },
+ {
+  .type = TYPE_uint32, .name = "dynarray_field", .ptr = &(((TestStruct*)(0))->dynarray_field),
+  .is_ptr = 1, .ptr_depth = 1,
+  .is_dynarray = 1, .count_ptr = &(((TestStruct*)(0))->uint_field),
+ },
+ {
+  .type = TYPE_struct, .name = "struct_field", .ptr = &(((TestStruct*)(0))->struct_field),
+  .struct_size = sizeof(InnerTestStruct), .field_count = (sizeof((InnerTestStruct__fields)) / sizeof((InnerTestStruct__fields)[0])), .fields = InnerTestStruct__fields,
+ },
+ {
+  .type = TYPE_struct, .name = "struct_arr_field", .ptr = &(((TestStruct*)(0))->struct_arr_field),
+  .is_array = 1, .count = 3, .array_dim = 1, .array_dim_counts = {3},
+  .struct_size = sizeof(InnerTestStruct), .field_count = (sizeof((InnerTestStruct__fields)) / sizeof((InnerTestStruct__fields)[0])), .fields = InnerTestStruct__fields,
+ },
+};
+static inline void InnerTestStruct__print(InnerTestStruct* var) { struct__print(var, InnerTestStruct__fields, (sizeof((InnerTestStruct__fields)) / sizeof((InnerTestStruct__fields)[0]))); } static inline void InnerTestStruct__pretty_print_with(InnerTestStruct* var, uint32 indent, IndentToken indent_token) { struct__pretty_print(var, InnerTestStruct__fields, (sizeof((InnerTestStruct__fields)) / sizeof((InnerTestStruct__fields)[0])), indent, indent_token); } static inline void InnerTestStruct__pretty_print(InnerTestStruct* var, uint32 indent) { InnerTestStruct__pretty_print_with(var, 0, ((IndentToken){ .count = 1, .token = "\t" })); } static inline void InnerTestStruct_array__print(InnerTestStruct* var, usize count) { struct_array__print(var, count, sizeof(InnerTestStruct), InnerTestStruct__fields, (sizeof((InnerTestStruct__fields)) / sizeof((InnerTestStruct__fields)[0]))); } static inline void InnerTestStruct_array__pretty_print_with(InnerTestStruct* var, usize count, uint32 indent, IndentToken indent_token) { struct_array__pretty_print(var, count, sizeof(InnerTestStruct), InnerTestStruct__fields, (sizeof((InnerTestStruct__fields)) / sizeof((InnerTestStruct__fields)[0])), indent, indent_token); } static inline void InnerTestStruct_array__pretty_print(InnerTestStruct* var, usize count, uint32 indent) { InnerTestStruct_array__pretty_print_with(var, count, 0, ((IndentToken){ .count = 1, .token = "\t" })); } static inline void InnerTestStruct__print0(InnerTestStruct* var) { InnerTestStruct__print(var); printf("\n"); } static inline void InnerTestStruct__pretty_print0(InnerTestStruct* var) { InnerTestStruct__pretty_print(var, 0); printf("\n"); } static inline void InnerTestStruct__pretty_print_with0(InnerTestStruct* var, IndentToken indent_token) { InnerTestStruct__pretty_print_with(var, 0, indent_token); printf("\n"); } static inline void InnerTestStruct_array__print0(InnerTestStruct* var, usize count) { InnerTestStruct_array__print(var, count); printf("\n"); } static inline void InnerTestStruct_array__pretty_print0(InnerTestStruct* var, usize count) { InnerTestStruct_array__pretty_print(var, count, 0); printf("\n"); } static inline void InnerTestStruct_array__pretty_print_with0(InnerTestStruct* var, usize count, IndentToken indent_token) { InnerTestStruct_array__pretty_print_with(var, count, 0, indent_token); printf("\n"); } typedef enum { InnerTestStruct__VARIANT__IMPL_____generate_print_functions = 0 } InnerTestStruct__IMPL_____generate_print_functions;
+static inline void TestStruct__print(TestStruct* var) { struct__print(var, TestStruct__fields, (sizeof((TestStruct__fields)) / sizeof((TestStruct__fields)[0]))); } static inline void TestStruct__pretty_print_with(TestStruct* var, uint32 indent, IndentToken indent_token) { struct__pretty_print(var, TestStruct__fields, (sizeof((TestStruct__fields)) / sizeof((TestStruct__fields)[0])), indent, indent_token); } static inline void TestStruct__pretty_print(TestStruct* var, uint32 indent) { TestStruct__pretty_print_with(var, 0, ((IndentToken){ .count = 1, .token = "\t" })); } static inline void TestStruct_array__print(TestStruct* var, usize count) { struct_array__print(var, count, sizeof(TestStruct), TestStruct__fields, (sizeof((TestStruct__fields)) / sizeof((TestStruct__fields)[0]))); } static inline void TestStruct_array__pretty_print_with(TestStruct* var, usize count, uint32 indent, IndentToken indent_token) { struct_array__pretty_print(var, count, sizeof(TestStruct), TestStruct__fields, (sizeof((TestStruct__fields)) / sizeof((TestStruct__fields)[0])), indent, indent_token); } static inline void TestStruct_array__pretty_print(TestStruct* var, usize count, uint32 indent) { TestStruct_array__pretty_print_with(var, count, 0, ((IndentToken){ .count = 1, .token = "\t" })); } static inline void TestStruct__print0(TestStruct* var) { TestStruct__print(var); printf("\n"); } static inline void TestStruct__pretty_print0(TestStruct* var) { TestStruct__pretty_print(var, 0); printf("\n"); } static inline void TestStruct__pretty_print_with0(TestStruct* var, IndentToken indent_token) { TestStruct__pretty_print_with(var, 0, indent_token); printf("\n"); } static inline void TestStruct_array__print0(TestStruct* var, usize count) { TestStruct_array__print(var, count); printf("\n"); } static inline void TestStruct_array__pretty_print0(TestStruct* var, usize count) { TestStruct_array__pretty_print(var, count, 0); printf("\n"); } static inline void TestStruct_array__pretty_print_with0(TestStruct* var, usize count, IndentToken indent_token) { TestStruct_array__pretty_print_with(var, count, 0, indent_token); printf("\n"); } typedef enum { TestStruct__VARIANT__IMPL_____generate_print_functions = 0 } TestStruct__IMPL_____generate_print_functions;
+void reset_test_tweens(Tween_Vector2* tweens) {
+    float32 pathlen = 900;
+    float32 seplen = 900.0 / (10 -1);
+    tweens[0] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_ONCE, animation_curve_eased(ease_cubic_in), 2),
     };
-    for (uint32 i = 0; i < (sizeof((type_map)) / sizeof((type_map)[0])); i++) {
-        if (scs_equals(type_name, type_map[i].name)) {
-            return type_map[i].type;
-        }
+    tweens[1] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_STARTOVER, animation_curve_linear(), 4),
+    };
+    tweens[2] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_STARTOVER, animation_curve_step(0.5), 2),
+    };
+    tweens[3] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_STARTOVER, animation_curve_eased(ease_elastic_out), 2),
+    };
+    tweens[4] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_linear(), 4),
+    };
+    tweens[5] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_eased(ease_quadratic_out), 4),
+    };
+    tweens[6] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_eased(ease_cubic_out), 4),
+    };
+    tweens[7] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_eased(ease_quartic_out), 4),
+    };
+    tweens[8] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_step(0.5), 2),
+    };
+    tweens[9] = (Tween_Vector2) {
+        .state = new_tween_state(TWEEN_REPEAT_MIRRORED, animation_curve_eased(ease_elastic_out), 2),
+    };
+    Vector2 start_i = { 50, 50 };
+    Vector2 end_i = { 50, 50 + pathlen };
+    for (uint32 i = 0; i < 10; i++) {
+        tweens[i].limits.start = start_i;
+        tweens[i].limits.end = end_i;
+        start_i.x += seplen;
+        end_i.x += seplen;
     }
-    return TYPE_struct;
 }
-char* type_to_type_str(Type type) {
-    switch (type) {
-    case TYPE_void:
-        return "TYPE_void";
-    case TYPE_char:
-        return "TYPE_char";
-    case TYPE_byte:
-        return "TYPE_byte";
-    case TYPE_bool:
-        return "TYPE_bool";
-    case TYPE_uint8:
-        return "TYPE_uint8";
-    case TYPE_uint16:
-        return "TYPE_uint16";
-    case TYPE_uint32:
-        return "TYPE_uint32";
-    case TYPE_uint64:
-        return "TYPE_uint64";
-    case TYPE_int8:
-        return "TYPE_int8";
-    case TYPE_int16:
-        return "TYPE_int16";
-    case TYPE_int32:
-        return "TYPE_int32";
-    case TYPE_int64:
-        return "TYPE_int64";
-    case TYPE_usize:
-        return "TYPE_usize";
-    case TYPE_float32:
-        return "TYPE_float32";
-    case TYPE_float64:
-        return "TYPE_float64";
-    case TYPE_struct:
-        return "TYPE_struct";
+void reset_test_tween_sequence(TweenSequence_Vector2* tween_seq) {
+    tween_seq->state.elapsed = 0;
+    tween_seq->state.direction = 1;
+    tween_seq->state.section = 0;
+    do { (tween_seq->state.sections).count = 0; } while(0);
+    do { (tween_seq->limits_list).count = 0; } while(0);
+    uint32 i;
+    float32 pathlen = 800;
+    i = 0;
+    {
+        TweenSequenceStateSection section = {
+            .curve = animation_curve_linear(),
+            .duration = 2,
+        };
+        TweenLimits_Vector2 limits = {
+            .start = {100, 100},
+            .end = {100 + pathlen, 100},
+        };
+        do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((tween_seq->state.sections).capacity == 0) { (tween_seq->state.sections).capacity = DYNARRAY_INITIAL_CAPACITY; (tween_seq->state.sections).items = std_malloc((tween_seq->state.sections).capacity * sizeof((section))); } else if ((tween_seq->state.sections).count == (tween_seq->state.sections).capacity) { (tween_seq->state.sections).capacity = DYNARRAY_GROWTH_FACTOR * (tween_seq->state.sections).capacity; (tween_seq->state.sections).items = std_realloc((tween_seq->state.sections).items, (tween_seq->state.sections).capacity * sizeof((section))); } (tween_seq->state.sections).items[(tween_seq->state.sections).count] = (section); (tween_seq->state.sections).count++; } while(0);
+        do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((tween_seq->limits_list).capacity == 0) { (tween_seq->limits_list).capacity = DYNARRAY_INITIAL_CAPACITY; (tween_seq->limits_list).items = std_malloc((tween_seq->limits_list).capacity * sizeof((limits))); } else if ((tween_seq->limits_list).count == (tween_seq->limits_list).capacity) { (tween_seq->limits_list).capacity = DYNARRAY_GROWTH_FACTOR * (tween_seq->limits_list).capacity; (tween_seq->limits_list).items = std_realloc((tween_seq->limits_list).items, (tween_seq->limits_list).capacity * sizeof((limits))); } (tween_seq->limits_list).items[(tween_seq->limits_list).count] = (limits); (tween_seq->limits_list).count++; } while(0);
     }
-    { JUST_LOG_PANIC("Unknown Type\n"); std_exit(1); };
-    return "";
-}
-void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
-    do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "static FieldInfo %s__fields[] = {\n", struct_info->type_name.cstr); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "static FieldInfo %s__fields[] = {\n", struct_info->type_name.cstr); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(GEN, string_builder_append_format__string); } while(0);
-    for (usize i = 0; i < struct_info->count; i++) {
-        FieldInfoExt* field = &struct_info->fields[i];
-        Type field_type_enum = type_of_field(field);
-        char* field_type = type_to_type_str(field_type_enum);
-        do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "\t{\n\t\t.type = %s, .name = \"%s\", .ptr = &(((%s*)(0))->%s),\n", field_type, field->field_info.name, struct_info->type_name.cstr, field->field_info.name); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "\t{\n\t\t.type = %s, .name = \"%s\", .ptr = &(((%s*)(0))->%s),\n", field_type, field->field_info.name, struct_info->type_name.cstr, field->field_info.name); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(GEN, string_builder_append_format__string); } while(0);
-        if (field->field_info.is_ptr) {
-            do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "\t\t.is_ptr = true, .ptr_depth = %u,\n", field->field_info.ptr_depth); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "\t\t.is_ptr = true, .ptr_depth = %u,\n", field->field_info.ptr_depth); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(GEN, string_builder_append_format__string); } while(0);
-        }
-        if (field->field_info.is_array) {
-            printf("-- [%s:%d] --\n", "introspect/main.c", 498);
-            JUST_LOG_INFO("%llu\n", field->field_info.array_dim);
-            do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "\t\t.is_array = true, .count = %llu, .array_dim = %llu, .array_dim_counts = {", field->field_info.count, field->field_info.array_dim); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "\t\t.is_array = true, .count = %llu, .array_dim = %llu, .array_dim_counts = {", field->field_info.count, field->field_info.array_dim); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(GEN, string_builder_append_format__string); } while(0);
-            for (usize dim_i = 0; dim_i < field->field_info.array_dim; dim_i++) {
-                do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "%llu%s", field->field_info.array_dim_counts[dim_i], (dim_i != field->field_info.array_dim - 1) ? ", " : ""); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "%llu%s", field->field_info.array_dim_counts[dim_i], (dim_i != field->field_info.array_dim - 1) ? ", " : ""); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(GEN, string_builder_append_format__string); } while(0);
-            }
-            string_builder_append_cstr(GEN, "},\n");
-        }
-        if (field->field_ext.ext_mode_cstr) {
-            string_builder_append_cstr(GEN, "\t\t.is_cstr = true,\n");
-        }
-        if (field->field_ext.ext_mode_dynarray) {
-            do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "\t\t.is_dynarray = true, .count_ptr = &(((%s*)(0))->%s),\n", struct_info->type_name.cstr, field->field_ext.dynarray_count_field); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "\t\t.is_dynarray = true, .count_ptr = &(((%s*)(0))->%s),\n", struct_info->type_name.cstr, field->field_ext.dynarray_count_field); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(GEN, string_builder_append_format__string); } while(0);
-        }
-        if (field->field_ext.ext_mode_string) {
-            do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "\t\t.is_string = true, .count_ptr = &(((%s*)(0))->%s),\n", struct_info->type_name.cstr, field->field_ext.string_count_field); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "\t\t.is_string = true, .count_ptr = &(((%s*)(0))->%s),\n", struct_info->type_name.cstr, field->field_ext.string_count_field); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(GEN, string_builder_append_format__string); } while(0);
-        }
-        if (field_type_enum == TYPE_struct) {
-            do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "\t\t.struct_size = sizeof(%s), .field_count = ARRAY_LENGTH(%s__fields), .fields = %s__fields,\n", field->field_info.type_str, field->field_info.type_str, field->field_info.type_str); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "\t\t.struct_size = sizeof(%s), .field_count = ARRAY_LENGTH(%s__fields), .fields = %s__fields,\n", field->field_info.type_str, field->field_info.type_str, field->field_info.type_str); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(GEN, string_builder_append_format__string); } while(0);
-        }
-        string_builder_append_cstr(GEN, "\t},\n");
+    i = 1;
+    {
+        Vector2 prev_end = tween_seq->limits_list.items[i-1].end;
+        TweenSequenceStateSection section = {
+            .curve = animation_curve_eased(ease_cubic_out),
+            .duration = 2,
+        };
+        TweenLimits_Vector2 limits = {
+            .start = prev_end,
+            .end = {prev_end.x, prev_end.y + pathlen},
+        };
+        do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((tween_seq->state.sections).capacity == 0) { (tween_seq->state.sections).capacity = DYNARRAY_INITIAL_CAPACITY; (tween_seq->state.sections).items = std_malloc((tween_seq->state.sections).capacity * sizeof((section))); } else if ((tween_seq->state.sections).count == (tween_seq->state.sections).capacity) { (tween_seq->state.sections).capacity = DYNARRAY_GROWTH_FACTOR * (tween_seq->state.sections).capacity; (tween_seq->state.sections).items = std_realloc((tween_seq->state.sections).items, (tween_seq->state.sections).capacity * sizeof((section))); } (tween_seq->state.sections).items[(tween_seq->state.sections).count] = (section); (tween_seq->state.sections).count++; } while(0);
+        do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((tween_seq->limits_list).capacity == 0) { (tween_seq->limits_list).capacity = DYNARRAY_INITIAL_CAPACITY; (tween_seq->limits_list).items = std_malloc((tween_seq->limits_list).capacity * sizeof((limits))); } else if ((tween_seq->limits_list).count == (tween_seq->limits_list).capacity) { (tween_seq->limits_list).capacity = DYNARRAY_GROWTH_FACTOR * (tween_seq->limits_list).capacity; (tween_seq->limits_list).items = std_realloc((tween_seq->limits_list).items, (tween_seq->limits_list).capacity * sizeof((limits))); } (tween_seq->limits_list).items[(tween_seq->limits_list).count] = (limits); (tween_seq->limits_list).count++; } while(0);
     }
-    string_builder_append_cstr(GEN, "};\n\n");
-}
-String gen_introspect_file() {
-    StringBuilder GEN = string_builder_new();
-    string_builder_append_cstr(&GEN, "#pragma once\n\n");
-    string_builder_append_cstr(&GEN, "#include \"justengine.h\"\n\n");
-    string_builder_append_cstr(
-        &GEN,
-        "/**\n"
-        " * !! IMPORTANT !!\n"
-        " * IMPORT THIS HEADER AFTER THESE DEFINITONS\n"
-    );
-    for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
-        StructInfo* struct_info = &INTROSPECTED_STRUCTS.structs[i];
-        do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, " * - %s\n", struct_info->type_name.cstr); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, " * - %s\n", struct_info->type_name.cstr); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(&GEN, string_builder_append_format__string); } while(0);
+    i = 2;
+    {
+        Vector2 prev_end = tween_seq->limits_list.items[i-1].end;
+        TweenSequenceStateSection section = {
+            .curve = animation_curve_delay(),
+            .duration = 2,
+        };
+        TweenLimits_Vector2 limits = {
+            .start = prev_end,
+            .end = prev_end,
+        };
+        do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((tween_seq->state.sections).capacity == 0) { (tween_seq->state.sections).capacity = DYNARRAY_INITIAL_CAPACITY; (tween_seq->state.sections).items = std_malloc((tween_seq->state.sections).capacity * sizeof((section))); } else if ((tween_seq->state.sections).count == (tween_seq->state.sections).capacity) { (tween_seq->state.sections).capacity = DYNARRAY_GROWTH_FACTOR * (tween_seq->state.sections).capacity; (tween_seq->state.sections).items = std_realloc((tween_seq->state.sections).items, (tween_seq->state.sections).capacity * sizeof((section))); } (tween_seq->state.sections).items[(tween_seq->state.sections).count] = (section); (tween_seq->state.sections).count++; } while(0);
+        do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((tween_seq->limits_list).capacity == 0) { (tween_seq->limits_list).capacity = DYNARRAY_INITIAL_CAPACITY; (tween_seq->limits_list).items = std_malloc((tween_seq->limits_list).capacity * sizeof((limits))); } else if ((tween_seq->limits_list).count == (tween_seq->limits_list).capacity) { (tween_seq->limits_list).capacity = DYNARRAY_GROWTH_FACTOR * (tween_seq->limits_list).capacity; (tween_seq->limits_list).items = std_realloc((tween_seq->limits_list).items, (tween_seq->limits_list).capacity * sizeof((limits))); } (tween_seq->limits_list).items[(tween_seq->limits_list).count] = (limits); (tween_seq->limits_list).count++; } while(0);
     }
-    string_builder_append_cstr(
-        &GEN,
-        "*/\n\n"
-    );
-    for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
-        StructInfo* struct_info = &INTROSPECTED_STRUCTS.structs[i];
-        do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "static FieldInfo %s__fields[%llu];\n", struct_info->type_name.cstr, struct_info->count); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "static FieldInfo %s__fields[%llu];\n", struct_info->type_name.cstr, struct_info->count); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(&GEN, string_builder_append_format__string); } while(0);
-    }
-    string_builder_append_cstr(&GEN, "\n");
-    for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
-        StructInfo* struct_info = &INTROSPECTED_STRUCTS.structs[i];
-        write_introspect(&GEN, struct_info);
-    }
-    string_builder_append_cstr(&GEN, "\n");
-    for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
-        StructInfo* struct_info = &INTROSPECTED_STRUCTS.structs[i];
-        do { String string_builder_append_format__string = string_new(); do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "__IMPL_____generate_print_functions(%s);\n", struct_info->type_name.cstr); do { usize new_capacity = ((string_builder_append_format__string)).count + string_append_format__count + 1; if (((string_builder_append_format__string)).capacity < new_capacity) { ((string_builder_append_format__string)).capacity = new_capacity; ((string_builder_append_format__string)).str = std_realloc(((string_builder_append_format__string)).str, ((string_builder_append_format__string)).capacity * sizeof(((string_builder_append_format__string)).str[0])); } } while(0); std_snprintf((string_builder_append_format__string).str + (string_builder_append_format__string).count, string_append_format__count + 1, "__IMPL_____generate_print_functions(%s);\n", struct_info->type_name.cstr); (string_builder_append_format__string).count += string_append_format__count; } while (0); string_builder_append_string_owned(&GEN, string_builder_append_format__string); } while(0);
-    }
-    string_builder_append_cstr(&GEN, "\n");
-    return build_string(&GEN);
-}
-void generate_introspect_for_struct(String struct_def) {
-    usize curly_paren_open;
-    usize curly_paren_close;
-    for (usize i = 0; i < struct_def.count; i++) {
-        if (struct_def.str[i] == '{') {
-            curly_paren_open = i;
-            break;
-        }
-    }
-    for (int64 i = struct_def.count-1; i >= 0; i--) {
-        if (struct_def.str[i] == '}') {
-            curly_paren_close = i;
-            break;
-        }
-    }
-    if (curly_paren_open >= curly_paren_close) {
-        { JUST_LOG_PANIC("Syntax error: curly paren\n"); std_exit(1); };
-    }
-    StructInfo struct_info = {0};
-    struct_info.type_name = string_from_view(string_view_trim(string_slice_view(struct_def, curly_paren_close + 1, struct_def.count-1 - curly_paren_close - 1)));
-    if (already_introspected(struct_info.type_name)) {
-        JUST_LOG_INFO("Introspection already generated for type: %s.\n", struct_info.type_name.cstr);
-        return;
-    }
-    StringView struct_fields = string_slice_view(struct_def, curly_paren_open + 1, curly_paren_close - curly_paren_open - 1);
-    usize tokens_count = (sizeof((field_parse_tokens__static)) / sizeof((field_parse_tokens__static)[0]));
-    StringToken* field_parse_tokens = string_tokens_from_static(field_parse_tokens__static, tokens_count);
-    StringTokensIter tokens_iter = string_view_iter_tokens(struct_fields, field_parse_tokens, tokens_count);
-    StringTokenOut token;
-    FieldParseState state = FieldParse_Begin;
-    FieldInfo field_info = {0};
-    FieldExtensions field_ext = {0};
-    _Bool in_array_def = 0;
-    usize i = 0;
-    while (next_token(&tokens_iter, &token)) {
-        printf("[%llu] %d: \"", i++, token.id);
-        print_string_view(token.token);
-        printf("\"\n");
-        switch (state) {
-        case FieldParse_Begin:
-            switch (token.id) {
-                case Token_const:
-                    break;
-                case Token_unsigned_short:
-                case Token_unsigned_long:
-                case Token_unsigned_long_long:
-                case Token_unsigned_short_int:
-                case Token_unsigned_long_int:
-                case Token_unsigned_long_long_int:
-                case Token_short:
-                case Token_long:
-                case Token_long_long:
-                case Token_short_int:
-                case Token_long_int:
-                case Token_long_long_int:
-                default:
-                    field_info.type_str = cstr_nclone(token.token.str, token.token.count);
-                    state = FieldParse_AfterType;
-                    break;
-                }
-            break;
-        case FieldParse_AfterType:
-            switch (token.id) {
-            case Token_star:
-                field_info.is_ptr = 1;
-                field_info.ptr_depth++;
-                break;
-            default:
-                field_info.name = cstr_nclone(token.token.str, token.token.count);
-                state = FieldParse_AfterName;
-                break;
-            }
-            break;
-        case FieldParse_AfterName:
-            if (in_array_def) {
-                if (field_info.count == 0){
-                    field_info.count = 1;
-                }
-                uint64 dim;
-                _Bool success = sv_parse_uint64(token.token, &dim);
-                JUST_LOG_DEBUG("dim: %lld\n", dim);
-                field_info.count *= dim;
-                field_info.array_dim_counts[field_info.array_dim++] = dim;
-                in_array_def = 0;
-            }
-            switch (token.id) {
-            case Token_sq_paren_open:
-                in_array_def = 1;
-                field_info.is_array = 1;
-                break;
-            case Token_sq_paren_close:
-                in_array_def = 0;
-                break;
-            case Token_semicolon:
-                printf("%s %s\n", field_info.type_str, field_info.name);
-                FieldInfoExt field_info_ext = {
-                    .field_info = field_info,
-                    .field_ext = field_ext,
-                };
-                do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((struct_info).capacity == 0) { (struct_info).capacity = DYNARRAY_INITIAL_CAPACITY; (struct_info).fields = std_malloc((struct_info).capacity * sizeof((field_info_ext))); } else if ((struct_info).count == (struct_info).capacity) { (struct_info).capacity = DYNARRAY_GROWTH_FACTOR * (struct_info).capacity; (struct_info).fields = std_realloc((struct_info).fields, (struct_info).capacity * sizeof((field_info_ext))); } (struct_info).fields[(struct_info).count] = (field_info_ext); (struct_info).count++; } while(0);
-                state = FieldParse_Begin;
-                field_info = (FieldInfo) {0};
-                field_ext = (FieldExtensions) {0};
-                in_array_def = 0;
-                break;
-            case Token_introspect_extension_alias:
-                field_ext.ext_alias = 1;
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_paren_open) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_paren_open), expect_token__token.id); std_exit(1); }; } } while (0);
-                if (next_token(&tokens_iter, &token)) {
-                    if (token.free_word) {
-                        field_ext.type_alias = string_from_view(token.token).cstr;
-                    }
-                    else {
-                        { JUST_LOG_PANIC("Extension syntax error.\n"); std_exit(1); };
-                    }
-                }
-                else {
-                    { JUST_LOG_PANIC("Extension syntax error.\n"); std_exit(1); };
-                }
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_paren_close) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_paren_close), expect_token__token.id); std_exit(1); }; } } while (0);
-                break;
-            case Token_introspect_extension_mode_cstr:
-                field_ext.ext_mode_cstr = 1;
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_paren_open) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_paren_open), expect_token__token.id); std_exit(1); }; } } while (0);
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_paren_close) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_paren_close), expect_token__token.id); std_exit(1); }; } } while (0);
-                break;
-            case Token_introspect_extension_mode_dynarray:
-                field_ext.ext_mode_dynarray = 1;
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_paren_open) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_paren_open), expect_token__token.id); std_exit(1); }; } } while (0);
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_introspect_extension_key_count) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_introspect_extension_key_count), expect_token__token.id); std_exit(1); }; } } while (0);
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_colon) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_colon), expect_token__token.id); std_exit(1); }; } } while (0);
-                if (next_token(&tokens_iter, &token)) {
-                    field_ext.dynarray_count_field = string_from_view(token.token).cstr;
-                }
-                else {
-                    { JUST_LOG_PANIC("Extension syntax error.\n"); std_exit(1); };
-                }
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_paren_close) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_paren_close), expect_token__token.id); std_exit(1); }; } } while (0);
-                break;
-            case Token_introspect_extension_mode_string:
-                field_ext.ext_mode_string = 1;
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_paren_open) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_paren_open), expect_token__token.id); std_exit(1); }; } } while (0);
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_introspect_extension_key_count) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_introspect_extension_key_count), expect_token__token.id); std_exit(1); }; } } while (0);
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_colon) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_colon), expect_token__token.id); std_exit(1); }; } } while (0);
-                if (next_token(&tokens_iter, &token)) {
-                    field_ext.string_count_field = string_from_view(token.token).cstr;
-                }
-                else {
-                    { JUST_LOG_PANIC("Extension syntax error.\n"); std_exit(1); };
-                }
-                do { StringTokenOut expect_token__token; _Bool expect_token__result = next_token((&tokens_iter), &expect_token__token); if (!expect_token__result) { { JUST_LOG_PANIC("Token expect failed, no token\n"); std_exit(1); }; } if ((Token_paren_close) != expect_token__token.id) { { JUST_LOG_PANIC("Token expect failed, expected: %d, result: %d\n", (Token_paren_close), expect_token__token.id); std_exit(1); }; } } while (0);
-                break;
-            }
-        }
-    }
-    do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((INTROSPECTED_STRUCTS).capacity == 0) { (INTROSPECTED_STRUCTS).capacity = DYNARRAY_INITIAL_CAPACITY; (INTROSPECTED_STRUCTS).structs = std_malloc((INTROSPECTED_STRUCTS).capacity * sizeof((struct_info))); } else if ((INTROSPECTED_STRUCTS).count == (INTROSPECTED_STRUCTS).capacity) { (INTROSPECTED_STRUCTS).capacity = DYNARRAY_GROWTH_FACTOR * (INTROSPECTED_STRUCTS).capacity; (INTROSPECTED_STRUCTS).structs = std_realloc((INTROSPECTED_STRUCTS).structs, (INTROSPECTED_STRUCTS).capacity * sizeof((struct_info))); } (INTROSPECTED_STRUCTS).structs[(INTROSPECTED_STRUCTS).count] = (struct_info); (INTROSPECTED_STRUCTS).count++; } while(0);
-    free_tokens_iter(&tokens_iter);
-}
-typedef enum {
-    STATE_STRUCT_BEGIN = 0,
-    STATE_CURLY_PAREN_OPEN_RECEIVED,
-    STATE_CURLY_PAREN_CLOSE_RECEIVED,
-} ParseStructDefState;
-_Bool generate_introspect(String int_filename) {
-    FILE* file = fopen(int_filename.cstr, "r");
-    if (file == ((void *)0)) {
-        JUST_LOG_ERROR("Error opening file\n");
-        return 0;
-    }
-    String cmd_introspect = string_from_cstr("_introspect");
-    string_append_cstr(&cmd_introspect, "__just_to_make_sure_no_token_overlap__");
-    uint32 i = 0;
-    _Bool gen_introspect = 0;
-    String struct_def_str = string_with_capacity(100);
-    ParseStructDefState state = STATE_STRUCT_BEGIN;
-    char ch;
-    while ((ch = fgetc(file)) != (-1)) {
-        if (gen_introspect) {
-            string_push_char(&struct_def_str, ch);
-            switch (state) {
-            case STATE_STRUCT_BEGIN:
-                if (ch == '{') {
-                    state = STATE_CURLY_PAREN_OPEN_RECEIVED;
-                }
-                break;
-            case STATE_CURLY_PAREN_OPEN_RECEIVED:
-                if (ch == '}') {
-                    state = STATE_CURLY_PAREN_CLOSE_RECEIVED;
-                }
-                break;
-            case STATE_CURLY_PAREN_CLOSE_RECEIVED:
-                if (ch == ';') {
-                    generate_introspect_for_struct(struct_def_str);
-                    clear_string(&struct_def_str);
-                    gen_introspect = 0;
-                    state = STATE_STRUCT_BEGIN;
-                }
-                break;
-            }
-        }
-        else {
-            if (ch == cmd_introspect.str[i]) {
-                i++;
-            }
-            else {
-                i = 0;
-            }
-            if (i == cmd_introspect.count) {
-                i = 0;
-                gen_introspect = 1;
-            }
-        }
+    i = 3;
+    {
+        Vector2 prev_end = tween_seq->limits_list.items[i-1].end;
+        TweenSequenceStateSection section = {
+            .curve = animation_curve_eased(ease_elastic_in_out),
+            .duration = 2,
+        };
+        TweenLimits_Vector2 limits = {
+            .start = prev_end,
+            .end = {prev_end.x - pathlen, prev_end.y},
+        };
+        do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((tween_seq->state.sections).capacity == 0) { (tween_seq->state.sections).capacity = DYNARRAY_INITIAL_CAPACITY; (tween_seq->state.sections).items = std_malloc((tween_seq->state.sections).capacity * sizeof((section))); } else if ((tween_seq->state.sections).count == (tween_seq->state.sections).capacity) { (tween_seq->state.sections).capacity = DYNARRAY_GROWTH_FACTOR * (tween_seq->state.sections).capacity; (tween_seq->state.sections).items = std_realloc((tween_seq->state.sections).items, (tween_seq->state.sections).capacity * sizeof((section))); } (tween_seq->state.sections).items[(tween_seq->state.sections).count] = (section); (tween_seq->state.sections).count++; } while(0);
+        do { const uint32 DYNARRAY_INITIAL_CAPACITY = 2; const uint32 DYNARRAY_GROWTH_FACTOR = 2; if ((tween_seq->limits_list).capacity == 0) { (tween_seq->limits_list).capacity = DYNARRAY_INITIAL_CAPACITY; (tween_seq->limits_list).items = std_malloc((tween_seq->limits_list).capacity * sizeof((limits))); } else if ((tween_seq->limits_list).count == (tween_seq->limits_list).capacity) { (tween_seq->limits_list).capacity = DYNARRAY_GROWTH_FACTOR * (tween_seq->limits_list).capacity; (tween_seq->limits_list).items = std_realloc((tween_seq->limits_list).items, (tween_seq->limits_list).capacity * sizeof((limits))); } (tween_seq->limits_list).items[(tween_seq->limits_list).count] = (limits); (tween_seq->limits_list).count++; } while(0);
     }
 }
 int main() {
-    String INTROSPECT_FILE_SUFFIX_EXT = string_from_cstr(".int");
-    String filenames[] = {
-        string_from_cstr("introspect/main.c"),
+    SET_LOG_LEVEL(LOG_LEVEL_ERROR);
+    InitWindow(1000, 1000, "Test");
+    SetTargetFPS(60);
+    Vector2 rect_origin_center = {25, 25};
+    Tween_Vector2 tweens[10] = {0};
+    reset_test_tweens(tweens);
+    Rectangle rects[10] = {0};
+    for (uint32 i = 0; i < 10; i++) {
+        rects[i].width = 50;
+        rects[i].height = 50;
+    }
+    TweenSequence_Vector2 tween_seq = {
+        .state = new_tween_sequence_state(TWEEN_REPEAT_MIRRORED),
+        .limits_list = {0},
     };
-    String int_filenames[(sizeof((filenames)) / sizeof((filenames)[0]))] = {
-        string_from_cstr("introspect/main.c.int"),
+    reset_test_tween_sequence(&tween_seq);
+    Rectangle rect = {
+        .width = 50,
+        .height = 50,
     };
-    usize process_ids[(sizeof((filenames)) / sizeof((filenames)[0]))] = {0};
-    for (usize i = 0; i < (sizeof((filenames)) / sizeof((filenames)[0])); i++) {
-        String filename = filenames[i];
-        String int_filename = int_filenames[i];
-        usize spawn_result = _spawnlp(
-            1,
-            "gcc",
-            "gcc",
-            "-Ijustengine/include",
-            "-IC:/dev/vendor/openssl-3.5.0/include",
-            "-DPRE_INTROSPECT_PASS",
-            "-E",
-            "-P",
-            filename.cstr,
-            "-o",
-            int_filename.cstr,
-            ((void *)0)
-        );
-        if (spawn_result == -1) {
-            { JUST_LOG_PANIC("Failed to create process\n"); std_exit(1); };
+    uint32 val = 15;
+    uint32 items[4] = {1, 2, 3, 4};
+    TestStruct test_struct = {
+        .bool_field = 1,
+        .uint_field = 14,
+        .int_field = -2020,
+        .cint_field = -150,
+        .float_field = 17.899,
+        .ptr_field = &val,
+        .arr_field = {0},
+        .cstr_field = "This is a cstr.",
+        .string_field = (TestString) {
+            .count = 10,
+            .capacity = 15,
+            .str = "This is a|string but cut off.",
+        },
+        .struct_field = (InnerTestStruct) {
+            .count = 2,
+            .capacity = 4,
+            .items = items,
+        },
+        .struct_arr_field = {
+            (InnerTestStruct) {
+                .count = 1,
+                .capacity = 4,
+                .items = items,
+            },
+            (InnerTestStruct) {
+                .count = 2,
+                .capacity = 4,
+                .items = items,
+            },
+            (InnerTestStruct) {
+                .count = 3,
+                .capacity = 4,
+                .items = items,
+            },
         }
-        process_ids[i] = spawn_result;
-    }
-    printf("-- [%s:%d] --\n", "introspect/main.c", 899);
-    _Bool success = 1;
-    for (usize i = 0; i < (sizeof((filenames)) / sizeof((filenames)[0])); i++) {
-        int32 exit_status;
-        printf("-- [%s:%d] --\n", "introspect/main.c", 904);
-        usize wait_result = _cwait(&exit_status, process_ids[i], 0);
-        printf("-- [%s:%d] --\n", "introspect/main.c", 906);
-        if (wait_result == -1) {
-            { JUST_LOG_PANIC("Failed to wait process\n"); std_exit(1); };
+    };
+    TestStruct test_struct_arr[3] = {
+        test_struct,
+        test_struct,
+        test_struct,
+    };
+    while (!WindowShouldClose()) {
+        float32 delta_time = GetFrameTime();
+        if (IsKeyPressed(KEY_SPACE)) {
+            reset_test_tweens(tweens);
+            reset_test_tween_sequence(&tween_seq);
+            printf("---\n");
+            TestStruct__print0(&test_struct);
+            printf("---\n");
+            TestStruct__pretty_print0(&test_struct);
+            printf("---\n");
+            TestStruct__pretty_print_with0(&test_struct, (IndentToken) {.token = " ", .count = 4});
+            printf("---\n");
+            TestStruct_array__pretty_print_with0(test_struct_arr, 3, (IndentToken) {.token = " ", .count = 2});
+            printf("---\n");
         }
-        if (exit_status != 0) {
-            { JUST_LOG_PANIC("Proces exited with non-zero status\n"); std_exit(1); };
+        if (IsKeyPressed(KEY_P)) {
+            StringBuilder builder = string_builder_new();
+            String string1 = string_new();
+            do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "line1: %d, %d\n", 1, 2); do { usize new_capacity = ((string1)).count + string_append_format__count + 1; if (((string1)).capacity < new_capacity) { ((string1)).capacity = new_capacity; ((string1)).str = std_realloc(((string1)).str, ((string1)).capacity * sizeof(((string1)).str[0])); } } while(0); std_snprintf((string1).str + (string1).count, string_append_format__count + 1, "line1: %d, %d\n", 1, 2); (string1).count += string_append_format__count; } while (0);
+            do { int32 string_append_format__count = std_snprintf(((void *)0), 0, "[again] line1: %d, %d\n", 1, 2); do { usize new_capacity = ((string1)).count + string_append_format__count + 1; if (((string1)).capacity < new_capacity) { ((string1)).capacity = new_capacity; ((string1)).str = std_realloc(((string1)).str, ((string1)).capacity * sizeof(((string1)).str[0])); } } while(0); std_snprintf((string1).str + (string1).count, string_append_format__count + 1, "[again] line1: %d, %d\n", 1, 2); (string1).count += string_append_format__count; } while (0);
+            do { usize assert__count_hint = 12 + 3; do { usize new_capacity = ((string1)).count + 12 + 3 + 1; if (((string1)).capacity < new_capacity) { ((string1)).capacity = new_capacity; ((string1)).str = std_realloc(((string1)).str, ((string1)).capacity * sizeof(((string1)).str[0])); } } while(0); int32 string_hinted_append_format__count = std_snprintf((string1).str + (string1).count, 12 + 3 + 1, "line2: %d, %d\n", 2, 3); if (string_hinted_append_format__count > 12 + 3) { do { usize new_capacity = ((string1)).count + string_hinted_append_format__count + 1; if (((string1)).capacity < new_capacity) { ((string1)).capacity = new_capacity; ((string1)).str = std_realloc(((string1)).str, ((string1)).capacity * sizeof(((string1)).str[0])); } } while(0); std_snprintf((string1).str + (string1).count, string_hinted_append_format__count + 1, "line2: %d, %d\n", 2, 3); } (string1).count += string_hinted_append_format__count; } while (0);
+            string_builder_append_string_owned(&builder, string1);
+            String string2 = string_new();
+            string_append_cstr(&string2, "This is a cstr.");
+            string_builder_append_string_owned(&builder, string2);
+            String result_string = build_string(&builder);
+            printf("-----\n");
+            for (uint32 i = 0; i < result_string.count + 1; i++) {
+                char c = result_string.str[i];
+                if (c == '\0') {
+                    printf("\\0");
+                }
+                else if (c == '\n') {
+                    printf("\\n");
+                }
+                else {
+                    printf("%c", c);
+                }
+            }
+            printf("\n");
+            printf("-----\n");
+            printf("[len: %d]\n\"%s\"\n", result_string.count, result_string.cstr);
+            printf("-----\n");
         }
-        printf("-- [%s:%d] --\n", "introspect/main.c", 913);
-        String int_filename = int_filenames[i];
-        if (success) {
-            printf("-- [%s:%d] --\n", "introspect/main.c", 917);
-            success &= generate_introspect(int_filename);
+        for (uint32 i = 0; i < 10; i++) {
+            Vector2 pos = Vector2__tween_tick(&tweens[i], delta_time);
+            rects[i].x = pos.x;
+            rects[i].y = pos.y;
         }
-        printf("-- [%s:%d] --\n", "introspect/main.c", 920);
+        Vector2 pos = Vector2__tween_sequence_tick(&tween_seq, delta_time);
+        rect.x = pos.x;
+        rect.y = pos.y;
+        BeginDrawing();
+        ClearBackground((Color){ 245, 245, 245, 255 });
+        for (uint32 i = 0; i < 10; i++) {
+            DrawRectanglePro(rects[i], rect_origin_center, 0, (Color){ 230, 41, 55, 255 });
+        }
+        DrawRectanglePro(rect, rect_origin_center, 0, (Color){ 0, 121, 241, 255 });
+        EndDrawing();
     }
-    printf("-- [%s:%d] --\n", "introspect/main.c", 923);
-    if (!success) {
-        { JUST_LOG_PANIC("Introspect failed\n"); std_exit(1); };
-    }
-    printf("-- [%s:%d] --\n", "introspect/main.c", 929);
-    String int_file_content = gen_introspect_file();
-    FILE* file = fopen("introspect/gen.h", "w+");
-    if (file == ((void *)0)) {
-        { JUST_LOG_PANIC("Error opening file\n"); std_exit(1); };
-    }
-    fputs(int_file_content.cstr, file);
-    fclose(file);
     return 0;
 }

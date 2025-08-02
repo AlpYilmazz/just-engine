@@ -3,13 +3,13 @@
 #include "core.h"
 
 #ifdef PRE_INTROSPECT_PASS
-    #define introspect _introspect
-    #define introspect_with(...) _introspect_with(__VA_ARGS__)
-    #define alias(...) _alias(__VA_ARGS__)
-    #define mode_cstr(...) _mode_cstr(__VA_ARGS__)
-    #define mode_dynarray(...) _mode_dynarray(__VA_ARGS__)
-    #define mode_string(...) _mode_string(__VA_ARGS__)
-    #define mode_function_ptr(...) _mode_function_ptr(__VA_ARGS__)
+    #define introspect _introspect__just_to_make_sure_no_token_overlap__
+    #define introspect_with(...) _introspect_with__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define alias(...) _alias__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define mode_cstr(...) _mode_cstr__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define mode_dynarray(...) _mode_dynarray__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define mode_string(...) _mode_string__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define mode_function_ptr(...) _mode_function_ptr__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
 #else
     #define introspect 
     #define introspect_with(...) 
@@ -19,13 +19,13 @@
     #define mode_string(...) 
     #define mode_function_ptr(...) 
 
-    #define _introspect 
-    #define _introspect_with(...) 
-    #define _alias(...) 
-    #define _mode_cstr(...) 
-    #define _mode_dynarray(...) 
-    #define _mode_string(...) 
-    #define _mode_function_ptr(...) 
+    #define _introspect__just_to_make_sure_no_token_overlap__ 
+    #define _introspect_with__just_to_make_sure_no_token_overlap__(...) 
+    #define _alias__just_to_make_sure_no_token_overlap__(...) 
+    #define _mode_cstr__just_to_make_sure_no_token_overlap__(...) 
+    #define _mode_dynarray__just_to_make_sure_no_token_overlap__(...) 
+    #define _mode_string__just_to_make_sure_no_token_overlap__(...) 
+    #define _mode_function_ptr__just_to_make_sure_no_token_overlap__(...) 
 #endif
 
 // TODO

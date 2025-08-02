@@ -1,32 +1,24 @@
+#include <process.h>
+
 #include "justengine.h"
 
 // run preprocessor only with PRE_INTROSPECT_PASS defined
 // run introspect generator
 // run normal compilation without PRE_INTROSPECT_PASS defined
 
-typedef struct {
-    uint32* * field_name;
-    bool bool_arr  [ 3];
-    const char const * const_field      mode_dynarray(count: count);
-    long long int lli                   alias(int64);
-    unsigned long int a;
-    // long unsigned long int b;
-    short c;
-} StructName;
-
-introspect_with()
+introspect
 typedef struct {
     usize count;
     usize capacity;
     uint32* items   mode_dynarray(count: count);
 } InnerTestStruct;
 
-// introspect_with()
+introspect
 typedef struct {
     bool bool_field;
     uint32 uint_field;
     int32 int_field;
-    int cint_field alias(int32);
+    int cint_field;
     float32 float_field;
     uint32* ptr_field;
     uint32 arr_field[10];
@@ -40,6 +32,9 @@ typedef struct {
 typedef enum {
     // --
     Token_const = 0,
+    // --
+    Token_unsigned_char,
+    Token_unsigned_int,
     // --
     Token_unsigned_short,
     Token_unsigned_long,
@@ -78,6 +73,9 @@ typedef enum {
 StaticStringToken field_parse_tokens__static[] = {
     (StaticStringToken) { .id = Token_const, .token = "const" },
 
+    (StaticStringToken) { .id = Token_unsigned_char, .token = "unsigned char" },
+    (StaticStringToken) { .id = Token_unsigned_int, .token = "unsigned int" },
+
     (StaticStringToken) { .id = Token_unsigned_short, .token = "unsigned short" },
     (StaticStringToken) { .id = Token_unsigned_long, .token = "unsigned long" },
     (StaticStringToken) { .id = Token_unsigned_long_long, .token = "unsigned long long" },
@@ -103,10 +101,10 @@ StaticStringToken field_parse_tokens__static[] = {
     (StaticStringToken) { .id = Token_sq_paren_open, .token = "[" },
     (StaticStringToken) { .id = Token_sq_paren_close, .token = "]" },
 
-    (StaticStringToken) { .id = Token_introspect_extension_alias, .token = "_alias" },
-    (StaticStringToken) { .id = Token_introspect_extension_mode_cstr, .token = "_cstr" },
-    (StaticStringToken) { .id = Token_introspect_extension_mode_dynarray, .token = "_dynarray" },
-    (StaticStringToken) { .id = Token_introspect_extension_mode_string, .token = "_string" },
+    (StaticStringToken) { .id = Token_introspect_extension_alias, .token = "_alias__just_to_make_sure_no_token_overlap__" },
+    (StaticStringToken) { .id = Token_introspect_extension_mode_cstr, .token = "_mode_cstr__just_to_make_sure_no_token_overlap__" },
+    (StaticStringToken) { .id = Token_introspect_extension_mode_dynarray, .token = "_mode_dynarray__just_to_make_sure_no_token_overlap__" },
+    (StaticStringToken) { .id = Token_introspect_extension_mode_string, .token = "_mode_string__just_to_make_sure_no_token_overlap__" },
     (StaticStringToken) { .id = Token_introspect_extension_key_count, .token = "count" },
 };
 
@@ -139,180 +137,6 @@ typedef struct {
     char* string_count_field;
     // --
 } FieldExtensions;
-
-// void assert_all_star(StringView sv) {
-//     for (usize i = 0; i < sv.count; i++) {
-//         if (sv.str[i] != '*') {
-//             PANIC("Weird pointer definition\n");
-//         }
-//     }
-// }
-
-// FieldInfo parse_struct_field(StringView field_def) {
-//     usize tokens_count = ARRAY_LENGTH(field_parse_tokens__static);
-//     StringToken* field_parse_tokens = string_tokens_from_static(field_parse_tokens__static, tokens_count);
-//     StringTokensIter tokens_iter = string_view_iter_tokens(field_def, field_parse_tokens, tokens_count);
-//     StringTokenOut token;
-
-//     FieldInfo field_info = {0};
-//     FieldExtensions field_ext = {0};
-
-//     FieldParseState state = FieldParse_Begin;
-//     FieldExtensionType current_ext = FieldExtensionNone;
-//     bool in_array_def = false;
-
-//     while (next_token(&tokens_iter, &token)) {
-//         printf("token: %d -> ", token.id);
-//         print_string_view(token.token);
-//         printf("\n");
-
-//         switch (state) {
-//         case FieldParse_Begin:
-//             if (token.free_word) {
-//                 field_info.type_str = cstr_nclone(token.token.str, token.token.count);
-//                 state = FieldParse_AfterType;
-//             }
-//             switch (token.id) {
-//             case Token_const:
-//                 break;
-//             case Token_unsigned_short:
-//             case Token_unsigned_long:
-//             case Token_unsigned_long_long:
-//             case Token_unsigned_short_int:
-//             case Token_unsigned_long_int:
-//             case Token_unsigned_long_long_int:
-//             case Token_short:
-//             case Token_long:
-//             case Token_long_long:
-//             case Token_short_int:
-//             case Token_long_int:
-//             case Token_long_long_int:
-//                 field_info.type_str = cstr_nclone(token.token.str, token.token.count);
-//                 state = FieldParse_AfterType;
-//                 break;
-//             }
-//             break;
-//         case FieldParse_AfterType:
-//             if (token.free_word) {
-//                 field_info.name = cstr_nclone(token.token.str, token.token.count);
-//                 state = FieldParse_AfterName;
-//             }
-//             switch (token.id) {
-//             case Token_star:
-//                 field_info.is_ptr = true;
-//                 field_info.ptr_depth++;
-//                 break;
-//             }
-//             break;
-//         case FieldParse_AfterName:
-//             if (in_array_def) {
-//                 field_info.array_dim++;
-//                 if (field_info.count == 0){
-//                     field_info.count = 1;
-//                 }
-//                 uint64 dim;
-//                 bool success = sv_parse_uint64(token.token, &dim);
-//                 field_info.count *= dim;
-//                 field_info.array_dim_counts[field_info.array_dim] = dim;
-
-//                 in_array_def = false;
-//             }
-//             switch (token.id) {
-//             case Token_sq_paren_open:
-//                 in_array_def = true;
-//                 break;
-//             case Token_sq_paren_close:
-//                 in_array_def = false;
-//                 break;
-//             case Token_semicolon:
-//                 state = FieldParse_End;
-//                 break;
-//             // --
-//             case Token_introspect_extension_alias:
-//                 field_ext.ext_alias = true;
-//                 expect_token(&tokens_iter, Token_paren_open);
-//                 if (next_token(&tokens_iter, &token)) {
-//                     if (token.free_word) {
-//                         field_ext.type_alias = string_from_view(token.token).cstr;
-//                     }
-//                     else {
-//                         PANIC("Extension syntax error.\n");
-//                     }
-//                 }
-//                 else {
-//                     PANIC("Extension syntax error.\n");
-//                 }
-//                 expect_token(&tokens_iter, Token_paren_close);
-//                 break;
-//             case Token_introspect_extension_mode_cstr:
-//                 field_ext.ext_mode_cstr = true;
-//                 expect_token(&tokens_iter, Token_paren_open);
-//                 expect_token(&tokens_iter, Token_paren_close);
-//                 break;
-//             case Token_introspect_extension_mode_dynarray:
-//                 field_ext.ext_mode_dynarray = true;
-//                 expect_token(&tokens_iter, Token_paren_open);
-//                 expect_token(&tokens_iter, Token_introspect_extension_key_count);
-//                 expect_token(&tokens_iter, Token_colon);
-//                 if (next_token(&tokens_iter, &token)) {
-//                     field_ext.dynarray_count_field = string_from_view(token.token).cstr;
-//                 }
-//                 else {
-//                     PANIC("Extension syntax error.\n");
-//                 }
-//                 expect_token(&tokens_iter, Token_paren_close);
-//                 break;
-//             case Token_introspect_extension_mode_string:
-//                 current_ext = FieldExtension_mode_string;
-//                 break;
-//             }
-//             break;
-//         case FieldParse_End:
-//             if (current_ext == FieldExtensionNone) {
-//                 switch (token.id) {
-//                 case Token_introspect_extension_alias:
-//                     current_ext = FieldExtension_alias;
-//                     break;
-//                 case Token_introspect_extension_mode_cstr:
-//                     current_ext = FieldExtension_mode_cstr;
-//                     break;
-//                 case Token_introspect_extension_mode_dynarray:
-//                     current_ext = FieldExtension_mode_dynarray;
-//                     break;
-//                 case Token_introspect_extension_mode_string:
-//                     current_ext = FieldExtension_mode_string;
-//                     break;
-//                 }
-//                 if (!next_token(&tokens_iter, &token)) {
-//                     PANIC("Extension syntax error.\n");
-//                 }
-//                 if (token.id != Token_paren_open) {
-//                     PANIC("Extension syntax error.\n");
-//                 }
-//             }
-//             else {
-//                 switch (current_ext) {
-//                 case FieldExtension_alias:
-//                     if (!next_token(&tokens_iter, &token)) {
-//                         PANIC("Extension syntax error.\n");
-//                     }
-//                     // field_ext.
-//                     break;
-//                 case FieldExtension_mode_cstr:
-//                     break;
-//                 case FieldExtension_mode_dynarray:
-//                     break;
-//                 case FieldExtension_mode_string:
-//                     break;
-//                 }
-//             }
-//             break;
-//         }
-//     }
-//     return field_info;
-// }
-
-#include <process.h>
 
 typedef struct {
     FieldInfo field_info;
@@ -355,25 +179,6 @@ Type type_of_field(FieldInfoExt* field) {
     }
     String type_name = string_from_cstr(type_name_cs);
 
-    // const char* type_map[][2] = {
-    //     { "void",       "TYPE_void"},
-    //     { "char",       "TYPE_char"},
-    //     { "byte",       "TYPE_byte"},
-    //     { "bool",       "TYPE_bool"},
-    //     { "_Bool",      "TYPE_bool"},
-    //     { "uint8",      "TYPE_uint8"},
-    //     { "uint16",     "TYPE_uint16"},
-    //     { "uint32",     "TYPE_uint32"},
-    //     { "uint64",     "TYPE_uint64"},
-    //     { "int8",       "TYPE_int8"},
-    //     { "int16",      "TYPE_int16"},
-    //     { "int32",      "TYPE_int32"},
-    //     { "int64",      "TYPE_int64"},
-    //     { "usize",      "TYPE_usize"},
-    //     { "float32",    "TYPE_float32"},
-    //     { "float64",    "TYPE_float64"},
-    //     // TYPE_struct
-    // };
     TypeNameMapping type_map[] = {
         { .name = "void",       .type = TYPE_void},
         { .name = "char",       .type = TYPE_char},
@@ -392,6 +197,30 @@ Type type_of_field(FieldInfoExt* field) {
         { .name = "float32",    .type = TYPE_float32},
         { .name = "float64",    .type = TYPE_float64},
         // TYPE_struct
+        // --
+        { .name = "int",      .type = TYPE_int32},
+        { .name = "float",     .type = TYPE_float32},
+        { .name = "double",     .type = TYPE_float64},
+        // --
+        { .name = "unsigned char",      .type = TYPE_byte},
+        { .name = "unsigned int",     .type = TYPE_uint32},
+        // --
+        { .name = "unsigned short",     .type = TYPE_uint16},
+        { .name = "unsigned long",     .type = TYPE_uint32},
+        { .name = "unsigned long long",     .type = TYPE_uint64},
+        // --
+        { .name = "unsigned short int",     .type = TYPE_uint16},
+        { .name = "unsigned long int",     .type = TYPE_uint32},
+        { .name = "unsigned long long int",     .type = TYPE_uint64},
+        // --
+        { .name = "short",     .type = TYPE_int16},
+        { .name = "long",     .type = TYPE_int32},
+        { .name = "long long",     .type = TYPE_int64},
+        // --
+        { .name = "short int",     .type = TYPE_int16},
+        { .name = "long int",     .type = TYPE_int32},
+        { .name = "long long int",     .type = TYPE_int64},
+        // --
     };
 
     for (uint32 i = 0; i < ARRAY_LENGTH(type_map); i++) {
@@ -442,7 +271,7 @@ char* type_to_type_str(Type type) {
 }
 
 void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
-    string_builder_append_format(GEN, "FieldInfo %s__fields[] = {\n", struct_info->type_name.cstr);
+    string_builder_append_format(GEN, "static FieldInfo %s__fields[] = {\n", struct_info->type_name.cstr);
 
     for (usize i = 0; i < struct_info->count; i++) {
         FieldInfoExt* field = &struct_info->fields[i];
@@ -519,9 +348,31 @@ void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
 String gen_introspect_file() {
     StringBuilder GEN = string_builder_new();
 
+    string_builder_append_cstr(&GEN, "#pragma once\n\n");
+    string_builder_append_cstr(&GEN, "#include \"justengine.h\"\n\n");
+
+    string_builder_append_cstr(
+        &GEN,
+        "/**\n"
+        " * !! IMPORTANT !!\n"
+        " * IMPORT THIS HEADER AFTER THESE DEFINITONS\n"
+    );
     for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
         StructInfo* struct_info = &INTROSPECTED_STRUCTS.structs[i];
-        string_builder_append_format(&GEN, "FieldInfo %s__fields[%llu];\n", struct_info->type_name.cstr, struct_info->count);
+        string_builder_append_format(
+            &GEN,
+            " * - %s\n",
+            struct_info->type_name.cstr
+        );
+    }
+    string_builder_append_cstr(
+        &GEN,
+        "*/\n\n"
+    );
+
+    for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
+        StructInfo* struct_info = &INTROSPECTED_STRUCTS.structs[i];
+        string_builder_append_format(&GEN, "static FieldInfo %s__fields[%llu];\n", struct_info->type_name.cstr, struct_info->count);
     }
     string_builder_append_cstr(&GEN, "\n");
 
@@ -529,14 +380,18 @@ String gen_introspect_file() {
         StructInfo* struct_info = &INTROSPECTED_STRUCTS.structs[i];
         write_introspect(&GEN, struct_info);
     }
+    string_builder_append_cstr(&GEN, "\n");
+
+    for (usize i = 0; i < INTROSPECTED_STRUCTS.count; i++) {
+        StructInfo* struct_info = &INTROSPECTED_STRUCTS.structs[i];
+        string_builder_append_format(&GEN, "__IMPL_____generate_print_functions(%s);\n", struct_info->type_name.cstr);
+    }
+    string_builder_append_cstr(&GEN, "\n");
 
     return build_string(&GEN);
 }
 
 void generate_introspect_for_struct(String struct_def) {
-    // printf("\n");
-    // print_string(struct_def);
-    // printf("\n");
     usize curly_paren_open;
     usize curly_paren_close;
     for (usize i = 0; i < struct_def.count; i++) {
@@ -555,24 +410,8 @@ void generate_introspect_for_struct(String struct_def) {
     if (curly_paren_open >= curly_paren_close) {
         PANIC("Syntax error: curly paren\n");
     }
-    // printf("\n");
-    // JUST_LOG_INFO("%llu -> %llu [%llu/%llu]\n", curly_paren_open, curly_paren_close, struct_def.count, struct_def.count-1 - curly_paren_close - 1);
     
     StructInfo struct_info = {0};
-    // StringView s1 = string_slice_view(struct_def, curly_paren_close + 1, struct_def.count-1 - curly_paren_close - 1);
-    // StringView s2 = string_view_trim(s1);
-    // String s = string_from_view(s2);
-    // JUST_LOG_INFO("%p -> %p, %p\n", struct_def.str, s1.str, s1.str);
-    // for (usize i = 0; i < s1.count; i++) {
-    //     printf("%c", s1.str[i]);
-    // }
-    // printf("\n---\n");
-    // print_string_view(s1);
-    // printf("\n---\n");
-    // print_string_view(s2);
-    // printf("\n---\n");
-    // print_string(s);
-    // printf("\n---\n");
     struct_info.type_name = string_from_view(string_view_trim(string_slice_view(struct_def, curly_paren_close + 1, struct_def.count-1 - curly_paren_close - 1)));
 
     if (already_introspected(struct_info.type_name)) {
@@ -581,9 +420,6 @@ void generate_introspect_for_struct(String struct_def) {
     }
 
     StringView struct_fields = string_slice_view(struct_def, curly_paren_open + 1, curly_paren_close - curly_paren_open - 1);
-
-    // print_string(struct_info.type_name);
-    // print_string_view(struct_fields);
 
     usize tokens_count = ARRAY_LENGTH(field_parse_tokens__static);
     StringToken* field_parse_tokens = string_tokens_from_static(field_parse_tokens__static, tokens_count);
@@ -597,12 +433,6 @@ void generate_introspect_for_struct(String struct_def) {
 
     usize i = 0;
     while (next_token(&tokens_iter, &token)) {
-        printf("[%llu] %d: \"", i++, token.id);
-        // for (usize c = 0; c < token.token.count; c++) {
-        //     printf("%c", token.token.str[c]);
-        // }
-        print_string_view(token.token);
-        printf("\"\n");
         switch (state) {
         case FieldParse_Begin:
             switch (token.id) {
@@ -645,7 +475,9 @@ void generate_introspect_for_struct(String struct_def) {
                 }
                 uint64 dim;
                 bool success = sv_parse_uint64(token.token, &dim);
-                JUST_LOG_DEBUG("dim: %lld\n", dim);
+                if (!success) {
+                    PANIC("Array dim syntax error\n");
+                }
                 field_info.count *= dim;
                 field_info.array_dim_counts[field_info.array_dim++] = dim;
 
@@ -660,7 +492,6 @@ void generate_introspect_for_struct(String struct_def) {
                 in_array_def = false;
                 break;
             case Token_semicolon:
-                printf("%s %s\n", field_info.type_str, field_info.name);
                 FieldInfoExt field_info_ext = {
                     .field_info = field_info,
                     .field_ext = field_ext,
@@ -744,7 +575,7 @@ bool generate_introspect(String int_filename) {
     }
 
     String cmd_introspect = string_from_cstr("_introspect");
-    string_append_cstr(&cmd_introspect, "_with()");
+    string_append_cstr(&cmd_introspect, "__just_to_make_sure_no_token_overlap__");
 
     uint32 i = 0;
     bool gen_introspect = false;
@@ -755,7 +586,6 @@ bool generate_introspect(String int_filename) {
     char ch;
     while ((ch = fgetc(file)) != EOF) {
         if (gen_introspect) {
-            // printf("%c", ch);
             string_push_char(&struct_def_str, ch);
             switch (state) {
             case STATE_STRUCT_BEGIN:
@@ -770,8 +600,6 @@ bool generate_introspect(String int_filename) {
                 break;
             case STATE_CURLY_PAREN_CLOSE_RECEIVED:
                 if (ch == ';') {
-                    // printf("\n---\n");
-                    // print_string(struct_def_str);
                     generate_introspect_for_struct(struct_def_str);
                     clear_string(&struct_def_str);
                     gen_introspect = false;
@@ -800,15 +628,15 @@ int main() {
     // new_string_merged(filename, INTROSPECT_FILE_SUFFIX_EXT);
 
     String filenames[] = {
-        string_from_cstr("introspect/main.c"),
         // string_from_cstr("introspect/main.c"),
+        string_from_cstr("test.c"),
         // string_from_cstr("introspect/main.c"),
     };
     #define FILE_COUNT ARRAY_LENGTH(filenames)
 
     String int_filenames[FILE_COUNT] = {
-        string_from_cstr("introspect/main.c.int"),
         // string_from_cstr("introspect/main.c.int"),
+        string_from_cstr("test.c.int"),
         // string_from_cstr("introspect/main.c.int"),
     };
     usize process_ids[FILE_COUNT] = {0};
@@ -837,43 +665,30 @@ int main() {
 
         process_ids[i] = spawn_result;
     }
-    JUST_DEV_MARK();
 
     bool success = true;
     for (usize i = 0; i < FILE_COUNT; i++) {
         int32 exit_status;
-        JUST_DEV_MARK();
         usize wait_result = _cwait(&exit_status, process_ids[i], _WAIT_CHILD);
-        JUST_DEV_MARK();
         if (wait_result == -1) {
             PANIC("Failed to wait process\n");
         }
         if (exit_status != 0) {
             PANIC("Proces exited with non-zero status\n");
         }
-        JUST_DEV_MARK();
 
         String int_filename = int_filenames[i];
         if (success) {
-            JUST_DEV_MARK();
             success &= generate_introspect(int_filename);
         }
-        JUST_DEV_MARK();
     }
-
-    JUST_DEV_MARK();
 
     if (!success) {
         PANIC("Introspect failed\n");
     }
 
-    JUST_DEV_MARK();
-
     String int_file_content = gen_introspect_file();
-    printf("\n-----------------\n");
-    print_string(int_file_content);
-    printf("\n-----------------\n");
-    FILE* file = fopen("introspect/gen.c", "w+");
+    FILE* file = fopen("introspect/gen.h", "w+");
     if (file == NULL) {
         PANIC("Error opening file\n");
     }
@@ -881,19 +696,4 @@ int main() {
     fclose(file);
 
     return 0;
-
-    // String fields[] = {
-    //     string_from_cstr("uint32* * field_name;"),
-    //     string_from_cstr("bool bool_arr  [ 3];"),
-    //     string_from_cstr("const char const * const_field; alias(bool) mode(dynarray, count: count)"),
-    //     string_from_cstr("long long int lli; alias(int64)"),
-    // };
-
-    // for (uint32 i = 0; i < ARRAY_LENGTH(fields); i++) {
-    //     printf("-----\n");
-    //     parse_struct_field(string_as_view(fields[i]));
-    //     printf("-----\n");
-    // }
-    
-    // return 0;
 }
