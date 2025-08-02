@@ -418,19 +418,31 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 #define __HEADER_INTROSPECT_INTROSPECT
 #ifdef __HEADER_INTROSPECT_INTROSPECT
 
-/**
- * Used on struct/enum definitions
-*/
-#define introspect(...) 
+#ifdef PRE_INTROSPECT_PASS
+    #define introspect _introspect
+    #define introspect_with(...) _introspect_with(__VA_ARGS__)
+    #define alias(...) _alias(__VA_ARGS__)
+    #define mode_cstr(...) _mode_cstr(__VA_ARGS__)
+    #define mode_dynarray(...) _mode_dynarray(__VA_ARGS__)
+    #define mode_string(...) _mode_string(__VA_ARGS__)
+    #define mode_function_ptr(...) _mode_function_ptr(__VA_ARGS__)
+#else
+    #define introspect 
+    #define introspect_with(...) 
+    #define alias(...) 
+    #define mode_cstr(...) 
+    #define mode_dynarray(...) 
+    #define mode_string(...) 
+    #define mode_function_ptr(...) 
 
-/**
- * Used on struct field definitions
-*/
-#define alias(...) 
-#define mode_cstr(...) 
-#define mode_dynarray(...) 
-#define mode_string(...) 
-#define mode_function_ptr(...) 
+    #define _introspect 
+    #define _introspect_with(...) 
+    #define _alias(...) 
+    #define _mode_cstr(...) 
+    #define _mode_dynarray(...) 
+    #define _mode_string(...) 
+    #define _mode_function_ptr(...) 
+#endif
 
 // TODO
 /**
@@ -468,7 +480,7 @@ typedef struct FieldInfo {
     void* ptr;
     // --
     bool is_ptr;
-    uint32 ref_depth;
+    uint32 ptr_depth;
     // --
     bool is_array;
     usize count; // total array length
@@ -908,7 +920,7 @@ typedef struct {
 StringToken* string_tokens_from_static(StaticStringToken* static_tokens, usize count);
 
 typedef struct {
-    uint32 id;
+    int64 id;
     bool free_word;
     StringView token;
 } StringTokenOut;

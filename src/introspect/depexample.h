@@ -2,7 +2,7 @@
 
 #include "introspect/introspect.h"
 
-introspect(mode_string, count: count, str: str)
+introspect
 typedef struct {
     usize count;
     usize capacity;

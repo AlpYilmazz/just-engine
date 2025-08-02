@@ -64,8 +64,9 @@ String string_from_view(StringView string_view) {
         return string_new();
     }
     String string = string_with_capacity(string_view.count + 1);
-    std_memcpy(string_view.str, string.str, string_view.count);
-    string.str[string_view.count] = '\0';
+    std_memcpy(string.str, string_view.str, string_view.count);
+    string.count = string_view.count;
+    string.str[string.count] = '\0';
     return string;
 }
 
@@ -110,8 +111,9 @@ bool svcs_equals(StringView sv, char* cs) {
 bool sv_parse_uint64(StringView sv, uint64* out) {
     uint64 num = 0;
     uint64 factor = 1;
-    for (usize i = sv.count-1; i >= 0; i--) {
+    for (int64 i = sv.count-1; i >= 0; i--) {
         uint64 digit = sv.str[i] - '0';
+        JUST_LOG_DEBUG("c: %c, d: %d\n", sv.str[i], digit);
         if (digit < 0 || 9 < digit) {
             return false;
         }
@@ -119,6 +121,7 @@ bool sv_parse_uint64(StringView sv, uint64* out) {
         factor *= 10;
     }
     *out = num;
+    return true;
 }
 
 void string_push_char(String* string, char ch) {
@@ -317,6 +320,12 @@ StringTokensIter string_iter_tokens(String string, StringToken* tokens, usize to
     return string_view_iter_tokens(string_as_view(string), tokens, token_count);
 }
 
+void free_tokens_iter(StringTokensIter* tokens_iter) {
+    for (usize i = 0; i < tokens_iter->token_count; i++) {
+        free_string(tokens_iter->tokens[i].token);
+    }
+}
+
 bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
     StringView start = tokens_iter->cursor;
 
@@ -327,6 +336,7 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
     
     while (tokens_iter->cursor.count > 0) {
         char ch = *tokens_iter->cursor.str;
+        // printf("%c", ch);
         usize i = (usize)tokens_iter->cursor.str - (usize)start.str;
         if (in_word) {
             if (char_is_whitespace(ch)) {
@@ -337,6 +347,11 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
                     .free_word = true,
                     .token = string_view_slice_view(start, word_start_inc, word_end_exc - word_start_inc),
                 };
+                // JUST_DEV_MARK();
+                // JUST_LOG_INFO("%p [%llu (%llu)]\n", start, word_start_inc, word_end_exc - word_start_inc);
+                // JUST_LOG_INFO("%d: <%p><%llu> \n", token_out->id, token_out->token.str, token_out->token.count);
+                // print_string_view(token_out->token);
+                // printf("\n");
                 return true;
             }
         }
@@ -372,6 +387,7 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
                             .free_word = true,
                             .token = trimmed,
                         };
+                        // JUST_DEV_MARK();
                         return true;
                     }
 
@@ -381,6 +397,7 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
                         .free_word = false,
                         .token = string_as_view(token.token),
                     };
+                    // JUST_DEV_MARK();
                     return true;
                 }
             }
@@ -398,6 +415,7 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
             .free_word = true,
             .token = string_view_slice_view(start, word_start_inc, word_end_exc - word_start_inc),
         };
+        // JUST_DEV_MARK();
         return true;
     }
 

@@ -4,23 +4,24 @@
 
 #include "depexample.h"
 
-introspect(mode_dynarray, count: count, items: items)
+introspect
 typedef struct {
     usize count;
     usize capacity;
     uint32* items;
 } InnerTestStruct;
 
-introspect(mode_normal)
+introspect
 typedef struct {
     bool bool_field;
     uint32 uint_field;
     int32 int_field;
-    alias(int32) int cint_field;
+    int cint_field alias(int32);
     float32 float_field;
     uint32* ptr_field;
     uint32 arr_field[10];
-    char* cstr_field;
+    char* cstr_field mode_cstr();
+    uint32* dynarray_field mode_dynarray(count: uint_field);
     TestString string_field;
     InnerTestStruct struct_field;
     InnerTestStruct struct_arr_field[3];
@@ -68,8 +69,8 @@ FieldInfo TestStruct__fields[] = {
     },
     {
         .type = TYPE_struct, .name = "struct_arr_field", .ptr = &(((TestStruct*)(0))->struct_arr_field),
-        .is_array = true, .count = 3,
-        .struct_size = sizeof(((TestStruct*)(0))->struct_arr_field), .field_count = ARRAY_LENGTH(InnerTestStruct__fields), .fields = InnerTestStruct__fields
+        .is_array = true, .count = 3 + sizeof(((TestStruct*)(0))->struct_arr_field[0]),
+        .struct_size = sizeof(((TestStruct*)(0))->struct_arr_field[0]), .field_count = ARRAY_LENGTH(InnerTestStruct__fields), .fields = InnerTestStruct__fields
     },
 };
 
