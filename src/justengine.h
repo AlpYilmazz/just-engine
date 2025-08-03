@@ -23,7 +23,9 @@ void std_free(void *_Memory);
 
 // string.h
 
+int std_memcmp(const void *_Buf1, const void *_Buf2, size_t _Size);
 void* std_memcpy(void *__restrict__ _Dst, const void *__restrict__ _Src, size_t _Size);
+int std_strcmp(const char *_Str1, const char *_Str2);
 
 // stdio.h
 
@@ -832,10 +834,23 @@ typedef struct {
     StringView second;
 } StringViewPair;
 
+typedef struct {
+    usize count;
+    usize capacity;
+    String* items;
+} StringList;
+
+typedef struct {
+    usize count;
+    usize capacity;
+    StringView* items;
+} StringViewList;
+
 String string_new();
 String string_with_capacity(usize capacity);
 String string_from_cstr(const char* cstr);
 String string_from_view(StringView string_view);
+String clone_string(String string);
 void clear_string(String* string);
 void free_string(String string);
 

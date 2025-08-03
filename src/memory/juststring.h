@@ -53,10 +53,23 @@ typedef struct {
     StringView second;
 } StringViewPair;
 
+typedef struct {
+    usize count;
+    usize capacity;
+    String* items;
+} StringList;
+
+typedef struct {
+    usize count;
+    usize capacity;
+    StringView* items;
+} StringViewList;
+
 String string_new();
 String string_with_capacity(usize capacity);
 String string_from_cstr(const char* cstr);
 String string_from_view(StringView string_view);
+String clone_string(String string);
 void clear_string(String* string);
 void free_string(String string);
 

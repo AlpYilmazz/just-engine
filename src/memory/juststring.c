@@ -70,6 +70,14 @@ String string_from_view(StringView string_view) {
     return string;
 }
 
+String clone_string(String string) {
+    return (String) {
+        .count = string.count,
+        .capacity = string.count,
+        .str = cstr_nclone(string.cstr, string.count),
+    };
+}
+
 void clear_string(String* string) {
     if (string->count > 0) {
         string->str[0] = '\0';

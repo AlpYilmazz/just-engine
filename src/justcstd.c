@@ -33,6 +33,10 @@ void* std_memcpy(void *__restrict__ _Dst, const void *__restrict__ _Src, size_t 
     return memcpy(_Dst, _Src, _Size);
 }
 
+int std_strcmp(const char *_Str1, const char *_Str2) {
+    return strcmp(_Str1, _Str2);
+}
+
 // stdio.h
 
 int std_snprintf(char *__restrict__ __stream, size_t __n, const char *__restrict__ __format, ...) {

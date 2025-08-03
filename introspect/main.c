@@ -623,53 +623,141 @@ bool generate_introspect(String int_filename) {
     }
 }
 
-int main() {
-    String INTROSPECT_FILE_SUFFIX_EXT = string_from_cstr(".int");
-    // new_string_merged(filename, INTROSPECT_FILE_SUFFIX_EXT);
+#include <dirent.h>
+#include <sys/stat.h>
 
-    String filenames[] = {
-        // string_from_cstr("introspect/main.c"),
-        string_from_cstr("test.c"),
-        // string_from_cstr("introspect/main.c"),
-    };
-    #define FILE_COUNT ARRAY_LENGTH(filenames)
+typedef struct {
+    String full_path;
+    String filename;
+} FileEntry;
 
-    String int_filenames[FILE_COUNT] = {
-        // string_from_cstr("introspect/main.c.int"),
-        string_from_cstr("test.c.int"),
-        // string_from_cstr("introspect/main.c.int"),
-    };
-    usize process_ids[FILE_COUNT] = {0};
+typedef struct {
+    usize count;
+    usize capacity;
+    FileEntry* items;
+} FileEntryList;
+
+void files_in_directory_recursive(String path, FileEntryList* file_entries) {
+    DIR* dir = opendir(path.cstr);
+    if (!dir) {
+        PANIC("Error opening dir: \"%s\"\n", path.cstr);
+    }
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (std_strcmp(entry->d_name, ".") == 0 || std_strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        String full_path = string_with_capacity(256);
+        string_append_format(full_path, "%s/%s", path.cstr, entry->d_name);
+
+        struct stat path_stat;
+        if (stat(full_path.cstr, &path_stat) != 0) {
+            PANIC("stat failed for: \"%s\"\n", full_path.cstr);
+        }
+
+        if (S_ISDIR(path_stat.st_mode)) {
+            traverse_directory(full_path, file_entries);
+            free_string(full_path);
+        }
+        else {
+            FileEntry file_entry = {
+                .full_path = full_path,
+                .filename = string_from_cstr(entry->d_name),
+            };
+            dynarray_push_back(*file_entries, file_entry);
+        }
+    }
+
+    closedir(dir);
+}
+
+typedef struct {
+    usize count;
+    usize capacity;
+    usize* items;
+} ProcessIds;
+
+int main(int argc, char* argv[]) {
+    if (argc <= 1) {
+        PANIC("Please input root directory for scanning\n");
+    }
+    
+    String scanroot_path = string_from_cstr(argv[1]);
+    
+    StringList include_paths = {0};
+    dynarray_reserve(include_paths, argc - 2);
+    for (uint32 i = 2; i < argc; i++) {
+        String include_path = string_from_cstr(argv[i]);
+        dynarray_push_back(include_paths, include_path);
+    }
+
+    FileEntryList file_entries = {0};
+    dynarray_reserve(file_entries, 10);
+    files_in_directory_recursive(scanroot_path, &file_entries);
+    free_string(scanroot_path);
+
+    usize FILE_COUNT = file_entries.count;
+
+    String INTROSPECT_FILE_SUFFIX_EXT = string_from_cstr("int");
+    String TEMPDIR_ROOT_PATH = string_from_cstr("./introspect_temp");
+    {
+        struct stat st = {0};
+        if (stat(TEMPDIR_ROOT_PATH.cstr, &st) == -1) {
+            mkdir(TEMPDIR_ROOT_PATH.cstr);
+        }
+    }
+
+    StringList int_filepaths = {0};
+    dynarray_reserve(int_filepaths, FILE_COUNT);
+    for (usize i = 0; i < FILE_COUNT; i++) {
+        FileEntry file_entry = file_entries.items[i];
+        String int_filepath = string_new();
+        string_append_format(int_filepath, "%s/%s.%s", TEMPDIR_ROOT_PATH.cstr, file_entry.filename, INTROSPECT_FILE_SUFFIX_EXT.cstr);
+        dynarray_push_back(int_filepaths, int_filepath);
+    }
+
+    ProcessIds process_ids = {0};
+    dynarray_reserve(process_ids, FILE_COUNT);
+    process_ids.count = FILE_COUNT;
 
     for (usize i = 0; i < FILE_COUNT; i++) {
-        String filename = filenames[i];
-        String int_filename = int_filenames[i];
+        String file_path = file_entries.items[i].full_path;
+        String int_filepath = int_filepaths.items[i];
 
-        usize spawn_result = _spawnlp(
+        char** args_list = std_malloc(sizeof(char*) * (8 + include_paths.count));
+        usize arg_i = 0;
+
+        args_list[arg_i++] = "gcc";
+        for (usize inc_i = 0; inc_i < include_paths.count; inc_i++) {
+            args_list[arg_i++] = include_paths.items[inc_i].cstr;
+        }
+        args_list[arg_i++] = "-DPRE_INTROSPECT_PASS";
+        args_list[arg_i++] = "-E";
+        args_list[arg_i++] = "-P";
+        args_list[arg_i++] = file_path.cstr;
+        args_list[arg_i++] = "-o";
+        args_list[arg_i++] = int_filepath.cstr;
+        args_list[arg_i++] = NULL;
+
+        usize spawn_result = _spawnvp(
             _P_NOWAIT,
             "gcc",
-            "gcc",
-            "-Ijustengine/include",
-            "-IC:/dev/vendor/openssl-3.5.0/include",
-            "-DPRE_INTROSPECT_PASS",
-            "-E",
-            "-P",
-            filename.cstr,
-            "-o",
-            int_filename.cstr,
-            NULL
+            args_list
         );
         if (spawn_result == -1) {
             PANIC("Failed to create process\n");
         }
+        std_free(args_list);
 
-        process_ids[i] = spawn_result;
+        process_ids.items[i] = spawn_result;
     }
 
     bool success = true;
     for (usize i = 0; i < FILE_COUNT; i++) {
         int32 exit_status;
-        usize wait_result = _cwait(&exit_status, process_ids[i], _WAIT_CHILD);
+        usize wait_result = _cwait(&exit_status, process_ids.items[i], _WAIT_CHILD);
         if (wait_result == -1) {
             PANIC("Failed to wait process\n");
         }
@@ -677,9 +765,9 @@ int main() {
             PANIC("Proces exited with non-zero status\n");
         }
 
-        String int_filename = int_filenames[i];
+        String int_filepath = int_filepaths.items[i];
         if (success) {
-            success &= generate_introspect(int_filename);
+            success &= generate_introspect(int_filepath);
         }
     }
 
