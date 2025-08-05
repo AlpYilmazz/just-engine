@@ -1,127 +1,8 @@
 #include "justengine.h"
 
-// // #include "src/introspect/depexample.h"
-
-// introspect(mode_string, count: count, str: str)
-// typedef struct {
-//     usize count;
-//     usize capacity;
-//     char* str;
-// } TestString;
-
-// /**
-//  * ABOVE CODE SHOULD GENERATE BELOW CODE
-//  * THEN THE GENERATED CODE 
-//  */
-
-// FieldInfo TestString__fields[3];
-
-// FieldInfo TestString__fields[] = {
-//     { .type = TYPE_usize, .name = "count", .ptr = &(((TestString*)(0))->count) },
-//     { .type = TYPE_usize, .name = "capacity", .ptr = &(((TestString*)(0))->capacity) },
-//     { .type = TYPE_char, .name = "str", .ptr = &(((TestString*)(0))->str), .is_string = true, .count_ptr = &(((TestString*)(0))->count) },
-// };
-
-// __IMPL_____generate_print_functions(TestString);
-
-// // #include "src/introspect/example.h"
-
-// introspect(mode_dynarray, count: count, items: items)
-// typedef struct {
-//     usize count;
-//     usize capacity;
-//     uint32* items;
-// } InnerTestStruct;
-
-// introspect(mode_normal)
-// typedef struct {
-//     bool bool_field;
-//     uint32 uint_field;
-//     int32 int_field;
-//     alias(int32) int cint_field;
-//     float32 float_field;
-//     uint32* ptr_field;
-//     uint32 arr_field[10];
-//     char* cstr_field;
-//     TestString string_field;
-//     InnerTestStruct struct_field;
-//     InnerTestStruct struct_arr_field[3];
-// } TestStruct;
-
-// /**
-//  * ABOVE CODE SHOULD GENERATE BELOW CODE
-//  * THEN THE GENERATED CODE 
-//  */
-
-// FieldInfo InnerTestStruct__fields[3];
-// FieldInfo TestStruct__fields[11];
-
-// FieldInfo InnerTestStruct__fields[] = {
-//     { .type = TYPE_usize, .name = "count", .ptr = &(((InnerTestStruct*)(0))->count) },
-//     { .type = TYPE_usize, .name = "capacity", .ptr = &(((InnerTestStruct*)(0))->capacity) },
-//     // { .type = TYPE_uint32, .name = "items", .ptr = &(((InnerTestStruct*)(0))->items), .is_ptr = true },
-//     { .type = TYPE_uint32, .name = "items", .ptr = &(((InnerTestStruct*)(0))->items), .is_dynarray = true, .count_ptr = &(((InnerTestStruct*)(0))->count) },
-// };
-
-// FieldInfo TestStruct__fields[] = {
-//     { .type = TYPE_bool, .name = "bool_field", .ptr = &(((TestStruct*)(0))->bool_field) },
-//     { .type = TYPE_uint32, .name = "uint_field", .ptr = &(((TestStruct*)(0))->uint_field) },
-//     { .type = TYPE_int32, .name = "int_field", .ptr = &(((TestStruct*)(0))->int_field) },
-//     { .type = TYPE_int32, .name = "cint_field", .ptr = &(((TestStruct*)(0))->cint_field) },
-//     { .type = TYPE_float32, .name = "float_field", .ptr = &(((TestStruct*)(0))->float_field) },
-//     { .type = TYPE_uint32, .name = "ptr_field", .ptr = &(((TestStruct*)(0))->ptr_field), .is_ptr = true },
-//     { .type = TYPE_uint32, .name = "arr_field", .ptr = &(((TestStruct*)(0))->arr_field), .is_array = true, .count = 10 },
-//     { .type = TYPE_char, .name = "cstr_field", .ptr = &(((TestStruct*)(0))->cstr_field), .is_cstr = true },
-//     {
-//         .type = TYPE_struct, .name = "string_field", .ptr = &(((TestStruct*)(0))->string_field),
-//         .struct_size = sizeof(((TestStruct*)(0))->string_field), .field_count = ARRAY_LENGTH(TestString__fields), .fields = TestString__fields
-//     },
-//     {
-//         .type = TYPE_struct, .name = "struct_field", .ptr = &(((TestStruct*)(0))->struct_field),
-//         .struct_size = sizeof(((TestStruct*)(0))->struct_field), .field_count = ARRAY_LENGTH(InnerTestStruct__fields), .fields = InnerTestStruct__fields
-//     },
-//     {
-//         .type = TYPE_struct, .name = "struct_arr_field", .ptr = &(((TestStruct*)(0))->struct_arr_field),
-//         .is_array = true, .count = 3,
-//         .struct_size = sizeof(((TestStruct*)(0))->struct_arr_field[0]), .field_count = ARRAY_LENGTH(InnerTestStruct__fields), .fields = InnerTestStruct__fields
-//     },
-// };
-
-// __IMPL_____generate_print_functions(TestStruct);
-
-// -----
-
-introspect
-typedef struct {
-    usize count;
-    usize capacity;
-    char* str mode_string(count: count);
-} TestString;
-
-introspect
-typedef struct {
-    usize count;
-    usize capacity;
-    uint32* items   mode_dynarray(count: count);
-} InnerTestStruct;
-
-introspect
-typedef struct {
-    bool bool_field;
-    uint32 uint_field;
-    int32 int_field;
-    int cint_field alias(int32);
-    float32 float_field;
-    uint32* ptr_field;
-    uint32 arr_field[10];
-    char* cstr_field mode_cstr();
-    uint32* dynarray_field mode_dynarray(count: uint_field);
-    TestString string_field;
-    InnerTestStruct struct_field;
-    InnerTestStruct struct_arr_field[3];
-} TestStruct;
-
-#include "introspect/gen.h"
+#include "introspect/test/depexample.h"
+#include "introspect/test/example.h"
+#include "introspect/test/gen.h"
 
 #define COUNT 10
 void reset_test_tweens(Tween_Vector2* tweens) {
@@ -316,6 +197,10 @@ int main() {
         test_struct,
         test_struct,
     };
+    TestStruct_DynArray test_struct_dynarr = {0};
+    dynarray_push_back(test_struct_dynarr, test_struct);
+    dynarray_push_back(test_struct_dynarr, test_struct);
+    dynarray_push_back(test_struct_dynarr, test_struct);
 
     while (!WindowShouldClose()) {
         float32 delta_time = GetFrameTime();
@@ -331,6 +216,8 @@ int main() {
             just_pretty_print_with(TestStruct)(&test_struct, (IndentToken) {.token = " ", .count = 4});
             printf("---\n");
             just_array_pretty_print_with(TestStruct)(test_struct_arr, 3, (IndentToken) {.token = " ", .count = 2});
+            printf("---\n");
+            just_pretty_print_with(TestStruct_DynArray)(&test_struct_dynarr, (IndentToken) {.token = " ", .count = 2});
             printf("---\n");
         }
         if (IsKeyPressed(KEY_P)) {

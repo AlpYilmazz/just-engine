@@ -6,29 +6,6 @@
 // run introspect generator
 // run normal compilation without PRE_INTROSPECT_PASS defined
 
-introspect
-typedef struct {
-    usize count;
-    usize capacity;
-    uint32* items   mode_dynarray(count: count);
-} InnerTestStruct;
-
-introspect
-typedef struct {
-    bool bool_field;
-    uint32 uint_field;
-    int32 int_field;
-    int cint_field;
-    float32 float_field;
-    uint32* ptr_field;
-    uint32 arr_field[10];
-    char* cstr_field mode_cstr();
-    uint32* dynarray_field mode_dynarray(count: uint_field);
-    // TestString string_field;
-    InnerTestStruct struct_field;
-    InnerTestStruct struct_arr_field[3];
-} TestStruct;
-
 typedef enum {
     // --
     Token_const = 0,
@@ -294,8 +271,6 @@ void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
         }
 
         if (field->field_info.is_array) {
-            JUST_DEV_MARK();
-            JUST_LOG_INFO("%llu\n", field->field_info.array_dim);
             string_builder_append_format(GEN,
                 "\t\t.is_array = true, .count = %llu, .array_dim = %llu, .array_dim_counts = {",
                 field->field_info.count,
@@ -637,6 +612,40 @@ typedef struct {
     FileEntry* items;
 } FileEntryList;
 
+String SCANROOT = {0};
+StringList EXCLUDE_FILES = {0};
+StringList EXCLUDE_DIRS = {0};
+
+void add_as_excluded_file(String filepath) {
+    String excluded_filepath = string_new();
+    string_append_format(excluded_filepath, "%s/%s", SCANROOT, filepath);
+    dynarray_push_back(EXCLUDE_FILES, excluded_filepath);
+}
+
+bool is_file_excluded(String filepath) {
+    for (usize i = 0; i < EXCLUDE_FILES.count; i++) {
+        if (ss_equals(EXCLUDE_FILES.items[i], filepath)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void add_as_excluded_dir(String dirpath) {
+    String excluded_dirpath = string_new();
+    string_append_format(excluded_dirpath, "%s/%s", SCANROOT, dirpath);
+    dynarray_push_back(EXCLUDE_FILES, dirpath);
+}
+
+bool is_dir_excluded(String dirpath) {
+    for (usize i = 0; i < EXCLUDE_DIRS.count; i++) {
+        if (ss_equals(EXCLUDE_DIRS.items[i], dirpath)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void files_in_directory_recursive(String path, FileEntryList* file_entries) {
     DIR* dir = opendir(path.cstr);
     if (!dir) {
@@ -658,15 +667,22 @@ void files_in_directory_recursive(String path, FileEntryList* file_entries) {
         }
 
         if (S_ISDIR(path_stat.st_mode)) {
-            traverse_directory(full_path, file_entries);
+            if (!is_dir_excluded(full_path)) {
+                files_in_directory_recursive(full_path, file_entries);
+            }
             free_string(full_path);
         }
         else {
-            FileEntry file_entry = {
-                .full_path = full_path,
-                .filename = string_from_cstr(entry->d_name),
-            };
-            dynarray_push_back(*file_entries, file_entry);
+            if (is_file_excluded(full_path)) {
+                free_string(full_path);
+            }
+            else {
+                FileEntry file_entry = {
+                    .full_path = full_path,
+                    .filename = string_from_cstr(entry->d_name),
+                };
+                dynarray_push_back(*file_entries, file_entry);
+            }
         }
     }
 
@@ -680,18 +696,22 @@ typedef struct {
 } ProcessIds;
 
 int main(int argc, char* argv[]) {
-    if (argc <= 1) {
-        PANIC("Please input root directory for scanning\n");
+    if (argc <= 2) {
+        PANIC("Please input root directory for scanning and output file path\n");
     }
     
     String scanroot_path = string_from_cstr(argv[1]);
-    
+    String genoutput_path = string_from_cstr(argv[2]);
+
     StringList include_paths = {0};
-    dynarray_reserve(include_paths, argc - 2);
-    for (uint32 i = 2; i < argc; i++) {
+    dynarray_reserve(include_paths, argc - 3);
+    for (uint32 i = 3; i < argc; i++) {
         String include_path = string_from_cstr(argv[i]);
         dynarray_push_back(include_paths, include_path);
     }
+
+    SCANROOT = clone_string(scanroot_path);
+    add_as_excluded_file(genoutput_path);
 
     FileEntryList file_entries = {0};
     dynarray_reserve(file_entries, 10);
@@ -712,9 +732,9 @@ int main(int argc, char* argv[]) {
     StringList int_filepaths = {0};
     dynarray_reserve(int_filepaths, FILE_COUNT);
     for (usize i = 0; i < FILE_COUNT; i++) {
-        FileEntry file_entry = file_entries.items[i];
+        String filename = file_entries.items[i].filename;
         String int_filepath = string_new();
-        string_append_format(int_filepath, "%s/%s.%s", TEMPDIR_ROOT_PATH.cstr, file_entry.filename, INTROSPECT_FILE_SUFFIX_EXT.cstr);
+        string_append_format(int_filepath, "%s/%s.%s", TEMPDIR_ROOT_PATH.cstr, filename.cstr, INTROSPECT_FILE_SUFFIX_EXT.cstr);
         dynarray_push_back(int_filepaths, int_filepath);
     }
 
@@ -723,10 +743,10 @@ int main(int argc, char* argv[]) {
     process_ids.count = FILE_COUNT;
 
     for (usize i = 0; i < FILE_COUNT; i++) {
-        String file_path = file_entries.items[i].full_path;
+        String filepath = file_entries.items[i].full_path;
         String int_filepath = int_filepaths.items[i];
 
-        char** args_list = std_malloc(sizeof(char*) * (8 + include_paths.count));
+        char** args_list = std_malloc(sizeof(char*) * (9 + include_paths.count));
         usize arg_i = 0;
 
         args_list[arg_i++] = "gcc";
@@ -734,9 +754,10 @@ int main(int argc, char* argv[]) {
             args_list[arg_i++] = include_paths.items[inc_i].cstr;
         }
         args_list[arg_i++] = "-DPRE_INTROSPECT_PASS";
+        args_list[arg_i++] = "-w";
         args_list[arg_i++] = "-E";
         args_list[arg_i++] = "-P";
-        args_list[arg_i++] = file_path.cstr;
+        args_list[arg_i++] = filepath.cstr;
         args_list[arg_i++] = "-o";
         args_list[arg_i++] = int_filepath.cstr;
         args_list[arg_i++] = NULL;
@@ -744,7 +765,7 @@ int main(int argc, char* argv[]) {
         usize spawn_result = _spawnvp(
             _P_NOWAIT,
             "gcc",
-            args_list
+            (const char* const*) args_list
         );
         if (spawn_result == -1) {
             PANIC("Failed to create process\n");
@@ -754,31 +775,37 @@ int main(int argc, char* argv[]) {
         process_ids.items[i] = spawn_result;
     }
 
-    bool success = true;
+    bool process_success = true;
+    bool introspect_success = true;
     for (usize i = 0; i < FILE_COUNT; i++) {
+        usize process_id = process_ids.items[i];
+        String filepath = file_entries.items[i].full_path;
+
         int32 exit_status;
         usize wait_result = _cwait(&exit_status, process_ids.items[i], _WAIT_CHILD);
         if (wait_result == -1) {
-            PANIC("Failed to wait process\n");
+            JUST_LOG_ERROR("Failed to wait process %llu, \"%s\"\n", process_id, filepath);
+            process_success = false;
         }
         if (exit_status != 0) {
-            PANIC("Proces exited with non-zero status\n");
+            JUST_LOG_ERROR("Process %llu exited with non-zero status, \"%s\"\n", process_id, filepath);
+            process_success = false;
         }
 
         String int_filepath = int_filepaths.items[i];
-        if (success) {
-            success &= generate_introspect(int_filepath);
+        if (process_success && introspect_success) {
+            introspect_success &= generate_introspect(int_filepath);
         }
     }
 
-    if (!success) {
+    if (!process_success || !introspect_success) {
         PANIC("Introspect failed\n");
     }
 
     String int_file_content = gen_introspect_file();
-    FILE* file = fopen("introspect/gen.h", "w+");
+    FILE* file = fopen(genoutput_path.cstr, "w+");
     if (file == NULL) {
-        PANIC("Error opening file\n");
+        PANIC("Error opening output file\n");
     }
     fputs(int_file_content.cstr, file);
     fclose(file);

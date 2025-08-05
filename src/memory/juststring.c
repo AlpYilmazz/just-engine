@@ -121,7 +121,6 @@ bool sv_parse_uint64(StringView sv, uint64* out) {
     uint64 factor = 1;
     for (int64 i = sv.count-1; i >= 0; i--) {
         uint64 digit = sv.str[i] - '0';
-        JUST_LOG_DEBUG("c: %c, d: %d\n", sv.str[i], digit);
         if (digit < 0 || 9 < digit) {
             return false;
         }

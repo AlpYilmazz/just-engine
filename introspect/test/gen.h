@@ -8,11 +8,13 @@
  * - TestString
  * - InnerTestStruct
  * - TestStruct
+ * - TestStruct_DynArray
 */
 
 static FieldInfo TestString__fields[3];
 static FieldInfo InnerTestStruct__fields[3];
 static FieldInfo TestStruct__fields[12];
+static FieldInfo TestStruct_DynArray__fields[3];
 
 static FieldInfo TestString__fields[] = {
 	{
@@ -89,8 +91,24 @@ static FieldInfo TestStruct__fields[] = {
 	},
 };
 
+static FieldInfo TestStruct_DynArray__fields[] = {
+	{
+		.type = TYPE_usize, .name = "count", .ptr = &(((TestStruct_DynArray*)(0))->count),
+	},
+	{
+		.type = TYPE_usize, .name = "capacity", .ptr = &(((TestStruct_DynArray*)(0))->capacity),
+	},
+	{
+		.type = TYPE_struct, .name = "items", .ptr = &(((TestStruct_DynArray*)(0))->items),
+		.is_ptr = true, .ptr_depth = 1,
+		.is_dynarray = true, .count_ptr = &(((TestStruct_DynArray*)(0))->count),
+		.struct_size = sizeof(TestStruct), .field_count = ARRAY_LENGTH(TestStruct__fields), .fields = TestStruct__fields,
+	},
+};
+
 
 __IMPL_____generate_print_functions(TestString);
 __IMPL_____generate_print_functions(InnerTestStruct);
 __IMPL_____generate_print_functions(TestStruct);
+__IMPL_____generate_print_functions(TestStruct_DynArray);
 
