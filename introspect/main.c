@@ -596,6 +596,9 @@ bool generate_introspect(String int_filename) {
             }
         }
     }
+
+    fclose(file);
+    return true;
 }
 
 #include <dirent.h>
@@ -742,42 +745,48 @@ int main(int argc, char* argv[]) {
     dynarray_reserve(process_ids, FILE_COUNT);
     process_ids.count = FILE_COUNT;
 
+    bool spawn_success = true;
+    usize PROCESS_COUNT = 0;
     for (usize i = 0; i < FILE_COUNT; i++) {
         String filepath = file_entries.items[i].full_path;
         String int_filepath = int_filepaths.items[i];
 
-        char** args_list = std_malloc(sizeof(char*) * (9 + include_paths.count));
-        usize arg_i = 0;
-
-        args_list[arg_i++] = "gcc";
-        for (usize inc_i = 0; inc_i < include_paths.count; inc_i++) {
-            args_list[arg_i++] = include_paths.items[inc_i].cstr;
+        if (spawn_success) {
+            char** args_list = std_malloc(sizeof(char*) * (9 + include_paths.count));
+            usize arg_i = 0;
+    
+            args_list[arg_i++] = "gcc";
+            for (usize inc_i = 0; inc_i < include_paths.count; inc_i++) {
+                args_list[arg_i++] = include_paths.items[inc_i].cstr;
+            }
+            args_list[arg_i++] = "-DPRE_INTROSPECT_PASS";
+            args_list[arg_i++] = "-w";
+            args_list[arg_i++] = "-E";
+            args_list[arg_i++] = "-P";
+            args_list[arg_i++] = filepath.cstr;
+            args_list[arg_i++] = "-o";
+            args_list[arg_i++] = int_filepath.cstr;
+            args_list[arg_i++] = NULL;
+    
+            usize spawn_result = _spawnvp(
+                _P_NOWAIT,
+                "gcc",
+                (const char* const*) args_list
+            );
+            if (spawn_result == -1) {
+                JUST_LOG_ERROR("Failed to create preprocessor process for \"%s\"\n", filepath);
+                spawn_success = false;
+            }
+            std_free(args_list);
+    
+            process_ids.items[i] = spawn_result;
+            PROCESS_COUNT++;
         }
-        args_list[arg_i++] = "-DPRE_INTROSPECT_PASS";
-        args_list[arg_i++] = "-w";
-        args_list[arg_i++] = "-E";
-        args_list[arg_i++] = "-P";
-        args_list[arg_i++] = filepath.cstr;
-        args_list[arg_i++] = "-o";
-        args_list[arg_i++] = int_filepath.cstr;
-        args_list[arg_i++] = NULL;
-
-        usize spawn_result = _spawnvp(
-            _P_NOWAIT,
-            "gcc",
-            (const char* const*) args_list
-        );
-        if (spawn_result == -1) {
-            PANIC("Failed to create process\n");
-        }
-        std_free(args_list);
-
-        process_ids.items[i] = spawn_result;
     }
 
     bool process_success = true;
     bool introspect_success = true;
-    for (usize i = 0; i < FILE_COUNT; i++) {
+    for (usize i = 0; i < PROCESS_COUNT; i++) {
         usize process_id = process_ids.items[i];
         String filepath = file_entries.items[i].full_path;
 
@@ -793,10 +802,16 @@ int main(int argc, char* argv[]) {
         }
 
         String int_filepath = int_filepaths.items[i];
-        if (process_success && introspect_success) {
+        if (spawn_success && process_success && introspect_success) {
             introspect_success &= generate_introspect(int_filepath);
         }
     }
+
+    for (usize i = 0; i < FILE_COUNT; i++) {
+        String int_filepath = int_filepaths.items[i];
+        remove(int_filepath.cstr);
+    }
+    rmdir(TEMPDIR_ROOT_PATH.cstr);
 
     if (!process_success || !introspect_success) {
         PANIC("Introspect failed\n");
