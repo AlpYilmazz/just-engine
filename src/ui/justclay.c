@@ -7,8 +7,22 @@
 
 #include "justclay.h"
 
-bool reinitialize_clay = false;
-void* justclay_arena_memory;
+Clay_String string_to_clay_string(String string) {
+    return (Clay_String) {
+        .isStaticallyAllocated = false,
+        .length = string.count,
+        .chars = string.str,
+    };
+}
+
+String clay_string_to_string(Clay_String clay_string) {
+    String string = string_with_capacity(clay_string.length);
+    string_nappend_cstr(&string, (char*) clay_string.chars, clay_string.length);
+    return string;
+}
+
+static bool reinitialize_clay = false;
+static void* justclay_arena_memory;
 
 void justclay_handle_errors(Clay_ErrorData errorData) {
     JUST_LOG_WARN("%s\n", errorData.errorText.chars);
@@ -105,7 +119,7 @@ void SYSTEM_POST_PREPARE_justclay_update_scroll_containers(
     Clay_UpdateScrollContainers(true, clay_mouse_wheel_delta, delta_time);
 }
 
-String TEMP_STRING;
+static String TEMP_STRING;
 
 void SYSTEM_RENDER_justclay_ui(
     TextureAssets* RES_TEXTURE_ASSETS,

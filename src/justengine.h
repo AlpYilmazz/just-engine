@@ -2440,6 +2440,9 @@ void SYSTEM_RENDER_draw_ui_elements(
 #define CLAY_COLOR_TO_RAYLIB_COLOR(color) (Color) { .r = (unsigned char)roundf(color.r), .g = (unsigned char)roundf(color.g), .b = (unsigned char)roundf(color.b), .a = (unsigned char)roundf(color.a) }
 #define RAYLIB_COLOR_TO_CLAY_COLOR(color) (Clay_Color) { .r = (float)(color).r, .g = (float)(color).g, .b = (float)(color).b, .a = (float)((color).a) }
 
+Clay_String string_to_clay_string(String string);
+String clay_string_to_string(Clay_String clay_string);
+
 typedef enum {
     CLAY_CUSTOM_ELEMENT_CHECKBOX,
 } ClayCustomElementType;

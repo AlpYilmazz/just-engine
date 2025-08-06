@@ -27,8 +27,7 @@ void button_on_hover(
         break;
     }
 
-    String element_id_str = string_new();
-    string_nappend_cstr(&element_id_str, (char*) elementId.stringId.chars, elementId.stringId.length);
+    String element_id_str = clay_string_to_string(elementId.stringId);
     printf("element: %s, state: %s\n", element_id_str.cstr, state);
 }
 
