@@ -23,6 +23,7 @@ mingw32-make -f Makefile-lib
 
 copy vendor\raylib-5.0\include\*.h %LIB_DIR%\include\
 copy vendor\raylib-5.0\lib\libraylib.a %LIB_DIR%\lib\libraylib.a
+copy vendor\clay-0.14\include %LIB_DIR%\include\
 
 copy %SRC_DIR%\justengine.h %LIB_DIR%\include\justengine.h
 copy %BUILD_DIR%\libjustengine.a %LIB_DIR%\lib\libjustengine.a
