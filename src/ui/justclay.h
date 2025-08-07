@@ -29,6 +29,39 @@ typedef struct {
     } custom_data;
 } ClayCustomElement;
 
+typedef void (*Clay_OnHoverFunction)(Clay_ElementId elementId, Clay_PointerData pointerData, intptr_t userData);
+typedef struct {
+    intptr_t userData;
+    Clay_OnHoverFunction onHoverFunction;
+} JustOnHoverUserData;
+
+typedef struct {
+    bool on_hover;
+    bool just_pressed;
+    bool on_press;
+    bool just_clicked;
+} JustClay_PointerState;
+
+typedef struct {
+    JustOnHoverUserData just_on_hover_user_data;
+    JustClay_PointerState pointer;
+} JustClay_Element;
+
+typedef struct {
+    uint32 element_id; // Clay_ElementId::id
+    JustClay_Element element;
+} JustClay_ElementKV;
+
+typedef struct {
+    usize count;
+    usize capacity;
+    JustClay_ElementKV* items;
+    uint32 pressed_element_id;
+} JustClay_ElementStore;
+
+void JustClay_OnHover(Clay_OnHoverFunction onHoverFunction, intptr_t userData);
+bool JustClay_Clicked();
+
 typedef struct {
     usize count;
     usize capacity;

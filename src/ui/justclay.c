@@ -21,6 +21,104 @@ String clay_string_to_string(Clay_String clay_string) {
     return string;
 }
 
+static JustClay_ElementStore JUSTCLAY_ELEMENT_STORE = {0};
+
+static void just_internal_on_hover(Clay_ElementId elementId, Clay_PointerData pointerData, intptr_t just_userData_ptr) {
+    JustOnHoverUserData* just_userData = (JustOnHoverUserData*) just_userData_ptr;
+    intptr_t userData = just_userData->userData;
+    Clay_OnHoverFunction onHoverFunction = just_userData->onHoverFunction;
+
+    for (usize i = 0; i < JUSTCLAY_ELEMENT_STORE.count; i++) {
+        JustClay_ElementKV* elemkv = &JUSTCLAY_ELEMENT_STORE.items[i];
+        if (elemkv->element_id == elementId.id) {
+            elemkv->element.pointer.on_hover = true;
+        }
+    }
+
+    switch (pointerData.state) {
+    case CLAY_POINTER_DATA_PRESSED_THIS_FRAME:
+        for (usize i = 0; i < JUSTCLAY_ELEMENT_STORE.count; i++) {
+            JustClay_ElementKV* elemkv = &JUSTCLAY_ELEMENT_STORE.items[i];
+            if (elemkv->element_id == elementId.id) {
+                elemkv->element.pointer.just_pressed = true;
+                JUSTCLAY_ELEMENT_STORE.pressed_element_id = elementId.id;
+            }
+        }
+        break;
+    case CLAY_POINTER_DATA_PRESSED:
+        break;
+    case CLAY_POINTER_DATA_RELEASED_THIS_FRAME:
+        if (JUSTCLAY_ELEMENT_STORE.pressed_element_id == elementId.id) {
+            for (usize i = 0; i < JUSTCLAY_ELEMENT_STORE.count; i++) {
+                JustClay_ElementKV* elemkv = &JUSTCLAY_ELEMENT_STORE.items[i];
+                if (elemkv->element_id == elementId.id) {
+                    elemkv->element.pointer.just_clicked = true;
+                }
+            }
+        }
+        break;
+    case CLAY_POINTER_DATA_RELEASED:
+        break;
+    }
+
+    (onHoverFunction)(elementId, pointerData, userData);
+}
+
+void JustClay_OnHover(Clay_OnHoverFunction onHoverFunction, intptr_t userData) {
+    Clay_Context* context = Clay_GetCurrentContext();
+    if (context->booleanWarnings.maxElementsExceeded) {
+        return;
+    }
+    Clay_LayoutElement *openLayoutElement = Clay__GetOpenLayoutElement();
+    if (openLayoutElement->id == 0) {
+        Clay__GenerateIdForAnonymousElement(openLayoutElement);
+    }
+
+    JustClay_ElementKV* this_elemkv = NULL;
+
+    for (usize i = 0; i < JUSTCLAY_ELEMENT_STORE.count; i++) {
+        JustClay_ElementKV* elemkv = &JUSTCLAY_ELEMENT_STORE.items[i];
+        if (elemkv->element_id == openLayoutElement->id) {
+            this_elemkv = elemkv;
+            break;
+        }
+    }
+    if (this_elemkv == NULL) {
+        JustClay_ElementKV elemkv = {
+            .element_id = openLayoutElement->id,
+            .element = {
+                .just_on_hover_user_data = {
+                    .userData = userData,
+                    .onHoverFunction = onHoverFunction,
+                }
+            },
+        };
+        dynarray_push_back(JUSTCLAY_ELEMENT_STORE, elemkv);
+        this_elemkv = &JUSTCLAY_ELEMENT_STORE.items[JUSTCLAY_ELEMENT_STORE.count-1];
+    }
+
+    Clay_OnHover(just_internal_on_hover, &this_elemkv->element.just_on_hover_user_data);
+}
+
+bool JustClay_Clicked() {
+    Clay_Context* context = Clay_GetCurrentContext();
+    if (context->booleanWarnings.maxElementsExceeded) {
+        return false;
+    }
+    Clay_LayoutElement* openLayoutElement = Clay__GetOpenLayoutElement();
+    // If the element has no id attached at this point, we need to generate one
+    if (openLayoutElement->id == 0) {
+        Clay__GenerateIdForAnonymousElement(openLayoutElement);
+    }
+    for (usize i = 0; i < JUSTCLAY_ELEMENT_STORE.count; i++) {
+        JustClay_ElementKV* elemkv = &JUSTCLAY_ELEMENT_STORE.items[i];
+        if (elemkv->element_id == openLayoutElement->id) {
+            return elemkv->element.pointer.just_clicked;
+        }
+    }
+    return false;
+}
+
 static bool reinitialize_clay = false;
 static void* justclay_arena_memory;
 

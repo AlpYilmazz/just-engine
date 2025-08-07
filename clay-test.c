@@ -6,6 +6,8 @@
 #define CLAY_GRAY               (Clay_Color) { 43, 41, 51, 255 }
 #define CLAY_CONTENT_BG_GRAY    (Clay_Color) { 90, 90, 90, 255 }
 
+uint32 test = 0;
+
 void button_on_hover(
     Clay_ElementId elementId,
     Clay_PointerData pointerData,
@@ -29,28 +31,102 @@ void button_on_hover(
 
     String element_id_str = clay_string_to_string(elementId.stringId);
     printf("element: %s, state: %s\n", element_id_str.cstr, state);
+    test = 1;
 }
 
-void RenderButton(Clay_String text) {
-    CLAY({
+void RenderTabSelectButton(Clay_String text) {
+    CLAY((Clay_ElementDeclaration) {
         .id = CLAY_SID(text),
         .layout = {
-            .padding = CLAY_PADDING_ALL(16),
+            // .padding = CLAY_PADDING_ALL(16),
             .sizing = {
                 .width = CLAY_SIZING_GROW(0),
-                .height = CLAY_SIZING_FIT(0),
+                .height = CLAY_SIZING_GROW(0),
+            },
+            .childAlignment = {
+                .x = CLAY_ALIGN_X_CENTER,
+                .y = CLAY_ALIGN_Y_CENTER,
             },
         },
-        .backgroundColor = Clay_Hovered() ? RAYLIB_COLOR_TO_CLAY_COLOR(GREEN) : RAYLIB_COLOR_TO_CLAY_COLOR(RAYWHITE),
-        .cornerRadius = 10,
+        .backgroundColor = Clay_Hovered() ? printf("Hovered: %u\n", test) ? RAYLIB_COLOR_TO_CLAY_COLOR(GREEN) : RAYLIB_COLOR_TO_CLAY_COLOR(GREEN) : RAYLIB_COLOR_TO_CLAY_COLOR(RAYWHITE),
+        .cornerRadius = CLAY_CORNER_RADIUS(5),
     }) {
         Clay_OnHover(button_on_hover, (uintptr_t) NULL);
         CLAY_TEXT(text, CLAY_TEXT_CONFIG({
             .fontId = FONT_ID_BODY_24,
             .fontSize = 24,
             .textColor = RAYLIB_COLOR_TO_CLAY_COLOR(BLACK),
+            .textAlignment = CLAY_TEXT_ALIGN_CENTER,
         }));
     }
+}
+
+Clay_RenderCommandArray settings_page_ui() {
+    Clay_BeginLayout();
+
+    Clay_BorderElementConfig test_border_black = {
+        .color = RAYLIB_COLOR_TO_CLAY_COLOR(BLACK),
+        .width = CLAY_BORDER_ALL(3),
+    };
+    Clay_BorderElementConfig test_border_red = {
+        .color = RAYLIB_COLOR_TO_CLAY_COLOR(RED),
+        .width = CLAY_BORDER_ALL(3),
+    };
+
+    CLAY((Clay_ElementDeclaration) {
+        .id = CLAY_ID("OuterContainer"),
+        .backgroundColor = CLAY_GRAY,
+        .layout = {
+            .layoutDirection = CLAY_TOP_TO_BOTTOM,
+            .sizing = {
+                .width = CLAY_SIZING_GROW(0),
+                .height = CLAY_SIZING_GROW(0),
+            },
+            .padding = CLAY_PADDING_ALL(16),
+            .childGap = 16,
+            .childAlignment = {
+                .x = CLAY_ALIGN_X_CENTER,
+                .y = CLAY_ALIGN_Y_CENTER,
+            },
+        },
+        // .border = test_border_black,
+    }) {
+        CLAY((Clay_ElementDeclaration) {
+            .id = CLAY_ID("TabsWindow"),
+            .backgroundColor = CLAY_CONTENT_BG_GRAY,
+            .layout = {
+                .layoutDirection = CLAY_TOP_TO_BOTTOM,
+                .sizing = {
+                    .width = CLAY_SIZING_PERCENT(0.6),
+                    .height = CLAY_SIZING_PERCENT(0.6),
+                },
+                .padding = CLAY_PADDING_ALL(8),
+                .childGap = 4,
+            },
+            // .border = test_border_red,
+        }) {
+            CLAY((Clay_ElementDeclaration) {
+                .id = CLAY_ID("TabSelection"),
+                .backgroundColor = CLAY_CONTENT_BG_GRAY,
+                .layout = {
+                    .layoutDirection = CLAY_LEFT_TO_RIGHT,
+                    .sizing = {
+                        .width = CLAY_SIZING_GROW(0),
+                        .height = CLAY_SIZING_PERCENT(0.08),
+                    },
+                    // .padding = CLAY_PADDING_ALL(8),
+                    .childGap = 8,
+                },
+                // .border = test_border_black,
+            }) {
+                RenderTabSelectButton(CLAY_STRING("General"));
+                RenderTabSelectButton(CLAY_STRING("Graphics"));
+                RenderTabSelectButton(CLAY_STRING("Sound"));
+            }
+        }
+    }
+
+    return Clay_EndLayout();
 }
 
 int main() {
@@ -75,13 +151,12 @@ int main() {
     FontList RES_FONT_LIST = {0};
     dynarray_reserve_custom(RES_FONT_LIST, .fonts, 2);
     {
-        Font font_body_24 = LoadFontEx("./test-assets/Roboto-Regular.ttf", 48, 0, 400);
+        Font font_body_24 = LoadFontEx("./test-assets/Roboto-Regular.ttf", 24, 0, 400);
         SetTextureFilter(font_body_24.texture, TEXTURE_FILTER_BILINEAR);
         dynarray_push_back_custom(RES_FONT_LIST, .fonts, font_body_24);
     }
-
     {
-        Font font_body_16 = LoadFontEx("./test-assets/Roboto-Regular.ttf", 32, 0, 400);
+        Font font_body_16 = LoadFontEx("./test-assets/Roboto-Regular.ttf", 16, 0, 400);
         SetTextureFilter(font_body_16.texture, TEXTURE_FILTER_BILINEAR);
         dynarray_push_back_custom(RES_FONT_LIST, .fonts, font_body_16);
     }
@@ -109,86 +184,7 @@ int main() {
 
         Clay_Color contentBackgroundColor = { 90, 90, 90, 255 };
 
-        // Build UI here
-        CLAY({
-            .id = CLAY_ID("OuterContainer"),
-            .backgroundColor = CLAY_GRAY,
-            .layout = {
-                .layoutDirection = CLAY_TOP_TO_BOTTOM,
-                .sizing = layoutExpand,
-                .padding = CLAY_PADDING_ALL(16),
-                .childGap = 16
-            },
-        }) {
-            CLAY({
-                .id = CLAY_ID("ButtonArea"),
-                .backgroundColor = CLAY_CONTENT_BG_GRAY,
-                .layout = {
-                    .layoutDirection = CLAY_TOP_TO_BOTTOM,
-                    .sizing = {
-                        .width = CLAY_SIZING_PERCENT(0.2),
-                        .height = CLAY_SIZING_FIT(0),
-                    },
-                    .padding = CLAY_PADDING_ALL(16),
-                    .childGap = 16
-                },
-            }) {
-                CLAY({
-                    .id = CLAY_ID("ButtonAreaFloat"),
-                    .backgroundColor = CLAY_CONTENT_BG_GRAY,
-                    .layout = {
-                        .layoutDirection = CLAY_TOP_TO_BOTTOM,
-                        .sizing = {
-                            .width = CLAY_SIZING_FIXED(300),
-                            .height = CLAY_SIZING_FIT(0),
-                        },
-                        .padding = CLAY_PADDING_ALL(16),
-                        .childGap = 16
-                    },
-                    .floating = {
-                        .attachTo = CLAY_ATTACH_TO_PARENT,
-                        .attachPoints = {
-                            .parent = CLAY_ATTACH_POINT_CENTER_TOP
-                        },
-                        .zIndex = 2,
-                    },
-                }) {
-                    RenderButton(CLAY_STRING("NewFloat"));
-                    RenderButton(CLAY_STRING("OpenFloat"));
-                    RenderButton(CLAY_STRING("CloseFloat"));
-                };
-                CLAY({
-                    .id = CLAY_ID("ButtonAreaFloat2"),
-                    .backgroundColor = CLAY_CONTENT_BG_GRAY,
-                    .layout = {
-                        .layoutDirection = CLAY_TOP_TO_BOTTOM,
-                        .sizing = {
-                            .width = CLAY_SIZING_FIXED(300),
-                            .height = CLAY_SIZING_FIT(0),
-                        },
-                        .padding = CLAY_PADDING_ALL(16),
-                        .childGap = 16
-                    },
-                    .floating = {
-                        .attachTo = CLAY_ATTACH_TO_PARENT,
-                        .attachPoints = {
-                            .parent = CLAY_ATTACH_POINT_RIGHT_TOP
-                        },
-                        .zIndex = 1,
-                    },
-                }) {
-                    RenderButton(CLAY_STRING("NewFloat2"));
-                    RenderButton(CLAY_STRING("OpenFloat2"));
-                    RenderButton(CLAY_STRING("CloseFloat2"));
-                };
-
-                RenderButton(CLAY_STRING("New"));
-                RenderButton(CLAY_STRING("Open"));
-                RenderButton(CLAY_STRING("Close"));
-            };
-        };
-
-        Clay_RenderCommandArray clay_render_commands = Clay_EndLayout();
+        Clay_RenderCommandArray clay_render_commands = settings_page_ui();
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
