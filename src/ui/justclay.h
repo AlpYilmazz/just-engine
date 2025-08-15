@@ -6,6 +6,8 @@
 
 #include "assets/asset.h"
 
+#define CLAY_NULLID 0
+
 #define RAYLIB_VECTOR2_TO_CLAY_VECTOR2(vector) (Clay_Vector2) { .x = (vector).x, .y = (vector).y }
 #define CLAY_RECTANGLE_TO_RAYLIB_RECTANGLE(rectangle) (Rectangle) { .x = (rectangle).x, .y = (rectangle).y, .width = (rectangle).width, .height = (rectangle).height }
 #define CLAY_COLOR_TO_RAYLIB_COLOR(color) (Color) { .r = (unsigned char)roundf((color).r), .g = (unsigned char)roundf((color).g), .b = (unsigned char)roundf((color).b), .a = (unsigned char)roundf((color).a) }
@@ -13,6 +15,8 @@
 
 Clay_String string_to_clay_string(String string);
 String clay_string_to_string(Clay_String clay_string);
+
+// -----
 
 typedef enum {
     CLAY_CUSTOM_ELEMENT_CHECKBOX,
@@ -29,7 +33,11 @@ typedef struct {
     } custom_data;
 } ClayCustomElement;
 
+// -----
+
+typedef uint32 Clay_Id;
 typedef void (*Clay_OnHoverFunction)(Clay_ElementId elementId, Clay_PointerData pointerData, intptr_t userData);
+
 typedef struct {
     intptr_t userData;
     Clay_OnHoverFunction onHoverFunction;
@@ -37,30 +45,47 @@ typedef struct {
 
 typedef struct {
     bool on_hover;
-    bool just_pressed;
     bool on_press;
+    bool just_begin_hover;
+    bool just_end_hover;
+    bool just_pressed;
     bool just_clicked;
 } JustClay_PointerState;
 
 typedef struct {
-    JustOnHoverUserData just_on_hover_user_data;
     JustClay_PointerState pointer;
+} JustClay_ElementState;
+
+typedef struct {
+    JustOnHoverUserData just_on_hover_user_data;
+    JustClay_ElementState state;
 } JustClay_Element;
 
 typedef struct {
-    uint32 element_id; // Clay_ElementId::id
+    Clay_Id element_id; // Clay_ElementId::id
     JustClay_Element element;
 } JustClay_ElementKV;
+
+typedef struct {
+    bool exists;
+    Clay_Id element_id;
+    Clay_PointerDataInteractionState pointer_event;
+} JustClay_HoverEvent;
 
 typedef struct {
     usize count;
     usize capacity;
     JustClay_ElementKV* items;
-    uint32 pressed_element_id;
+    JustClay_HoverEvent hover_event;
+    Clay_Id hovered_element_id;
+    Clay_Id pressed_element_id;
 } JustClay_ElementStore;
 
 void JustClay_OnHover(Clay_OnHoverFunction onHoverFunction, intptr_t userData);
 bool JustClay_Clicked();
+JustClay_ElementState JustClay_GetElementState(Clay_ElementId elementId);
+
+// -----
 
 typedef struct {
     usize count;
