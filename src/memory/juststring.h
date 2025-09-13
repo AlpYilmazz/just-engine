@@ -2,6 +2,7 @@
 
 #include "justcstd.h"
 #include "core.h"
+#include "memory/memory.h"
 
 bool char_is_eof(char ch);
 bool char_is_whitespace(char ch);

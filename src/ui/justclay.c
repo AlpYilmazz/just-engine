@@ -180,7 +180,7 @@ void JustClay_OnHover(Clay_OnHoverFunction onHoverFunction, intptr_t userData) {
         this_elemkv = &JUSTCLAY_ELEMENT_STORE.items[JUSTCLAY_ELEMENT_STORE.count-1];
     }
 
-    Clay_OnHover(just_internal_on_hover, &this_elemkv->element.just_on_hover_user_data);
+    Clay_OnHover(just_internal_on_hover, (intptr_t) &this_elemkv->element.just_on_hover_user_data);
 }
 
 bool JustClay_Clicked() {

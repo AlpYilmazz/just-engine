@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base.h"
+#include "core.h"
 
 #define dynarray_clear(arr) \
     do { \
