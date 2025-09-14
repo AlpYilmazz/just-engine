@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -std=c11 -MMD -MP
-CINCLUDE = -IC:/dev/vendor/openssl-3.5.0/include -IC:/dev/c/lib-common/curl-8.16.0/include -Ivendor/raylib-5.0/include -Ivendor/clay-0.14/include -Isrc
+CINCLUDE = -Ivendor/openssl-3.5.0/include -Ivendor/curl-8.16.0/include -Ivendor/raylib-5.0/include -Ivendor/clay-0.14/include -Isrc
 CLIB = 
 CLINK = 
 
