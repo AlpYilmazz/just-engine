@@ -14,8 +14,36 @@ void just_http_global_cleanup() {
     curl_global_cleanup();
 }
 
+HttpHeaders http_headers_from_static(char* kv_list[][2], usize count) {
+    HttpHeaders headers = {0};
+    for (usize i = 0; i < count; i++) {
+        HttpHeader header = {
+            .key = string_from_cstr(kv_list[i][0]),
+            .value = string_from_cstr(kv_list[i][1]),
+        };
+        dynarray_push_back_custom(headers, .headers, header);
+    }
+    return headers;
+}
+
+void http_headers_add_header_static(HttpHeaders* headers, char* key, char* value) {
+    HttpHeader header = {
+        .key = string_from_cstr(key),
+        .value = string_from_cstr(value),
+    };
+    dynarray_push_back_custom(*headers, .headers, header);
+}
+
 HttpRequest* http_request_easy_init() {
     return curl_easy_init();
+}
+
+void http_request_set_threaded_use(HttpRequest* req) {
+    curl_easy_setopt(req, CURLOPT_NOSIGNAL, 1L);
+}
+
+void http_request_set_verbose(HttpRequest* req) {
+    curl_easy_setopt(req, CURLOPT_VERBOSE, 1L);
 }
 
 void http_request_set_ssl_opt(HttpRequest* req, CurlSSLOpt ssl_opt) {
@@ -77,7 +105,7 @@ void http_request_set_headers(HttpRequest* req, HttpHeaders headers) {
     curl_easy_setopt(req, CURLOPT_HTTPHEADER, curl_headers);
 }
 
-HttpResponse http_request_easy_send(HttpRequest* req) {
+HttpResponse http_request_easy_perform(HttpRequest* req) {
     CURLcode curl_response = curl_easy_perform(req);
     
     HttpResponse response;
@@ -98,4 +126,8 @@ HttpResponse http_request_easy_send(HttpRequest* req) {
 
 void http_request_easy_cleanup(HttpRequest* req) {
     curl_easy_cleanup(req);
+}
+
+CurlErrorCode http_request_easy_pause(HttpRequest* req, int32 bitmask) {
+    return curl_easy_pause(req, bitmask);
 }

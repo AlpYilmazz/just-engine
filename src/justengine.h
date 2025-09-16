@@ -1033,6 +1033,7 @@ typedef struct {
 Thread thread_spawn(ThreadEntry entry);
 void end_thread(unsigned int return_code);
 void thread_join(Thread thread);
+bool thread_try_join(Thread thread);
 
 #endif // __HEADER_THREAD_THREAD
 
@@ -1183,6 +1184,23 @@ uint64 just_ntohll(uint64 netnum);
 #ifdef __HEADER_NETWORK_HTTPCLIENT
 
 #ifndef HTTP_CURL_NO_DEFINE
+
+/* This is a return code for the read callback that, when returned, will
+   signal libcurl to immediately abort the current transfer. */
+#define CURL_READFUNC_ABORT 0x10000000
+/* This is a return code for the read callback that, when returned, will
+   signal libcurl to pause sending data on the current transfer. */
+#define CURL_READFUNC_PAUSE 0x10000001
+
+#define CURLPAUSE_RECV      (1<<0)
+#define CURLPAUSE_RECV_CONT (0)
+
+#define CURLPAUSE_SEND      (1<<2)
+#define CURLPAUSE_SEND_CONT (0)
+
+#define CURLPAUSE_ALL       (CURLPAUSE_RECV|CURLPAUSE_SEND)
+#define CURLPAUSE_CONT      (CURLPAUSE_RECV_CONT|CURLPAUSE_SEND_CONT)
+
 typedef enum {
     CURLE_OK = 0,
     CURLE_UNSUPPORTED_PROTOCOL,    /* 1 */
@@ -1314,6 +1332,9 @@ typedef enum {
     CURLE_ECH_REQUIRED,            /* 101 - ECH tried but failed */
     CURL_LAST /* never use! */
 } CurlErrorCode;
+
+typedef void HttpRequest;
+
 #endif
 
 typedef enum {
@@ -1339,10 +1360,6 @@ typedef struct {
     usize capacity;
     HttpHeader* headers;
 } HttpHeaders;
-
-#ifndef HTTP_CURL_NO_DEFINE
-typedef void HttpRequest;
-#endif
 
 typedef struct {
     bool success;
@@ -1372,7 +1389,13 @@ typedef struct {
 void just_http_global_init_default();
 void just_http_global_cleanup();
 
+HttpHeaders http_headers_from_static(char* kv_list[][2], usize count);
+void http_headers_add_header_static(HttpHeaders* headers, char* key, char* value);
+
 HttpRequest* http_request_easy_init();
+
+void http_request_set_threaded_use(HttpRequest* req);
+void http_request_set_verbose(HttpRequest* req);
 
 void http_request_set_ssl_opt(HttpRequest* req, CurlSSLOpt ssl_opt);
 void http_request_set_callbacks(HttpRequest* req, CurlCallbacks callbacks);
@@ -1382,8 +1405,10 @@ void http_request_set_method(HttpRequest* req, HttpMethod method);
 void http_request_set_url(HttpRequest* req, String url);
 void http_request_set_headers(HttpRequest* req, HttpHeaders headers);
 
-HttpResponse http_request_easy_send(HttpRequest* req);
+HttpResponse http_request_easy_perform(HttpRequest* req);
 void http_request_easy_cleanup(HttpRequest* req);
+
+CurlErrorCode http_request_easy_pause(HttpRequest* req, int32 bitmask);
 
 #endif // __HEADER_NETWORK_HTTPCLIENT
 

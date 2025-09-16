@@ -17,7 +17,7 @@ set LINK=^
     -lraylib^
     -ljustengine^
     -lssl -lcrypto^
-    -lcurl
+    -lcurl^
     -lgdi32 -lwinmm^
     -lws2_32^
     -lcrypt32 -luser32 -ladvapi32

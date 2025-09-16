@@ -12,3 +12,4 @@ typedef struct {
 Thread thread_spawn(ThreadEntry entry);
 void end_thread(unsigned int return_code);
 void thread_join(Thread thread);
+bool thread_try_join(Thread thread);
