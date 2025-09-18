@@ -20,7 +20,8 @@ set LINK=^
     -lcurl^
     -lgdi32 -lwinmm^
     -lws2_32^
-    -lcrypt32 -luser32 -ladvapi32
+    -lcrypt32 -luser32 -ladvapi32^
+    -lpthread
 
     @REM -lssl -lcrypto -lcrypt32 -luser32 -ladvapi32 -lws2_32^
     

@@ -1,13 +1,19 @@
 #pragma once
 
-typedef void TaskArgVoid;
+#include "core.h"
+
+typedef void ThreadArgVoid;
+typedef uint32 (*ThreadHandlerFn)(ThreadArgVoid*);
 
 typedef struct {
-    unsigned int (*handler)(TaskArgVoid*);
-    TaskArgVoid* arg;
+    ThreadHandlerFn handler;
+    ThreadArgVoid* arg;
 } ThreadEntry;
 
+typedef void TaskArgVoid;
+typedef void (*TaskHandlerFn)(TaskArgVoid*);
+
 typedef struct {
-    void (*handler)(TaskArgVoid*);
+    TaskHandlerFn handler;
     TaskArgVoid* arg;
 } Task;

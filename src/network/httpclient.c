@@ -105,6 +105,11 @@ void http_request_set_headers(HttpRequest* req, HttpHeaders headers) {
     curl_easy_setopt(req, CURLOPT_HTTPHEADER, curl_headers);
 }
 
+void http_request_set_body(HttpRequest* req, String body) {
+    curl_easy_setopt(req, CURLOPT_POSTFIELDS, body.str);
+    curl_easy_setopt(req, CURLOPT_POSTFIELDSIZE, (int32) body.count);
+}
+
 HttpResponse http_request_easy_perform(HttpRequest* req) {
     CURLcode curl_response = curl_easy_perform(req);
     

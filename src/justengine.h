@@ -1008,15 +1008,19 @@ void string_builder_append_string_owned(StringBuilder* builder, String string);
 #define __HEADER_THREAD_TASK
 #ifdef __HEADER_THREAD_TASK
 
-typedef void TaskArgVoid;
+typedef void ThreadArgVoid;
+typedef uint32 (*ThreadHandlerFn)(ThreadArgVoid*);
 
 typedef struct {
-    unsigned int (*handler)(TaskArgVoid*);
-    TaskArgVoid* arg;
+    ThreadHandlerFn handler;
+    ThreadArgVoid* arg;
 } ThreadEntry;
 
+typedef void TaskArgVoid;
+typedef void (*TaskHandlerFn)(TaskArgVoid*);
+
 typedef struct {
-    void (*handler)(TaskArgVoid*);
+    TaskHandlerFn handler;
     TaskArgVoid* arg;
 } Task;
 
@@ -1030,7 +1034,8 @@ typedef struct {
     uintptr_t handle;
 } Thread;
 
-Thread thread_spawn(ThreadEntry entry);
+Thread thread_spawn(ThreadHandlerFn handler, ThreadArgVoid* arg);
+Thread thread_spawn_with(ThreadEntry entry);
 void end_thread(unsigned int return_code);
 void thread_join(Thread thread);
 bool thread_try_join(Thread thread);
@@ -1404,6 +1409,7 @@ void http_request_set_version(HttpRequest* req, HttpVersion version);
 void http_request_set_method(HttpRequest* req, HttpMethod method);
 void http_request_set_url(HttpRequest* req, String url);
 void http_request_set_headers(HttpRequest* req, HttpHeaders headers);
+void http_request_set_body(HttpRequest* req, String body);
 
 HttpResponse http_request_easy_perform(HttpRequest* req);
 void http_request_easy_cleanup(HttpRequest* req);

@@ -224,6 +224,7 @@ void http_request_set_version(HttpRequest* req, HttpVersion version);
 void http_request_set_method(HttpRequest* req, HttpMethod method);
 void http_request_set_url(HttpRequest* req, String url);
 void http_request_set_headers(HttpRequest* req, HttpHeaders headers);
+void http_request_set_body(HttpRequest* req, String body);
 
 HttpResponse http_request_easy_perform(HttpRequest* req);
 void http_request_easy_cleanup(HttpRequest* req);

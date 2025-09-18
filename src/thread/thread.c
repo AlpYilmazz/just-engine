@@ -9,13 +9,13 @@
 
 // Thread
 
-Thread thread_spawn(ThreadEntry entry) {
+Thread thread_spawn(ThreadHandlerFn handler, ThreadArgVoid* arg) {
     unsigned int id;
     uintptr_t handle = _beginthreadex( // NATIVE CODE
         NULL,                       // default security attributes
         0,                          // use default stack size  
-        entry.handler,              // thread function name
-        entry.arg,                  // argument to thread function 
+        handler,                    // thread function name
+        arg,                        // argument to thread function 
         0,                          // use default creation flags 
         &id                         // returns the thread identifier 
     );
@@ -26,7 +26,11 @@ Thread thread_spawn(ThreadEntry entry) {
     };
 }
 
-void end_thread(unsigned int return_code) {
+Thread thread_spawn_with(ThreadEntry entry) {
+    return thread_spawn(entry.handler, entry.arg);
+}
+
+void end_thread(uint32 return_code) {
     _endthreadex(return_code);
 }
 
@@ -43,3 +47,16 @@ bool thread_try_join(Thread thread) {
     CloseHandle((HANDLE) thread.handle);
     return true;
 }
+
+// void issue_interrupt_apc() {
+//     bool success = QueueUserAPC(
+//         interrupt_network_wait,
+//         NETWORK_THREAD,
+//         0
+//     );
+//     if (!success) {
+//         int32 err = GetLastError();
+//         // TODO: handle err
+//         JUST_LOG_ERROR("Interrupt APC failed: %d\n", err);
+//     }
+// }

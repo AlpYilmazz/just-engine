@@ -9,7 +9,8 @@ typedef struct {
     uintptr_t handle;
 } Thread;
 
-Thread thread_spawn(ThreadEntry entry);
-void end_thread(unsigned int return_code);
+Thread thread_spawn(ThreadHandlerFn handler, ThreadArgVoid* arg);
+Thread thread_spawn_with(ThreadEntry entry);
+void end_thread(uint32 return_code);
 void thread_join(Thread thread);
 bool thread_try_join(Thread thread);
