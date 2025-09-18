@@ -1,6 +1,7 @@
 #include <windows.h>
 
 #include "justcstd.h"
+#include "core.h"
 
 // DO NOT INCLUDE
 // Sync objects are opeque
@@ -58,11 +59,65 @@ void srw_lock_release_shared(SRWLock* lock) {
     #endif
 }
 
-// typedef void AwakableSleep;
-// typedef struct {
-//     SRWLOCK cond_var;
-// } AwakableSleep;
+typedef struct {
+    CRITICAL_SECTION csect;
+} CriticalSection;
 
-// AwakableSleep* new_awakable_sleep();
-// void sleep_awakeable(AwakableSleep* awakable);
-// void signal_awake(AwakableSleep* awakable);
+CriticalSection* alloc_create_critical_section() {
+    CriticalSection* critical_section = NULL;
+
+    CRITICAL_SECTION csect_win;
+    InitializeCriticalSection(&csect_win);
+    critical_section = std_malloc(sizeof(CriticalSection));
+    critical_section->csect = csect_win;
+
+    return critical_section;
+}
+
+void enter_critical_section(CriticalSection* critical_section) {
+    EnterCriticalSection(&critical_section->csect);
+}
+
+void leave_critical_section(CriticalSection* critical_section) {
+    LeaveCriticalSection(&critical_section->csect);
+}
+
+void delete_critical_section(CriticalSection* critical_section) {
+    DeleteCriticalSection(&critical_section->csect);
+    std_free(critical_section);
+}
+
+typedef struct {
+    CONDITION_VARIABLE condvar;
+} ConditionVariable;
+
+ConditionVariable* alloc_create_condition_variable() {
+    ConditionVariable* condition_variable = NULL;
+
+    CONDITION_VARIABLE condvar_win;
+    InitializeConditionVariable(&condvar_win);
+    condition_variable = std_malloc(sizeof(ConditionVariable));
+    condition_variable->condvar = condvar_win;
+
+    return condition_variable;
+}
+
+bool sleep_condition_variable_srw_shared(ConditionVariable* condition_variable, SRWLock* srwlock, uint32 timeout) {
+    return SleepConditionVariableSRW(&condition_variable->condvar, &srwlock->lock, timeout, CONDITION_VARIABLE_LOCKMODE_SHARED);
+}
+
+bool sleep_condition_variable_srw_exclusive(ConditionVariable* condition_variable, SRWLock* srwlock, uint32 timeout) {
+    return SleepConditionVariableSRW(&condition_variable->condvar, &srwlock->lock, timeout, 0);
+}
+
+bool sleep_condition_variable_cs(ConditionVariable* condition_variable, CriticalSection* critical_section, uint32 timeout) {
+    return SleepConditionVariableCS(&condition_variable->condvar, &critical_section->csect, timeout);
+}
+
+void wake_condition_variable(ConditionVariable* condition_variable) {
+    WakeConditionVariable(&condition_variable->condvar);
+}
+
+void wake_all_condition_variable(ConditionVariable* condition_variable) {
+    WakeAllConditionVariable(&condition_variable->condvar);
+}

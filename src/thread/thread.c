@@ -40,23 +40,10 @@ void thread_join(Thread thread) {
 }
 
 bool thread_try_join(Thread thread) {
-    DWORD retval = WaitForSingleObject((HANDLE) thread.handle, 1);
+    DWORD retval = WaitForSingleObject((HANDLE) thread.handle, 0);
     if (retval != WAIT_OBJECT_0) {
         return false;
     }
     CloseHandle((HANDLE) thread.handle);
     return true;
 }
-
-// void issue_interrupt_apc() {
-//     bool success = QueueUserAPC(
-//         interrupt_network_wait,
-//         NETWORK_THREAD,
-//         0
-//     );
-//     if (!success) {
-//         int32 err = GetLastError();
-//         // TODO: handle err
-//         JUST_LOG_ERROR("Interrupt APC failed: %d\n", err);
-//     }
-// }

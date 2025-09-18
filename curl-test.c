@@ -25,6 +25,7 @@ typedef struct {
     bool should_pause;
     TimeVal* last_time;
     SendData send_data;
+    TimeVal* dynamic_start_time;
 } ReadFnArg;
 
 usize read_callback(char* buffer, usize size, usize nitems, void* userdata) {
@@ -43,6 +44,11 @@ usize read_callback(char* buffer, usize size, usize nitems, void* userdata) {
     if (arg->send_data.state == SEND_STATIC_PREFIX) {
         String send_string = arg->send_data.static_prefix;
         if (atomic_load(arg->send_data.dynamic_part_received)) {
+            static bool done = false;
+            if (!done) {
+                done = true;
+                clock_gettime(CLOCK_MONOTONIC, arg->dynamic_start_time);
+            }
             if (arg->send_data.cursor < send_string.count) {
                 char* str = send_string.str + arg->send_data.cursor;
                 usize str_count = send_string.count - arg->send_data.cursor;
@@ -216,6 +222,7 @@ typedef struct {
     atomic_bool* dynamic_part_received;
     String* dynamic_suffix;
     TimeVal signal_time;
+    TimeVal dynamic_start_time;
     TimeVal request_end_time;
 } RequestThreadArg;
 
@@ -268,6 +275,7 @@ uint32 send_request(TaskArgVoid* arg_void) {
             ), // total 190
             .dynamic_suffix = arg->dynamic_suffix, // total 10
         },
+        .dynamic_start_time = &arg->dynamic_start_time,
     };
 
     ProgressFnArg progress_arg = {
@@ -453,8 +461,9 @@ int main() {
     *request_arg = (RequestThreadArg) {
         .dynamic_part_received = dynamic_part_received,
         .dynamic_suffix = dynamic_suffix,
-        .request_end_time = {0},
         .signal_time = {0},
+        .dynamic_start_time = {0},
+        .request_end_time = {0},
     };
 
     Thread thread = thread_spawn(just_send_request, NULL);
@@ -483,6 +492,10 @@ int main() {
                 // JUST_LOG_INFO("signal_time { %llu s, %llu us}\n", signal_time.tv_sec, signal_time.tv_usec);
                 // JUST_LOG_INFO("request_end_time { %llu s, %llu us}\n", request_arg->request_end_time.tv_sec, request_arg->request_end_time.tv_usec);
                 JUST_LOG_INFO("Preemptive request took [%0.10lf ms] after the signal\n", elapsed_ms);
+
+                float64 elapsed_ms_2 = ((request_arg->request_end_time.tv_sec - request_arg->dynamic_start_time.tv_sec) * 1000.0)
+                    + (request_arg->request_end_time.tv_nsec - request_arg->dynamic_start_time.tv_nsec) / 1000000.0;
+                JUST_LOG_INFO("Preemptive request took [%0.10lf ms] after the dynamic start\n", elapsed_ms_2);
             }
         }
 
