@@ -4,8 +4,13 @@
 
 #include "justengine.h"
 
-// typedef struct timeval TimeVal;
-typedef struct timespec TimeVal;
+// typedef struct timeval Time;
+typedef struct timespec Time;
+
+int gettime(Time* time) {
+    // gettimeofday(time, NULL);
+    return clock_gettime(CLOCK_MONOTONIC, time);
+}
 
 typedef enum {
     SEND_STATIC_PREFIX,
@@ -23,9 +28,9 @@ typedef struct {
 
 typedef struct {
     bool should_pause;
-    TimeVal* last_time;
+    Time* last_time;
     SendData send_data;
-    TimeVal* dynamic_start_time;
+    Time* dynamic_start_time;
 } ReadFnArg;
 
 usize read_callback(char* buffer, usize size, usize nitems, void* userdata) {
@@ -35,8 +40,7 @@ usize read_callback(char* buffer, usize size, usize nitems, void* userdata) {
         arg->should_pause = false;
         return CURL_READFUNC_PAUSE;
     }
-    // gettimeofday(arg->last_time, NULL);
-    clock_gettime(CLOCK_MONOTONIC, arg->last_time);
+    gettime(arg->last_time);
 
     usize buffer_size = size * nitems;
     usize sent_count = 0;
@@ -47,7 +51,7 @@ usize read_callback(char* buffer, usize size, usize nitems, void* userdata) {
             static bool done = false;
             if (!done) {
                 done = true;
-                clock_gettime(CLOCK_MONOTONIC, arg->dynamic_start_time);
+                gettime(arg->dynamic_start_time);
             }
             if (arg->send_data.cursor < send_string.count) {
                 char* str = send_string.str + arg->send_data.cursor;
@@ -148,11 +152,11 @@ usize read_callback(char* buffer, usize size, usize nitems, void* userdata) {
 
 typedef struct {
     HttpRequest* req;
-    TimeVal* last_time;
+    Time* last_time;
     float64 continue_period_sec;
     bool work_done;
     atomic_bool* dynamic_part_received;
-    TimeVal* signal_time;
+    Time* signal_time;
 } ProgressFnArg;
 
 int32 progress_callback(void* clientp, int64 dltotal, int64 dlnow, int64 ultotal, int64 ulnow) {
@@ -165,14 +169,12 @@ int32 progress_callback(void* clientp, int64 dltotal, int64 dlnow, int64 ultotal
     if (atomic_load(arg->dynamic_part_received)) {
         arg->work_done = true;
         http_request_easy_pause(arg->req, CURLPAUSE_CONT);
-        // gettimeofday(arg->signal_time, NULL);
-        clock_gettime(CLOCK_MONOTONIC, arg->signal_time);
+        gettime(arg->signal_time);
         return 0;
     }
 
-    TimeVal now;
-    // gettimeofday(&now, NULL);
-    clock_gettime(CLOCK_MONOTONIC, &now);
+    Time now;
+    gettime(&now);
 
     // float64 elapsed = (now.tv_sec - arg->last_time->tv_sec) + (now.tv_usec - arg->last_time->tv_usec) / 1000000.0;
     float64 elapsed_ms = ((now.tv_sec - arg->last_time->tv_sec) * 1000.0)
@@ -221,9 +223,9 @@ HttpHeaders get_common_headers() {
 typedef struct {
     atomic_bool* dynamic_part_received;
     String* dynamic_suffix;
-    TimeVal signal_time;
-    TimeVal dynamic_start_time;
-    TimeVal request_end_time;
+    Time signal_time;
+    Time dynamic_start_time;
+    Time request_end_time;
 } RequestThreadArg;
 
 uint32 send_request(TaskArgVoid* arg_void) {
@@ -242,8 +244,8 @@ uint32 send_request(TaskArgVoid* arg_void) {
         .cainfo_file = string_from_cstr("test-assets/cacert.pem"),
     };
 
-    TimeVal* last_time = std_malloc(sizeof(TimeVal));
-    *last_time = (TimeVal) {0};
+    Time* last_time = std_malloc(sizeof(Time));
+    *last_time = (Time) {0};
 
     ReadFnArg read_arg = {
         .should_pause = false,
@@ -310,12 +312,10 @@ uint32 send_request(TaskArgVoid* arg_void) {
     http_request_set_url(req, string_from_cstr("https://ticketingweb.passo.com.tr/api/passoweb/getcaptcha"));
     http_request_set_headers(req, headers);
 
-    TimeVal request_start_time = {0};
-    // gettimeofday(&request_start_time, NULL);
-    clock_gettime(CLOCK_MONOTONIC, &request_start_time);
+    Time request_start_time = {0};
+    gettime(&request_start_time);
     HttpResponse res = http_request_easy_perform(req);
-    // gettimeofday(&arg->request_end_time, NULL);
-    clock_gettime(CLOCK_MONOTONIC, &arg->request_end_time);
+    gettime(&arg->request_end_time);
 
     // float64 elapsed =
     //     (arg->request_end_time.tv_sec - request_start_time.tv_sec)
@@ -346,9 +346,8 @@ uint32 send_request(TaskArgVoid* arg_void) {
 uint32 just_send_request(TaskArgVoid* arg_void) {
     void* arg = arg_void;
 
-    TimeVal func_start_time = {0};
-    // gettimeofday(&func_start_time, NULL);
-    clock_gettime(CLOCK_MONOTONIC, &func_start_time);
+    Time func_start_time = {0};
+    gettime(&func_start_time);
 
     HttpRequest* req = http_request_easy_init();
     if (req == NULL) {
@@ -403,13 +402,11 @@ uint32 just_send_request(TaskArgVoid* arg_void) {
     http_request_set_body(req, body);
     http_request_set_headers(req, headers);
 
-    TimeVal request_start_time = {0};
-    TimeVal request_end_time = {0};
-    // gettimeofday(&request_start_time, NULL);
-    clock_gettime(CLOCK_MONOTONIC, &request_start_time);
+    Time request_start_time = {0};
+    Time request_end_time = {0};
+    gettime(&request_start_time);
     HttpResponse res = http_request_easy_perform(req);
-    // gettimeofday(&request_end_time, NULL);
-    clock_gettime(CLOCK_MONOTONIC, &request_end_time);
+    gettime(&request_end_time);
 
     // float64 elapsed =
     //     (request_end_time.tv_sec - request_start_time.tv_sec)
@@ -466,8 +463,7 @@ int main() {
         .request_end_time = {0},
     };
 
-    Thread thread = thread_spawn(just_send_request, NULL);
-    thread_join(thread);
+    thread_join(thread_spawn(just_send_request, NULL));
 
     Thread request_thread = thread_spawn(send_request, request_arg);
 
