@@ -2,7 +2,9 @@
 #include "curl/curl.h"
 
 typedef CURLcode CurlErrorCode;
+typedef CURLMcode CurlMultiCode;
 typedef CURL HttpRequest;
+typedef CURLM HttpRequestMulti;
 #define HTTP_CURL_NO_DEFINE
 #include "httpclient.h"
 
@@ -110,27 +112,106 @@ void http_request_set_body(HttpRequest* req, String body) {
     curl_easy_setopt(req, CURLOPT_POSTFIELDSIZE, (int32) body.count);
 }
 
-HttpResponse http_request_easy_perform(HttpRequest* req) {
+HttpEasyResult http_request_easy_perform(HttpRequest* req) {
     CURLcode curl_response = curl_easy_perform(req);
     
-    HttpResponse response;
+    HttpEasyResult result;
     if (curl_response == CURLE_OK) {
-        response = (HttpResponse) {
+        result = (HttpEasyResult) {
             .success = true,
         };
     }
     else {
-        response = (HttpResponse) {
+        result = (HttpEasyResult) {
             .success = false,
             .error_code = curl_response,
             .error_msg = curl_easy_strerror(curl_response),
         };
     }
-    return response;
+    return result;
 }
 
 void http_request_easy_cleanup(HttpRequest* req) {
     curl_easy_cleanup(req);
+}
+
+HttpRequestMulti* http_request_multi_init() {
+    return curl_multi_init();
+}
+
+void http_request_multi_add_request(HttpRequestMulti* reqset, HttpRequest* req) {
+    curl_multi_add_handle(reqset, req);
+}
+
+void http_request_multi_remove_request(HttpRequestMulti* reqset, HttpRequest* req) {
+    curl_multi_remove_handle(reqset, req);
+}
+
+HttpMultiResult http_request_multi_perform(HttpRequestMulti* reqset, int32* running_handles) {
+    CURLMcode curlm_response = curl_multi_perform(reqset, running_handles);
+    
+    HttpMultiResult result;
+    if (curlm_response == CURLE_OK) {
+        result = (HttpMultiResult) {
+            .success = true,
+        };
+    }
+    else {
+        result = (HttpMultiResult) {
+            .success = false,
+            .error_code = curlm_response,
+            .error_msg = curl_multi_strerror(curlm_response),
+        };
+    }
+    return result;
+}
+
+HttpMultiResult http_request_multi_poll(HttpRequestMulti* reqset, int32 timeout_ms) {
+    CURLMcode curlm_response = curl_multi_poll(reqset, NULL, 0, timeout_ms, NULL);
+
+    HttpMultiResult result;
+    if (curlm_response == CURLE_OK) {
+        result = (HttpMultiResult) {
+            .success = true,
+        };
+    }
+    else {
+        result = (HttpMultiResult) {
+            .success = false,
+            .error_code = curlm_response,
+            .error_msg = curl_multi_strerror(curlm_response),
+        };
+    }
+    return result;
+}
+
+HttpMultiResult http_request_multi_poll(HttpRequestMulti* reqset) {
+    CURLMcode curlm_response = curl_multi_wakeup(reqset);
+
+    HttpMultiResult result;
+    if (curlm_response == CURLE_OK) {
+        result = (HttpMultiResult) {
+            .success = true,
+        };
+    }
+    else {
+        result = (HttpMultiResult) {
+            .success = false,
+            .error_code = curlm_response,
+            .error_msg = curl_multi_strerror(curlm_response),
+        };
+    }
+    return result;
+}
+
+void http_request_multi_cleanup(HttpRequestMulti* reqset) {
+    HttpRequest** reqarr = curl_multi_get_handles(reqset);
+    if (reqarr != NULL) {
+        for (HttpRequest* req = reqarr[0]; req != NULL; req++) {
+            curl_easy_cleanup(req);
+        }
+    }
+    curl_multi_cleanup(reqset);
 }
 
 CurlErrorCode http_request_easy_pause(HttpRequest* req, int32 bitmask) {

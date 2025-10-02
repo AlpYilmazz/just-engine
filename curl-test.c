@@ -220,6 +220,96 @@ HttpHeaders get_common_headers() {
     return http_headers_from_static(headers, ARRAY_LENGTH(headers));
 }
 
+HttpRequest* make_request__getcaptcha() {
+    HttpRequest* req = http_request_easy_init();
+    if (req == NULL) {
+        PANIC("HttpRequest could not be initialized\n");
+    }
+    http_request_set_threaded_use(req);
+    // http_request_set_verbose(req);
+
+    CurlSSLOpt ssl_opt = {
+        .verify_peer = true,
+        .verify_host = true,
+        .cainfo_file = string_from_cstr("test-assets/cacert.pem"),
+    };
+
+    Time* last_time = std_malloc(sizeof(Time));
+    *last_time = (Time) {0};
+
+    ReadFnArg read_arg = {
+        .should_pause = false,
+        .last_time = last_time,
+        .send_data = (SendData) {
+            .state = SEND_STATIC_PREFIX,
+            .dynamic_part_received = arg->dynamic_part_received,
+            .cursor = 0,
+            .static_prefix = string_from_cstr(
+                "{         "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+                "          "
+            ), // total 190
+            .dynamic_suffix = arg->dynamic_suffix, // total 10
+        },
+        .dynamic_start_time = &arg->dynamic_start_time,
+    };
+
+    // ProgressFnArg progress_arg = {
+    //     .req = req,
+    //     .last_time = last_time,
+    //     .continue_period_sec = 0.2,
+    //     .work_done = false,
+    //     .dynamic_part_received = arg->dynamic_part_received,
+    //     .signal_time = &arg->signal_time,
+    // };
+
+    WriteFnArg write_arg = {
+        .response_body = string_new(),
+    };
+
+    CurlCallbacks callbacks = {
+        .read_fn = read_callback,
+        .read_arg = &read_arg,
+        // .progress_fn = progress_callback,
+        // .progress_arg = &progress_arg,
+        .write_fn = write_callback,
+        .write_arg = &write_arg,
+    };
+
+    HttpHeaders headers = get_common_headers();
+    http_headers_add_header_static(&headers, "Transfer-Encoding", "chunked");
+
+    http_request_set_ssl_opt(req, ssl_opt);
+    http_request_set_callbacks(req, callbacks);
+    http_request_set_version(req, HTTP_VERSION_1_1);
+    http_request_set_method(req, HTTP_METHOD_POST);
+    http_request_set_url(req, string_from_cstr("https://ticketingweb.passo.com.tr/api/passoweb/getcaptcha"));
+    http_request_set_headers(req, headers);
+
+    return req;
+}
+
+int start_request_and_wait() {
+    HttpRequest* req = make_request__getcaptcha();
+    
+}
+
 typedef struct {
     atomic_bool* dynamic_part_received;
     String* dynamic_suffix;
@@ -438,6 +528,73 @@ uint32 just_send_request(TaskArgVoid* arg_void) {
 }
 
 int main() {
+    // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
+    // SET_LOG_LEVEL(LOG_LEVEL_WARN);
+    SET_LOG_LEVEL(LOG_LEVEL_INFO);
+    // SET_LOG_LEVEL(LOG_LEVEL_TRACE);
+    
+    InitWindow(1000, 1000, "Curl Test");
+    SetTargetFPS(60);
+    
+    just_http_global_init_default();
+
+    atomic_bool* dynamic_part_received = std_malloc(sizeof(atomic_bool));
+    *dynamic_part_received = ATOMIC_VAR_INIT(false);
+
+    String* dynamic_suffix = std_malloc(sizeof(String));
+    *dynamic_suffix = string_new();
+
+    RequestThreadArg* request_arg = std_malloc(sizeof(RequestThreadArg));
+    *request_arg = (RequestThreadArg) {
+        .dynamic_part_received = dynamic_part_received,
+        .dynamic_suffix = dynamic_suffix,
+        .signal_time = {0},
+        .dynamic_start_time = {0},
+        .request_end_time = {0},
+    };
+
+    thread_join(thread_spawn(just_send_request, NULL));
+
+    Thread request_thread = thread_spawn(send_request, request_arg);
+
+    bool thread_joined = false;
+    bool signal_done = false;
+    while (!WindowShouldClose()) {
+
+        if (!signal_done && IsKeyPressed(KEY_SPACE)) {
+            signal_done = true;
+            *dynamic_suffix = string_from_cstr("         }");
+            atomic_store(dynamic_part_received, true);
+        }
+
+        if (signal_done && !thread_joined) {
+            if (thread_try_join(request_thread)) {
+                thread_joined = true;
+                // float64 elapsed =
+                //     (request_arg->request_end_time.tv_sec - request_arg->signal_time.tv_sec)
+                //     + (request_arg->request_end_time.tv_usec - request_arg->signal_time.tv_usec) / 1000000.0;
+                float64 elapsed_ms = ((request_arg->request_end_time.tv_sec - request_arg->signal_time.tv_sec) * 1000.0)
+                    + (request_arg->request_end_time.tv_nsec - request_arg->signal_time.tv_nsec) / 1000000.0;
+                // JUST_LOG_INFO("signal_time { %llu s, %llu us}\n", signal_time.tv_sec, signal_time.tv_usec);
+                // JUST_LOG_INFO("request_end_time { %llu s, %llu us}\n", request_arg->request_end_time.tv_sec, request_arg->request_end_time.tv_usec);
+                JUST_LOG_INFO("Preemptive request took [%0.10lf ms] after the signal\n", elapsed_ms);
+
+                float64 elapsed_ms_2 = ((request_arg->request_end_time.tv_sec - request_arg->dynamic_start_time.tv_sec) * 1000.0)
+                    + (request_arg->request_end_time.tv_nsec - request_arg->dynamic_start_time.tv_nsec) / 1000000.0;
+                JUST_LOG_INFO("Preemptive request took [%0.10lf ms] after the dynamic start\n", elapsed_ms_2);
+            }
+        }
+
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+        EndDrawing();
+    }
+    
+    just_http_global_cleanup();
+    return 0;
+}
+
+int _main() {
     // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
     // SET_LOG_LEVEL(LOG_LEVEL_WARN);
     SET_LOG_LEVEL(LOG_LEVEL_INFO);

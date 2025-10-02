@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.h"
+#include "src/core.h"
 #include "memory/juststring.h"
 
 #ifndef HTTP_CURL_NO_DEFINE
@@ -153,7 +153,30 @@ typedef enum {
     CURL_LAST /* never use! */
 } CurlErrorCode;
 
+typedef enum {
+    CURLM_CALL_MULTI_PERFORM = -1, /* please call curl_multi_perform() or
+                                    curl_multi_socket*() soon */
+    CURLM_OK,
+    CURLM_BAD_HANDLE,      /* the passed-in handle is not a valid CURLM handle */
+    CURLM_BAD_EASY_HANDLE, /* an easy handle was not good/valid */
+    CURLM_OUT_OF_MEMORY,   /* if you ever get this, you are in deep sh*t */
+    CURLM_INTERNAL_ERROR,  /* this is a libcurl bug */
+    CURLM_BAD_SOCKET,      /* the passed in socket argument did not match */
+    CURLM_UNKNOWN_OPTION,  /* curl_multi_setopt() with unsupported option */
+    CURLM_ADDED_ALREADY,   /* an easy handle already added to a multi handle was
+                            attempted to get added - again */
+    CURLM_RECURSIVE_API_CALL, /* an api function was called from inside a
+                                callback */
+    CURLM_WAKEUP_FAILURE,  /* wakeup is unavailable or failed */
+    CURLM_BAD_FUNCTION_ARGUMENT, /* function called with a bad parameter */
+    CURLM_ABORTED_BY_CALLBACK,
+    CURLM_UNRECOVERABLE_POLL,
+    CURLM_LAST
+} CurlMultiCode;
+
 typedef void HttpRequest;
+
+typedef void HttpRequestMulti;
 
 #endif
 
@@ -185,7 +208,13 @@ typedef struct {
     bool success;
     CurlErrorCode error_code;
     const char* error_msg;
-} HttpResponse;
+} HttpEasyResult;
+
+typedef struct {
+    bool success;
+    CurlMultiCode error_code;
+    const char* error_msg;
+} HttpMultiResult;
 
 typedef usize (*CurlReadFn)(char* buffer, usize size, usize nitems, void* userdata);
 typedef usize (*CurlWriteFn)(char* ptr, usize size, usize nmemb, void* userdata);
@@ -226,7 +255,17 @@ void http_request_set_url(HttpRequest* req, String url);
 void http_request_set_headers(HttpRequest* req, HttpHeaders headers);
 void http_request_set_body(HttpRequest* req, String body);
 
-HttpResponse http_request_easy_perform(HttpRequest* req);
+HttpEasyResult http_request_easy_perform(HttpRequest* req);
 void http_request_easy_cleanup(HttpRequest* req);
+
+HttpRequestMulti* http_request_multi_init();
+
+void http_request_multi_add_request(HttpRequestMulti* reqset, HttpRequest* req);
+void http_request_multi_remove_request(HttpRequestMulti* reqset, HttpRequest* req);
+
+HttpMultiResult http_request_multi_perform(HttpRequestMulti* reqset, int32* running_handles);
+HttpMultiResult http_request_multi_poll(HttpRequestMulti* reqset, int32 timeout_ms);
+HttpMultiResult http_request_multi_wakeup(HttpRequestMulti* reqset);
+void http_request_multi_cleanup(HttpRequestMulti* reqset);
 
 CurlErrorCode http_request_easy_pause(HttpRequest* req, int32 bitmask);

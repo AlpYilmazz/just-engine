@@ -3,9 +3,7 @@
         {
             "name": "Mingw-GCC",
             "includePath": [
-                "${workspaceFolder}/**",
-                "C:/dev/vendor/openssl-3.5.0/include/**",
-                "C:/dev/c/lib-common/curl-8.16.0/include/**"
+                "${workspaceFolder}/**"
             ],
             "defines": [
                 "_DEBUG",
