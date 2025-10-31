@@ -52,6 +52,7 @@ usize read_callback(char* buffer, usize size, usize nitems, void* userdata) {
             if (!done) {
                 done = true;
                 gettime(arg->dynamic_start_time);
+                JUST_DEV_MARK();
             }
             if (arg->send_data.cursor < send_string.count) {
                 char* str = send_string.str + arg->send_data.cursor;
@@ -163,14 +164,16 @@ int32 progress_callback(void* clientp, int64 dltotal, int64 dlnow, int64 ultotal
     ProgressFnArg* arg = clientp;
 
     if (arg->work_done) {
+        JUST_DEV_MARK();
         return 0;
     }
 
     if (atomic_load(arg->dynamic_part_received)) {
+        JUST_DEV_MARK();
         arg->work_done = true;
         http_request_easy_pause(arg->req, CURLPAUSE_CONT);
         gettime(arg->signal_time);
-        return 0;
+        return CURL_PROGRESSFUNC_CONTINUE;
     }
 
     Time now;
@@ -188,14 +191,14 @@ int32 progress_callback(void* clientp, int64 dltotal, int64 dlnow, int64 ultotal
 }
 
 typedef struct {
-    String response_body;
+    String* response_body;
 } WriteFnArg;
 
 usize write_callback(char* ptr, usize size, usize nmemb, void* userdata) {
     WriteFnArg* arg = userdata;
 
     usize count = size * nmemb;
-    string_nappend_cstr(&arg->response_body, ptr, count);
+    string_nappend_cstr(arg->response_body, ptr, count);
 
     return count;
 }
@@ -214,13 +217,22 @@ HttpHeaders get_common_headers() {
         { "sec-fetch-site", "same-site" },
         { "Referer", "https://www.passo.com.tr/" },
         { "Referrer-Policy", "strict-origin-when-cross-origin" },
-        { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0" },
+        { "User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1 Edg/141.0.0.0" },
         { "Origin", "https://www.passo.com.tr/" },
     };
     return http_headers_from_static(headers, ARRAY_LENGTH(headers));
 }
 
-HttpRequest* make_request__getcaptcha() {
+typedef struct {
+    atomic_bool* dynamic_part_received;
+    String* dynamic_suffix;
+    String* response_body;
+    Time signal_time;
+    Time dynamic_start_time;
+    Time request_end_time;
+} RequestThreadArg;
+
+HttpRequest* make_request__getcaptcha(RequestThreadArg* arg) {
     HttpRequest* req = http_request_easy_init();
     if (req == NULL) {
         PANIC("HttpRequest could not be initialized\n");
@@ -237,7 +249,8 @@ HttpRequest* make_request__getcaptcha() {
     Time* last_time = std_malloc(sizeof(Time));
     *last_time = (Time) {0};
 
-    ReadFnArg read_arg = {
+    ReadFnArg* read_arg = malloc(sizeof(ReadFnArg));
+    *read_arg = (ReadFnArg) {
         .should_pause = false,
         .last_time = last_time,
         .send_data = (SendData) {
@@ -270,26 +283,28 @@ HttpRequest* make_request__getcaptcha() {
         .dynamic_start_time = &arg->dynamic_start_time,
     };
 
-    // ProgressFnArg progress_arg = {
-    //     .req = req,
-    //     .last_time = last_time,
-    //     .continue_period_sec = 0.2,
-    //     .work_done = false,
-    //     .dynamic_part_received = arg->dynamic_part_received,
-    //     .signal_time = &arg->signal_time,
-    // };
+    ProgressFnArg* progress_arg = malloc(sizeof(ProgressFnArg));
+    *progress_arg = (ProgressFnArg) {
+        .req = req,
+        .last_time = last_time,
+        .continue_period_sec = 0.2,
+        .work_done = false,
+        .dynamic_part_received = arg->dynamic_part_received,
+        .signal_time = &arg->signal_time,
+    };
 
-    WriteFnArg write_arg = {
-        .response_body = string_new(),
+    WriteFnArg* write_arg = malloc(sizeof(WriteFnArg));
+    *write_arg = (WriteFnArg) {
+        .response_body = arg->response_body,
     };
 
     CurlCallbacks callbacks = {
         .read_fn = read_callback,
-        .read_arg = &read_arg,
-        // .progress_fn = progress_callback,
-        // .progress_arg = &progress_arg,
+        .read_arg = read_arg,
+        .progress_fn = progress_callback,
+        .progress_arg = progress_arg,
         .write_fn = write_callback,
-        .write_arg = &write_arg,
+        .write_arg = write_arg,
     };
 
     HttpHeaders headers = get_common_headers();
@@ -305,19 +320,65 @@ HttpRequest* make_request__getcaptcha() {
     return req;
 }
 
-int start_request_and_wait() {
-    HttpRequest* req = make_request__getcaptcha();
+HttpRequestMulti* reqset;
+atomic_bool dynamic_part_received;
+String dynamic_suffix;
+
+uint32 start_request_and_wait(TaskArgVoid* arg_void) {
+    RequestThreadArg* arg = arg_void;
+
+    reqset = http_request_multi_init();
+    HttpRequest* req = make_request__getcaptcha(arg);
     
+    http_request_multi_add_request(reqset, req);
+
+    int still_running = 1;
+    bool dynamic_received = false;
+    while (still_running) {
+        HttpMultiResult res = http_request_multi_perform(reqset, &still_running);
+        if (!res.success) {
+            PANIC("ERROR: http_request_multi_perform: %d - %s\n", res.error_code, res.error_msg);
+        }
+
+        CurlMessage* m;
+        do {
+            int msgq = 0;
+            m = http_request_multi_info_read(reqset, &msgq);
+            if(m && (m->msg == CURLMSG_DONE)) {
+                JUST_DEV_MARK();
+                HttpRequest* e = m->easy_handle;
+                // ASSERT(e == req);
+                gettime(&arg->request_end_time);
+                goto REQUEST_END;
+            }
+        } while(m);
+
+        http_request_multi_poll(reqset, 105);
+
+        if (!dynamic_received && atomic_load(&dynamic_part_received)) {
+            dynamic_received = true;
+            http_request_easy_pause(req, CURLPAUSE_CONT);
+            JUST_DEV_MARK();
+        }
+    }
+    REQUEST_END:
+
+            JUST_DEV_MARK();
+    // http_request_multi_cleanup(reqset);
+            JUST_DEV_MARK();
+
+    end_thread(0);
+    return 0;
 }
 
-typedef struct {
-    atomic_bool* dynamic_part_received;
-    String* dynamic_suffix;
-    Time signal_time;
-    Time dynamic_start_time;
-    Time request_end_time;
-} RequestThreadArg;
+void set_dynamic_suffix(String send_suffix) {
+    dynamic_suffix = send_suffix;
+    atomic_store(&dynamic_part_received, true);
+    http_request_multi_wakeup(reqset);
+    JUST_DEV_MARK();
+}
 
+#if 0
 uint32 send_request(TaskArgVoid* arg_void) {
     RequestThreadArg* arg = arg_void;
 
@@ -404,7 +465,7 @@ uint32 send_request(TaskArgVoid* arg_void) {
 
     Time request_start_time = {0};
     gettime(&request_start_time);
-    HttpResponse res = http_request_easy_perform(req);
+    HttpEasyResult res = http_request_easy_perform(req);
     gettime(&arg->request_end_time);
 
     // float64 elapsed =
@@ -431,7 +492,7 @@ uint32 send_request(TaskArgVoid* arg_void) {
     end_thread(0);
     return 0;
 }
-
+#endif
 
 uint32 just_send_request(TaskArgVoid* arg_void) {
     void* arg = arg_void;
@@ -452,8 +513,9 @@ uint32 just_send_request(TaskArgVoid* arg_void) {
         .cainfo_file = string_from_cstr("test-assets/cacert.pem"),
     };
 
+    String s = string_new();
     WriteFnArg write_arg = {
-        .response_body = string_new(),
+        .response_body = &s,
     };
 
     CurlCallbacks callbacks = {
@@ -495,7 +557,7 @@ uint32 just_send_request(TaskArgVoid* arg_void) {
     Time request_start_time = {0};
     Time request_end_time = {0};
     gettime(&request_start_time);
-    HttpResponse res = http_request_easy_perform(req);
+    HttpEasyResult res = http_request_easy_perform(req);
     gettime(&request_end_time);
 
     // float64 elapsed =
@@ -511,7 +573,7 @@ uint32 just_send_request(TaskArgVoid* arg_void) {
 
     if(res.success) {
         printf("--- Response Body ---\n");
-        print_string(write_arg.response_body);
+        print_string(*write_arg.response_body);
         printf("\n---------------------\n");
     }
     else {
@@ -530,51 +592,57 @@ uint32 just_send_request(TaskArgVoid* arg_void) {
 int main() {
     // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
     // SET_LOG_LEVEL(LOG_LEVEL_WARN);
-    SET_LOG_LEVEL(LOG_LEVEL_INFO);
+    // SET_LOG_LEVEL(LOG_LEVEL_INFO);
     // SET_LOG_LEVEL(LOG_LEVEL_TRACE);
     
     InitWindow(1000, 1000, "Curl Test");
     SetTargetFPS(60);
-    
+
     just_http_global_init_default();
 
-    atomic_bool* dynamic_part_received = std_malloc(sizeof(atomic_bool));
-    *dynamic_part_received = ATOMIC_VAR_INIT(false);
+    thread_join(thread_spawn(just_send_request, NULL));
 
-    String* dynamic_suffix = std_malloc(sizeof(String));
-    *dynamic_suffix = string_new();
+    dynamic_part_received = ATOMIC_VAR_INIT(false);
+    dynamic_suffix = string_new();
+    String response_body = string_new();
 
     RequestThreadArg* request_arg = std_malloc(sizeof(RequestThreadArg));
     *request_arg = (RequestThreadArg) {
-        .dynamic_part_received = dynamic_part_received,
-        .dynamic_suffix = dynamic_suffix,
+        .dynamic_part_received = &dynamic_part_received,
+        .dynamic_suffix = &dynamic_suffix,
+        .response_body = &response_body,
         .signal_time = {0},
         .dynamic_start_time = {0},
         .request_end_time = {0},
     };
 
-    thread_join(thread_spawn(just_send_request, NULL));
+    Thread request_thread = thread_spawn(start_request_and_wait, request_arg);
 
-    Thread request_thread = thread_spawn(send_request, request_arg);
+    Time signal_time = {0};
 
     bool thread_joined = false;
     bool signal_done = false;
     while (!WindowShouldClose()) {
-
         if (!signal_done && IsKeyPressed(KEY_SPACE)) {
+            JUST_DEV_MARK();
             signal_done = true;
-            *dynamic_suffix = string_from_cstr("         }");
-            atomic_store(dynamic_part_received, true);
+            gettime(&signal_time);
+            set_dynamic_suffix(string_from_cstr("         }"));
         }
 
         if (signal_done && !thread_joined) {
             if (thread_try_join(request_thread)) {
                 thread_joined = true;
+
+                printf("--- Response Body ---\n");
+                print_string(response_body);
+                printf("\n---------------------\n");
+
                 // float64 elapsed =
                 //     (request_arg->request_end_time.tv_sec - request_arg->signal_time.tv_sec)
                 //     + (request_arg->request_end_time.tv_usec - request_arg->signal_time.tv_usec) / 1000000.0;
-                float64 elapsed_ms = ((request_arg->request_end_time.tv_sec - request_arg->signal_time.tv_sec) * 1000.0)
-                    + (request_arg->request_end_time.tv_nsec - request_arg->signal_time.tv_nsec) / 1000000.0;
+                float64 elapsed_ms = ((request_arg->request_end_time.tv_sec - signal_time.tv_sec) * 1000.0)
+                    + (request_arg->request_end_time.tv_nsec - signal_time.tv_nsec) / 1000000.0;
                 // JUST_LOG_INFO("signal_time { %llu s, %llu us}\n", signal_time.tv_sec, signal_time.tv_usec);
                 // JUST_LOG_INFO("request_end_time { %llu s, %llu us}\n", request_arg->request_end_time.tv_sec, request_arg->request_end_time.tv_usec);
                 JUST_LOG_INFO("Preemptive request took [%0.10lf ms] after the signal\n", elapsed_ms);
@@ -594,6 +662,7 @@ int main() {
     return 0;
 }
 
+#if 0
 int _main() {
     // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
     // SET_LOG_LEVEL(LOG_LEVEL_WARN);
@@ -660,3 +729,71 @@ int _main() {
     just_http_global_cleanup();
     return 0;
 }
+
+int _0_main() {
+    // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
+    // SET_LOG_LEVEL(LOG_LEVEL_WARN);
+    SET_LOG_LEVEL(LOG_LEVEL_INFO);
+    // SET_LOG_LEVEL(LOG_LEVEL_TRACE);
+    
+    InitWindow(1000, 1000, "Curl Test");
+    SetTargetFPS(60);
+    
+    just_http_global_init_default();
+
+    atomic_bool* dynamic_part_received = std_malloc(sizeof(atomic_bool));
+    *dynamic_part_received = ATOMIC_VAR_INIT(false);
+
+    String* dynamic_suffix = std_malloc(sizeof(String));
+    *dynamic_suffix = string_new();
+
+    RequestThreadArg* request_arg = std_malloc(sizeof(RequestThreadArg));
+    *request_arg = (RequestThreadArg) {
+        .dynamic_part_received = dynamic_part_received,
+        .dynamic_suffix = dynamic_suffix,
+        .signal_time = {0},
+        .dynamic_start_time = {0},
+        .request_end_time = {0},
+    };
+
+    thread_join(thread_spawn(just_send_request, NULL));
+
+    Thread request_thread = thread_spawn(send_request, request_arg);
+
+    bool thread_joined = false;
+    bool signal_done = false;
+    while (!WindowShouldClose()) {
+
+        if (!signal_done && IsKeyPressed(KEY_SPACE)) {
+            signal_done = true;
+            *dynamic_suffix = string_from_cstr("         }");
+            atomic_store(dynamic_part_received, true);
+        }
+
+        if (signal_done && !thread_joined) {
+            if (thread_try_join(request_thread)) {
+                thread_joined = true;
+                // float64 elapsed =
+                //     (request_arg->request_end_time.tv_sec - request_arg->signal_time.tv_sec)
+                //     + (request_arg->request_end_time.tv_usec - request_arg->signal_time.tv_usec) / 1000000.0;
+                float64 elapsed_ms = ((request_arg->request_end_time.tv_sec - request_arg->signal_time.tv_sec) * 1000.0)
+                    + (request_arg->request_end_time.tv_nsec - request_arg->signal_time.tv_nsec) / 1000000.0;
+                // JUST_LOG_INFO("signal_time { %llu s, %llu us}\n", signal_time.tv_sec, signal_time.tv_usec);
+                // JUST_LOG_INFO("request_end_time { %llu s, %llu us}\n", request_arg->request_end_time.tv_sec, request_arg->request_end_time.tv_usec);
+                JUST_LOG_INFO("Preemptive request took [%0.10lf ms] after the signal\n", elapsed_ms);
+
+                float64 elapsed_ms_2 = ((request_arg->request_end_time.tv_sec - request_arg->dynamic_start_time.tv_sec) * 1000.0)
+                    + (request_arg->request_end_time.tv_nsec - request_arg->dynamic_start_time.tv_nsec) / 1000000.0;
+                JUST_LOG_INFO("Preemptive request took [%0.10lf ms] after the dynamic start\n", elapsed_ms_2);
+            }
+        }
+
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+        EndDrawing();
+    }
+    
+    just_http_global_cleanup();
+    return 0;
+}
+#endif

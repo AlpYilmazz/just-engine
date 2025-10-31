@@ -3,6 +3,7 @@
 
 typedef CURLcode CurlErrorCode;
 typedef CURLMcode CurlMultiCode;
+typedef CURLMsg CurlMessage;
 typedef CURL HttpRequest;
 typedef CURLM HttpRequestMulti;
 #define HTTP_CURL_NO_DEFINE
@@ -147,61 +148,38 @@ void http_request_multi_remove_request(HttpRequestMulti* reqset, HttpRequest* re
     curl_multi_remove_handle(reqset, req);
 }
 
-HttpMultiResult http_request_multi_perform(HttpRequestMulti* reqset, int32* running_handles) {
-    CURLMcode curlm_response = curl_multi_perform(reqset, running_handles);
-    
-    HttpMultiResult result;
-    if (curlm_response == CURLE_OK) {
-        result = (HttpMultiResult) {
+static HttpMultiResult curlm_multi_result(CURLMcode curlm_code) {
+    if (curlm_code == CURLE_OK) {
+        return (HttpMultiResult) {
             .success = true,
         };
     }
     else {
-        result = (HttpMultiResult) {
+        return (HttpMultiResult) {
             .success = false,
-            .error_code = curlm_response,
-            .error_msg = curl_multi_strerror(curlm_response),
+            .error_code = curlm_code,
+            .error_msg = curl_multi_strerror(curlm_code),
         };
     }
-    return result;
+}
+
+HttpMultiResult http_request_multi_perform(HttpRequestMulti* reqset, int32* running_handles) {
+    CURLMcode curlm_response = curl_multi_perform(reqset, running_handles);
+    return curlm_multi_result(curlm_response);
 }
 
 HttpMultiResult http_request_multi_poll(HttpRequestMulti* reqset, int32 timeout_ms) {
     CURLMcode curlm_response = curl_multi_poll(reqset, NULL, 0, timeout_ms, NULL);
-
-    HttpMultiResult result;
-    if (curlm_response == CURLE_OK) {
-        result = (HttpMultiResult) {
-            .success = true,
-        };
-    }
-    else {
-        result = (HttpMultiResult) {
-            .success = false,
-            .error_code = curlm_response,
-            .error_msg = curl_multi_strerror(curlm_response),
-        };
-    }
-    return result;
+    return curlm_multi_result(curlm_response);
 }
 
-HttpMultiResult http_request_multi_poll(HttpRequestMulti* reqset) {
+HttpMultiResult http_request_multi_wakeup(HttpRequestMulti* reqset) {
     CURLMcode curlm_response = curl_multi_wakeup(reqset);
+    return curlm_multi_result(curlm_response);
+}
 
-    HttpMultiResult result;
-    if (curlm_response == CURLE_OK) {
-        result = (HttpMultiResult) {
-            .success = true,
-        };
-    }
-    else {
-        result = (HttpMultiResult) {
-            .success = false,
-            .error_code = curlm_response,
-            .error_msg = curl_multi_strerror(curlm_response),
-        };
-    }
-    return result;
+CurlMessage* http_request_multi_info_read(HttpRequestMulti* reqset, HttpRequest* req) {
+    return curl_multi_info_read(reqset, req);
 }
 
 void http_request_multi_cleanup(HttpRequestMulti* reqset) {

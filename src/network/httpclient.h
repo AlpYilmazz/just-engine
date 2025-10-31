@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/core.h"
+#include "core.h"
 #include "memory/juststring.h"
 
 #ifndef HTTP_CURL_NO_DEFINE
@@ -11,6 +11,10 @@
 /* This is a return code for the read callback that, when returned, will
    signal libcurl to pause sending data on the current transfer. */
 #define CURL_READFUNC_PAUSE 0x10000001
+
+/* This is a return code for the progress callback that, when returned, will
+   signal libcurl to continue executing the default progress function */
+#define CURL_PROGRESSFUNC_CONTINUE 0x10000001
 
 #define CURLPAUSE_RECV      (1<<0)
 #define CURLPAUSE_RECV_CONT (0)
@@ -174,9 +178,25 @@ typedef enum {
     CURLM_LAST
 } CurlMultiCode;
 
+typedef enum {
+  CURLMSG_NONE, /* first, not used */
+  CURLMSG_DONE, /* This easy handle has completed. 'result' contains
+                   the CURLcode of the transfer */
+  CURLMSG_LAST /* last, not used */
+} CURLMSG;
+
 typedef void HttpRequest;
 
 typedef void HttpRequestMulti;
+
+typedef struct {
+  CURLMSG msg;       /* what this message means */
+  HttpRequest* easy_handle; /* the handle it concerns */
+  union {
+    void* whatever;    /* message-specific data */
+    CurlErrorCode result;   /* return code for transfer */
+  } data;
+} CurlMessage;
 
 #endif
 
@@ -266,6 +286,7 @@ void http_request_multi_remove_request(HttpRequestMulti* reqset, HttpRequest* re
 HttpMultiResult http_request_multi_perform(HttpRequestMulti* reqset, int32* running_handles);
 HttpMultiResult http_request_multi_poll(HttpRequestMulti* reqset, int32 timeout_ms);
 HttpMultiResult http_request_multi_wakeup(HttpRequestMulti* reqset);
+CurlMessage* http_request_multi_info_read(HttpRequestMulti* reqset, HttpRequest* req);
 void http_request_multi_cleanup(HttpRequestMulti* reqset);
 
 CurlErrorCode http_request_easy_pause(HttpRequest* req, int32 bitmask);
