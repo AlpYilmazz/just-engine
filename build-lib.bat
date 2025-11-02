@@ -25,10 +25,6 @@ mkdir %LIB_DIR%\lib         >nul 2>&1
 mkdir %LIB_DIR%\bin         >nul 2>&1
 mkdir %LIB_DIR%\conf        >nul 2>&1
 
-@echo on
-build %INTROSPECT_SRC_DIR%/main.c %LIB_DIR%/bin/introspect.exe
-@echo off
-
 mkdir %LIB_DIR%\include\openssl     >nul 2>&1
 mkdir %LIB_DIR%\lib\openssl         >nul 2>&1
 mkdir %LIB_DIR%\conf\openssl        >nul 2>&1
@@ -53,3 +49,9 @@ echo A | xcopy /s /e /q vendor\clay-0.14\include %LIB_DIR%\include\clay     >nul
 
 echo A | xcopy /q %SRC_DIR%\justengine.h %LIB_DIR%\include\     >nul 2>&1
 echo A | xcopy /q %BUILD_DIR%\libjustengine.a %LIB_DIR%\lib\    >nul 2>&1
+
+@REM Build Introspect
+
+@echo on
+build %INTROSPECT_SRC_DIR%/main.c %LIB_DIR%/bin/introspect.exe
+@echo off

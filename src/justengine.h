@@ -907,7 +907,9 @@ StringViewPair string_view_split_at(StringView string_view, usize index);
 StringView string_view_trim(StringView string_view);
 
 void print_string_view(StringView string_view);
+void println_string_view(StringView string_view);
 void print_string(String string);
+void println_string(String string);
 
 typedef struct {
     StringView cursor;

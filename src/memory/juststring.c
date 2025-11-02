@@ -238,8 +238,17 @@ void print_string_view(StringView string_view) {
     }
 }
 
+void println_string_view(StringView string_view) {
+    print_string_view(string_view);
+    printf("\n");
+}
+
 void print_string(String string) {
     print_string_view(string_as_view(string));
+}
+
+void println_string(String string) {
+    println_string_view(string_as_view(string));
 }
 
 // String Iterators

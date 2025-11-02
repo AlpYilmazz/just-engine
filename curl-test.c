@@ -192,6 +192,7 @@ int32 progress_callback(void* clientp, int64 dltotal, int64 dlnow, int64 ultotal
     return 0;
 }
 
+introspect
 typedef struct {
     String* response_body;
 } WriteFnArg;
