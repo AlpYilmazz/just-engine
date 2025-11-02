@@ -1,7 +1,8 @@
 @echo off
 SETLOCAL
 
-set ENTRY=%1
+set ARG_ENTRY=%1
+set ARG_OUTPUT=%2
 
 set SRC_DIR=src
 set BUILD_DIR=target
@@ -30,9 +31,14 @@ set LINK=^
 
 set SRC_DIR=.
 
-set OUTPUT=game.exe
+if [%~1]==[] (
+    set OUTPUT=game.exe
+)
+else (
+    set OUTPUT=%ARG_OUTPUT%
+)
 set COMPILE=^
-    %SRC_DIR%/%ENTRY%.c
+    %SRC_DIR%/%ARG_ENTRY%
 @echo on
 
 %CC% %COMPILER_FLAGS% %COMPILE% %INCLUDE% %LIB% %LINK% -o %OUTPUT%

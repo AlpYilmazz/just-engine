@@ -692,6 +692,35 @@ void files_in_directory_recursive(String path, FileEntryList* file_entries) {
     closedir(dir);
 }
 
+void list_file_entries(String path, FileEntryList* file_entries) {
+    struct stat path_stat;
+    if (stat(path.cstr, &path_stat) != 0) {
+        PANIC("stat failed for: \"%s\"\n", path.cstr);
+    }
+
+    if (S_ISDIR(path_stat.st_mode)) {
+        files_in_directory_recursive(path, file_entries);
+    }
+    else {
+        int i_last_slash = -1;
+        for (int i = 0; i < path.count; i++) {
+            char ch = path.str[i];
+            if (ch == '/' || ch == '\\') {
+                i_last_slash = i;
+            }
+        }
+        int start = i_last_slash + 1;
+        String filename = string_from_view(string_slice_view(path, start, path.count - start));
+        print_string(filename);
+
+        FileEntry file_entry = {
+            .full_path = path,
+            .filename = filename,
+        };
+        dynarray_push_back(*file_entries, file_entry);
+    }
+}
+
 typedef struct {
     usize count;
     usize capacity;
@@ -718,7 +747,7 @@ int main(int argc, char* argv[]) {
 
     FileEntryList file_entries = {0};
     dynarray_reserve(file_entries, 10);
-    files_in_directory_recursive(scanroot_path, &file_entries);
+    list_file_entries(scanroot_path, &file_entries);
     free_string(scanroot_path);
 
     usize FILE_COUNT = file_entries.count;
@@ -738,6 +767,7 @@ int main(int argc, char* argv[]) {
         String filename = file_entries.items[i].filename;
         String int_filepath = string_new();
         string_append_format(int_filepath, "%s/%s.%s", TEMPDIR_ROOT_PATH.cstr, filename.cstr, INTROSPECT_FILE_SUFFIX_EXT.cstr);
+        print_string(int_filepath);
         dynarray_push_back(int_filepaths, int_filepath);
     }
 
@@ -767,7 +797,13 @@ int main(int argc, char* argv[]) {
             args_list[arg_i++] = "-o";
             args_list[arg_i++] = int_filepath.cstr;
             args_list[arg_i++] = NULL;
-    
+
+            for (int a = 0; a < arg_i; a++){
+                char_cstr__print(args_list[a]);
+                printf(" ");
+            }
+            printf("\n");
+
             usize spawn_result = _spawnvp(
                 _P_NOWAIT,
                 "gcc",
@@ -811,7 +847,7 @@ int main(int argc, char* argv[]) {
         String int_filepath = int_filepaths.items[i];
         remove(int_filepath.cstr);
     }
-    rmdir(TEMPDIR_ROOT_PATH.cstr);
+    // rmdir(TEMPDIR_ROOT_PATH.cstr);
 
     if (!process_success || !introspect_success) {
         PANIC("Introspect failed\n");

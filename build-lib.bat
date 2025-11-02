@@ -4,6 +4,7 @@ SETLOCAL
 set COMMAND=%1
 
 set SRC_DIR=src
+set INTROSPECT_SRC_DIR=introspect
 set BUILD_DIR=target
 set LIB_DIR=justengine
 
@@ -23,6 +24,10 @@ mkdir %LIB_DIR%\include     >nul 2>&1
 mkdir %LIB_DIR%\lib         >nul 2>&1
 mkdir %LIB_DIR%\bin         >nul 2>&1
 mkdir %LIB_DIR%\conf        >nul 2>&1
+
+@echo on
+build %INTROSPECT_SRC_DIR%/main.c %LIB_DIR%/bin/introspect.exe
+@echo off
 
 mkdir %LIB_DIR%\include\openssl     >nul 2>&1
 mkdir %LIB_DIR%\lib\openssl         >nul 2>&1

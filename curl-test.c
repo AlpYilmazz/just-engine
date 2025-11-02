@@ -4,6 +4,8 @@
 
 #include "justengine.h"
 
+#include "introspect_gen__curl_test.h"
+
 // typedef struct timeval Time;
 typedef struct timespec Time;
 
@@ -378,7 +380,6 @@ void set_dynamic_suffix(String send_suffix) {
     JUST_DEV_MARK();
 }
 
-#if 0
 uint32 send_request(TaskArgVoid* arg_void) {
     RequestThreadArg* arg = arg_void;
 
@@ -440,8 +441,9 @@ uint32 send_request(TaskArgVoid* arg_void) {
         .signal_time = &arg->signal_time,
     };
 
+    String s = string_new();
     WriteFnArg write_arg = {
-        .response_body = string_new(),
+        .response_body = &s,
     };
 
     CurlCallbacks callbacks = {
@@ -477,7 +479,7 @@ uint32 send_request(TaskArgVoid* arg_void) {
 
     if(res.success) {
         printf("--- Response Body ---\n");
-        print_string(write_arg.response_body);
+        print_string(*write_arg.response_body);
         printf("\n---------------------\n");
     }
     else {
@@ -492,7 +494,6 @@ uint32 send_request(TaskArgVoid* arg_void) {
     end_thread(0);
     return 0;
 }
-#endif
 
 uint32 just_send_request(TaskArgVoid* arg_void) {
     void* arg = arg_void;
@@ -589,7 +590,7 @@ uint32 just_send_request(TaskArgVoid* arg_void) {
     return 0;
 }
 
-int main() {
+int main_1() {
     // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
     // SET_LOG_LEVEL(LOG_LEVEL_WARN);
     // SET_LOG_LEVEL(LOG_LEVEL_INFO);
@@ -662,8 +663,7 @@ int main() {
     return 0;
 }
 
-#if 0
-int _main() {
+int main_2() {
     // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
     // SET_LOG_LEVEL(LOG_LEVEL_WARN);
     SET_LOG_LEVEL(LOG_LEVEL_INFO);
@@ -730,6 +730,18 @@ int _main() {
     return 0;
 }
 
+typedef int (*MainFn)();
+MainFn entry_points[] = {
+    main_1,
+    main_2,
+};
+
+int main(int argc, char *argv[]) {
+    int which_main = argv[1][0] - '1';
+    return entry_points[which_main]();
+}
+
+#if 0
 int _0_main() {
     // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
     // SET_LOG_LEVEL(LOG_LEVEL_WARN);
