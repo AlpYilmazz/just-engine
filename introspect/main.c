@@ -324,6 +324,7 @@ String gen_introspect_file() {
     StringBuilder GEN = string_builder_new();
 
     string_builder_append_cstr(&GEN, "#pragma once\n\n");
+    string_builder_append_cstr(&GEN, "#ifndef PRE_INTROSPECT_PASS\n\n");
     string_builder_append_cstr(&GEN, "#include \"justengine.h\"\n\n");
 
     string_builder_append_cstr(
@@ -362,6 +363,8 @@ String gen_introspect_file() {
         string_builder_append_format(&GEN, "__IMPL_____generate_print_functions(%s);\n", struct_info->type_name.cstr);
     }
     string_builder_append_cstr(&GEN, "\n");
+    
+    string_builder_append_cstr(&GEN, "#endif\n\n");
 
     return build_string(&GEN);
 }

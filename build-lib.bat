@@ -53,5 +53,5 @@ echo A | xcopy /q %BUILD_DIR%\libjustengine.a %LIB_DIR%\lib\    >nul 2>&1
 @REM Build Introspect
 
 @echo on
-build %INTROSPECT_SRC_DIR%/main.c %LIB_DIR%/bin/introspect.exe
+call build %INTROSPECT_SRC_DIR%/main.c --out %LIB_DIR%/bin/introspect.exe
 @echo off

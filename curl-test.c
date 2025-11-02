@@ -4,8 +4,6 @@
 
 #include "justengine.h"
 
-#include "introspect_gen__curl_test.h"
-
 // typedef struct timeval Time;
 typedef struct timespec Time;
 
@@ -196,6 +194,8 @@ introspect
 typedef struct {
     String* response_body;
 } WriteFnArg;
+
+#include "introspect_gen__curl-test.h"
 
 usize write_callback(char* ptr, usize size, usize nmemb, void* userdata) {
     WriteFnArg* arg = userdata;

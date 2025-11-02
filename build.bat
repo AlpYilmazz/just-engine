@@ -2,7 +2,21 @@
 SETLOCAL
 
 set ARG_ENTRY=%1
-set ARG_OUTPUT=%2
+set ARG_ENTRY_NAME=%~n1
+SHIFT
+
+:loop
+if NOT "%1"=="" (
+    if "%1"=="--out" (
+        SET ARG_OUTPUT=%2
+        SHIFT
+    ) else if "%1"=="--introspect" (
+        SET ARG_WITH_INTROSPECT=true
+        SHIFT
+    )
+    SHIFT
+    goto :loop
+)
 
 set SRC_DIR=src
 set BUILD_DIR=target
@@ -31,16 +45,19 @@ set LINK=^
 
 set SRC_DIR=.
 
-if [%~1]==[] (
-    set OUTPUT=game.exe
-)
-else (
+if defined ARG_OUTPUT (
     set OUTPUT=%ARG_OUTPUT%
+) else (
+    set OUTPUT=game.exe
 )
 set COMPILE=^
     %SRC_DIR%/%ARG_ENTRY%
+
+if defined ARG_WITH_INTROSPECT (
+    @echo on
+    call run "justengine/bin/introspect.exe" %SRC_DIR%/%ARG_ENTRY% introspect_gen__%ARG_ENTRY_NAME%.h %INCLUDE%
+    @echo off
+)
 @echo on
-
 %CC% %COMPILER_FLAGS% %COMPILE% %INCLUDE% %LIB% %LINK% -o %OUTPUT%
-
 @echo off
