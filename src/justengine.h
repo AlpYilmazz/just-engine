@@ -427,6 +427,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define introspect _introspect__just_to_make_sure_no_token_overlap__
     #define introspect_with(...) _introspect_with__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define alias(...) _alias__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define union_header(...) _union_header__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_cstr(...) _mode_cstr__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_dynarray(...) _mode_dynarray__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_string(...) _mode_string__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
@@ -435,6 +436,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define introspect 
     #define introspect_with(...) 
     #define alias(...) 
+    #define union_header(...) 
     #define mode_cstr(...) 
     #define mode_dynarray(...) 
     #define mode_string(...) 
@@ -443,6 +445,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define _introspect__just_to_make_sure_no_token_overlap__ 
     #define _introspect_with__just_to_make_sure_no_token_overlap__(...) 
     #define _alias__just_to_make_sure_no_token_overlap__(...) 
+    #define _union_header__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_cstr__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_dynarray__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_string__just_to_make_sure_no_token_overlap__(...) 
@@ -454,7 +457,8 @@ static inline Vector2 vector2_yx(Vector2 vec) {
  * TODO:
  * - handle enum types
  * - handle void type (ofc void*, not void)
- * - handle multi layer pointers (e.g. uint32***)
+ * - handle multi layer pointers (i.e. uint32***)
+ * - handle multi dimension arrays (i.e. arr[3][5][6])
  * - handle type aliasing with `alias()`
  * - function pointer `function_ptr()`
  */
@@ -475,6 +479,7 @@ typedef enum {
     TYPE_usize,
     TYPE_float32,
     TYPE_float64,
+    TYPE_union,
     TYPE_struct,
 } Type;
 
@@ -497,6 +502,11 @@ typedef struct FieldInfo {
     bool is_dynarray;
     bool is_string;
     void* count_ptr;
+    // --
+    uint32 union_header_field;
+    // --
+    bool is_discriminated;
+    void* discriminant_ptr;
     // --
     usize struct_size;
     uint32 field_count;
@@ -954,7 +964,9 @@ typedef struct {
 StringTokensIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count);
 StringTokensIter string_iter_tokens(String string, StringToken* tokens, usize token_count);
 void free_tokens_iter(StringTokensIter* tokens_iter);
+bool next_token_peekable(StringTokensIter* tokens_iter, StringTokenOut* token_out, bool peek);
 bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out);
+bool peek_token(StringTokensIter* tokens_iter, StringTokenOut* token_out);
 #define expect_token(tokens_iter_ptr, expected_token_id) \
     do { \
         StringTokenOut expect_token__token; \

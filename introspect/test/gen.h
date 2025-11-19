@@ -16,6 +16,75 @@ static FieldInfo InnerTestStruct__fields[3];
 static FieldInfo TestStruct__fields[12];
 static FieldInfo TestStruct_DynArray__fields[3];
 
+typedef struct {
+	uint32 discriminant;
+	union {
+		bool bool_variant;
+		int32 int_variant union_header();
+	} mode_discriminated_union(discriminant: discriminant);
+	union {
+		bool bool_variant;
+		int32 int_variant;
+	} test;
+	union {
+		bool bool_variant;
+		int32 int_variant;
+	} arr[10];
+} TestUnionStruct;
+
+void fn(TestUnionStruct var) {
+	var.bool_variant;
+	var.test.bool_variant;
+	var.arr[0].bool_variant;
+}
+
+static FieldInfo TestUnionStruct__union_1__fields[] = {
+	{
+		.type = TYPE_bool, .name = "bool_variant", .ptr = 0,
+	},
+	{
+		.type = TYPE_int32, .name = "int_variant", .ptr = 0,
+	},
+};
+
+static FieldInfo TestUnionStruct__union_2__fields[] = {
+	{
+		.type = TYPE_bool, .name = "bool_variant", .ptr = 0,
+	},
+	{
+		.type = TYPE_int32, .name = "int_variant", .ptr = 0,
+	},
+};
+
+static FieldInfo TestUnionStruct__union_3__fields[] = {
+	{
+		.type = TYPE_bool, .name = "bool_variant", .ptr = 0,
+	},
+	{
+		.type = TYPE_int32, .name = "int_variant", .ptr = 0,
+	},
+};
+
+static FieldInfo TestUnionStruct__fields[] = {
+	{
+		.type = TYPE_union, .name = NULL, .ptr = &(((TestUnionStruct*)(0))->bool_variant),
+		.union_header_field = 1, // int_variant
+		.is_discriminated = true, .discriminant_ptr = &(((TestUnionStruct*)(0))->discriminant),
+		.union_size = sizeof(union { bool bool_variant; int32 int_variant; }), .variant_count = ARRAY_LENGTH(TestUnionStruct__union_1__fields), .variants = TestUnionStruct__union_1__fields,
+	},
+	{
+		.type = TYPE_union, .name = "test", .ptr = &(((TestUnionStruct*)(0))->test),
+		.union_size = sizeof(union { bool bool_variant; int32 int_variant; }), .variant_count = ARRAY_LENGTH(TestUnionStruct__union_2__fields), .variants = TestUnionStruct__union_2__fields,
+	},
+	{
+		.type = TYPE_union, .name = "arr", .ptr = &(((TestUnionStruct*)(0))->arr),
+		.is_array = true, .count = 10, .array_dim = 1, .array_dim_counts = {10},
+		.union_size = sizeof(union { bool bool_variant; int32 int_variant; }), .variant_count = ARRAY_LENGTH(TestUnionStruct__union_3__fields), .variants = TestUnionStruct__union_3__fields,
+	},
+};
+
+
+
 static FieldInfo TestString__fields[] = {
 	{
 		.type = TYPE_usize, .name = "count", .ptr = &(((TestString*)(0))->count),

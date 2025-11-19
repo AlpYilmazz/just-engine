@@ -171,7 +171,9 @@ typedef struct {
 StringTokensIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count);
 StringTokensIter string_iter_tokens(String string, StringToken* tokens, usize token_count);
 void free_tokens_iter(StringTokensIter* tokens_iter);
+bool next_token_peekable(StringTokensIter* tokens_iter, StringTokenOut* token_out, bool peek);
 bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out);
+bool peek_token(StringTokensIter* tokens_iter, StringTokenOut* token_out);
 #define expect_token(tokens_iter_ptr, expected_token_id) \
     do { \
         StringTokenOut expect_token__token; \

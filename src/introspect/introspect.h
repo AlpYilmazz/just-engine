@@ -6,6 +6,8 @@
     #define introspect _introspect__just_to_make_sure_no_token_overlap__
     #define introspect_with(...) _introspect_with__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define alias(...) _alias__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define union_header(...) _union_header__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define mode_discriminated_union(...) _mode_discriminated_union__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_cstr(...) _mode_cstr__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_dynarray(...) _mode_dynarray__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_string(...) _mode_string__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
@@ -14,6 +16,8 @@
     #define introspect 
     #define introspect_with(...) 
     #define alias(...) 
+    #define union_header(...) 
+    #define mode_discriminated_union(...) 
     #define mode_cstr(...) 
     #define mode_dynarray(...) 
     #define mode_string(...) 
@@ -22,6 +26,8 @@
     #define _introspect__just_to_make_sure_no_token_overlap__ 
     #define _introspect_with__just_to_make_sure_no_token_overlap__(...) 
     #define _alias__just_to_make_sure_no_token_overlap__(...) 
+    #define _union_header__just_to_make_sure_no_token_overlap__(...) 
+    #define _mode_discriminated_union__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_cstr__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_dynarray__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_string__just_to_make_sure_no_token_overlap__(...) 
@@ -55,6 +61,7 @@ typedef enum {
     TYPE_usize,
     TYPE_float32,
     TYPE_float64,
+    TYPE_union,
     TYPE_struct,
 } Type;
 
@@ -77,6 +84,11 @@ typedef struct FieldInfo {
     bool is_dynarray;
     bool is_string;
     void* count_ptr;
+    // --
+    uint32 union_header_field;
+    // --
+    bool is_discriminated;
+    void* discriminant_ptr;
     // --
     usize struct_size;
     uint32 field_count;

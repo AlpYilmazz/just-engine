@@ -51,6 +51,9 @@ String string_with_capacity(usize capacity) {
 }
 
 String string_from_cstr(const char* cstr) {
+    if (cstr == NULL) {
+        return string_new();
+    }
     usize count = cstr_length(cstr);
     return (String) {
         .count = count,
@@ -342,7 +345,7 @@ void free_tokens_iter(StringTokensIter* tokens_iter) {
     }
 }
 
-bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
+bool next_token_peekable(StringTokensIter* tokens_iter, StringTokenOut* token_out, bool peek) {
     StringView start = tokens_iter->cursor;
 
     usize word_start_inc = 0;
@@ -368,7 +371,7 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
                 // JUST_LOG_INFO("%d: <%p><%llu> \n", token_out->id, token_out->token.str, token_out->token.count);
                 // print_string_view(token_out->token);
                 // printf("\n");
-                return true;
+                goto END_FOUND;
             }
         }
         else { // if (!in_word) {
@@ -404,7 +407,7 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
                             .token = trimmed,
                         };
                         // JUST_DEV_MARK();
-                        return true;
+                        goto END_FOUND;
                     }
 
                     tokens_iter->cursor = split.second;
@@ -414,7 +417,7 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
                         .token = string_as_view(token.token),
                     };
                     // JUST_DEV_MARK();
-                    return true;
+                    goto END_FOUND;
                 }
             }
         }
@@ -432,10 +435,27 @@ bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
             .token = string_view_slice_view(start, word_start_inc, word_end_exc - word_start_inc),
         };
         // JUST_DEV_MARK();
-        return true;
+        goto END_FOUND;
     }
 
+    if (peek) {
+        tokens_iter->cursor = start;
+    }
     return false;
+
+    END_FOUND:
+    if (peek) {
+        tokens_iter->cursor = start;
+    }
+    return true;
+}
+
+bool next_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
+    return next_token_peekable(tokens_iter, token_out, false);
+}
+
+bool peek_token(StringTokensIter* tokens_iter, StringTokenOut* token_out) {
+    return next_token_peekable(tokens_iter, token_out, true);
 }
 
 // StringBuilder
