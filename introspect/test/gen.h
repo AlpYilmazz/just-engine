@@ -68,8 +68,8 @@ static FieldInfo TestUnionStruct__union_3__fields[] = {
 static FieldInfo TestUnionStruct__fields[] = {
 	{
 		.type = TYPE_union, .name = NULL, .ptr = &(((TestUnionStruct*)(0))->bool_variant),
-		.union_header_field = 1, // int_variant
-		.is_discriminated = true, .discriminant_ptr = &(((TestUnionStruct*)(0))->discriminant),
+		.union_header_variant = 1, // int_variant
+		.is_discriminated_union = true, .discriminant_ptr = &(((TestUnionStruct*)(0))->discriminant),
 		.union_size = sizeof(union { bool bool_variant; int32 int_variant; }), .variant_count = ARRAY_LENGTH(TestUnionStruct__union_1__fields), .variants = TestUnionStruct__union_1__fields,
 	},
 	{

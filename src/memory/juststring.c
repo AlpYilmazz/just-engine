@@ -38,6 +38,10 @@ char* cstr_clone(const char* cstr) {
     return cstr_nclone(cstr, cstr_length(cstr));
 }
 
+bool cstr_equals(const char* cstr1, const char* cstr2) {
+    return std_strcmp(cstr1, cstr2) == 0;
+}
+
 // String
 
 String string_new() {
@@ -156,6 +160,10 @@ void string_append_cstr(String* string, char* cstr) {
     string_nappend_cstr(string, cstr, cstr_length(cstr));
 }
 
+void string_append_sv(String* string, StringView sv) {
+    string_nappend_cstr(string, sv.str, sv.count);
+}
+
 String new_string_merged(String s1, String s2) {
     String s = string_with_capacity(s1.count + s2.count + 1);
     string_nappend_cstr_cap_unchecked(&s, s1.str, s1.count);
@@ -198,41 +206,37 @@ StringViewPair string_view_split_at(StringView string_view, usize index) {
     };
 }
 
-StringView string_view_trim(StringView string_view) {
-    usize word_start_inc = 0;
-    usize word_end_exc = 0;
-    bool in_word = false;
-    bool word_found = false;
-
-    usize i = 0;
-    for (i = 0; i < string_view.count; i++) {
-        char ch = string_view.str[i];
-        if (in_word) {
-            if (char_is_whitespace(ch)) {
-                word_end_exc = i;
-                in_word = false;
-                word_found = true;
-                break;
-            }
-        }
-        else { // if (!in_word) {
-            if (!char_is_whitespace(ch)) {
-                word_start_inc = i;
-                in_word = true;
-            }
+void string_view_replace_all(StringView string_view, char find, char replace) {
+    for (usize i = 0; i < string_view.count; i++) {
+        char* sv_ch = &string_view.str[i];
+        if (*sv_ch == find) {
+            *sv_ch = replace;
         }
     }
-    if (in_word) {
-        word_end_exc = i;
-        word_found = true;
+}
+
+void string_replace_all(String string, char find, char replace) {
+    string_view_replace_all(string_as_view(string), find, replace);
+}
+
+StringView string_view_trimmed(StringView string_view) {
+    int64 start = 0;
+    for (int64 i = 0; i < string_view.count; i++) {
+        if (!char_is_whitespace(string_view.str[i])) {
+            start = i;
+            break;
+        }
     }
 
-    // printf("trim: %d, %d, %d, %d\n", in_word, word_found, word_start_inc, word_end_exc);
-
-    if (word_found) {
-        return string_view_slice_view(string_view, word_start_inc, word_end_exc - word_start_inc);
+    int64 end = -1;
+    for (int64 i = string_view.count - 1; i >= 0; i--) {
+        if (!char_is_whitespace(string_view.str[i])) {
+            end = i;
+            break;
+        }
     }
-    return (StringView) {0};
+
+    return string_view_slice_view(string_view, start, end - start + 1);
 }
 
 void print_string_view(StringView string_view) {
@@ -329,6 +333,7 @@ StringToken* string_tokens_from_static(StaticStringToken* static_tokens, usize c
 
 StringTokensIter string_view_iter_tokens(StringView string_view, StringToken* tokens, usize token_count) {
     return (StringTokensIter) {
+        .original = string_view,
         .cursor = string_view,
         .token_count = token_count,
         .tokens = tokens,
@@ -393,7 +398,7 @@ bool next_token_peekable(StringTokensIter* tokens_iter, StringTokenOut* token_ou
                 // printf("\n");
                 if (ssv_equals(token.token, split.first)) {
                     StringView prefix = string_view_slice_view(start, 0, start.count - tokens_iter->cursor.count);
-                    StringView trimmed = string_view_trim(prefix);
+                    StringView trimmed = string_view_trimmed(prefix);
                     // print_string(token.token);
                     // printf("\n");
                     // print_string_view(prefix);

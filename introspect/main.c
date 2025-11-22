@@ -8,8 +8,11 @@
 
 typedef enum {
     // --
-    Token_const = 0,
+    Token_typedef,
+    Token_struct,
     Token_union,
+    // --
+    Token_const,
     // --
     Token_unsigned_char,
     Token_unsigned_int,
@@ -49,15 +52,18 @@ typedef enum {
     Token_introspect_extension_mode_cstr,
     Token_introspect_extension_mode_dynarray,
     Token_introspect_extension_mode_string,
-    Token_introspect_extension_key_count,
-    Token_introspect_extension_key_discriminant,
+    // Token_introspect_extension_key_count,
+    // Token_introspect_extension_key_discriminant,
     Token__endblock__extension,
     // --
 } FieldParseTokens;
 
 StaticStringToken field_parse_tokens__static[] = {
-    (StaticStringToken) { .id = Token_const, .token = "const" },
+    (StaticStringToken) { .id = Token_typedef, .token = "typedef" },
+    (StaticStringToken) { .id = Token_struct, .token = "struct" },
     (StaticStringToken) { .id = Token_union, .token = "union" },
+
+    (StaticStringToken) { .id = Token_const, .token = "const" },
 
     (StaticStringToken) { .id = Token_unsigned_char, .token = "unsigned char" },
     (StaticStringToken) { .id = Token_unsigned_int, .token = "unsigned int" },
@@ -95,8 +101,8 @@ StaticStringToken field_parse_tokens__static[] = {
     (StaticStringToken) { .id = Token_introspect_extension_mode_cstr, .token = "_mode_cstr__just_to_make_sure_no_token_overlap__" },
     (StaticStringToken) { .id = Token_introspect_extension_mode_dynarray, .token = "_mode_dynarray__just_to_make_sure_no_token_overlap__" },
     (StaticStringToken) { .id = Token_introspect_extension_mode_string, .token = "_mode_string__just_to_make_sure_no_token_overlap__" },
-    (StaticStringToken) { .id = Token_introspect_extension_key_count, .token = "count" },
-    (StaticStringToken) { .id = Token_introspect_extension_key_discriminant, .token = "discriminant" },
+    // (StaticStringToken) { .id = Token_introspect_extension_key_count, .token = "count" },
+    // (StaticStringToken) { .id = Token_introspect_extension_key_discriminant, .token = "discriminant" },
 };
 
 typedef enum {
@@ -278,10 +284,10 @@ char* type_to_type_str(Type type) {
         return "TYPE_float32";
     case TYPE_float64:
         return "TYPE_float64";
-    case TYPE_union:
-        return "TYPE_union";
     case TYPE_struct:
         return "TYPE_struct";
+    case TYPE_union:
+        return "TYPE_union";
     }
     PANIC("Unknown Type\n");
     return "";
@@ -291,27 +297,32 @@ void write_union_introspect(StringBuilder* GEN, StructInfo* struct_info, UnionIn
     // TODO
 }
 
-void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
-    for (usize i = 0; i < struct_info->count; i++) {
-        FieldInfoExt* field = &struct_info->fields[i];
-        if (field->is_union) {
-            write_union_introspect(GEN, struct_info, &field->union_info, i);
-        }
-    }
+void write_introspect_fieldinfo_array(StringBuilder* GEN, String name, StructInfo* struct_info, bool is_union) {
+    string_builder_append_format(GEN, "static FieldInfo %s[] = {\n", name.cstr);
 
-    string_builder_append_format(GEN, "static FieldInfo %s__fields[] = {\n", struct_info->type_name.cstr);
-
+    usize union_i = 0;
     for (usize i = 0; i < struct_info->count; i++) {
         FieldInfoExt* field = &struct_info->fields[i];
         Type field_type_enum = type_of_field(field);
         char* field_type = type_to_type_str(field_type_enum);
 
+        String field_offset_str = string_new();
+        if (is_union) {
+            field_offset_str = string_from_cstr("0");
+        }
+        else {
+            string_hinted_append_format(field_offset_str, 50,
+                "&(((%s*)(0))->%s)",
+                struct_info->type_name.cstr,
+                field->field_info.name
+            );
+        }
+
         string_builder_append_format(GEN,
-            "\t{\n\t\t.type = %s, .name = \"%s\", .ptr = &(((%s*)(0))->%s),\n",
+            "\t{\n\t\t.type = %s, .name = \"%s\", .ptr = %s,\n",
             field_type,
             field->field_info.name,
-            struct_info->type_name.cstr,
-            field->field_info.name
+            field_offset_str.cstr
         );
 
         if (field->field_info.is_ptr) {
@@ -341,20 +352,22 @@ void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
             string_builder_append_cstr(GEN, "\t\t.is_cstr = true,\n");
         }
 
-        if (field->field_ext.ext_mode_dynarray) {
-            string_builder_append_format(GEN,
-                "\t\t.is_dynarray = true, .count_ptr = &(((%s*)(0))->%s),\n",
-                struct_info->type_name.cstr,
-                field->field_ext.dynarray_count_field
-            );
-        }
-
-        if (field->field_ext.ext_mode_string) {
-            string_builder_append_format(GEN,
-                "\t\t.is_string = true, .count_ptr = &(((%s*)(0))->%s),\n",
-                struct_info->type_name.cstr,
-                field->field_ext.string_count_field
-            );
+        if (!is_union) {
+            if (field->field_ext.ext_mode_dynarray) {
+                string_builder_append_format(GEN,
+                    "\t\t.is_dynarray = true, .count_ptr = &(((%s*)(0))->%s),\n",
+                    struct_info->type_name.cstr,
+                    field->field_ext.dynarray_count_field
+                );
+            }
+    
+            if (field->field_ext.ext_mode_string) {
+                string_builder_append_format(GEN,
+                    "\t\t.is_string = true, .count_ptr = &(((%s*)(0))->%s),\n",
+                    struct_info->type_name.cstr,
+                    field->field_ext.string_count_field
+                );
+            }
         }
 
         if (field_type_enum == TYPE_struct) {
@@ -366,9 +379,127 @@ void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
             );
         }
 
+        if (field_type_enum == TYPE_union) {
+            string_builder_append_format(GEN,
+                "\t\t.union_header_variant = %u,\n",
+                field->field_info.union_header_variant
+            );
+            if (field->field_ext.ext_discriminated_union) {
+                string_builder_append_format(GEN,
+                    "\t\t.is_discriminated_union = true, .discriminant_ptr = &(((%s*)(0))->%s),\n",
+                    struct_info->type_name.cstr,
+                    field->field_ext.discriminant_field
+                );
+            }
+            string_builder_append_format(GEN,
+                "\t\t.union_size = sizeof(%s), .field_count = ARRAY_LENGTH(%s__union_%d__variants), .fields = %s__union_%d__variants,\n",
+                field->field_info.type_str,
+                struct_info->type_name.cstr,
+                union_i,
+                struct_info->type_name.cstr,
+                union_i
+            );
+            union_i++;
+        }
+
         string_builder_append_cstr(GEN, "\t},\n");
     }
     string_builder_append_cstr(GEN, "};\n\n");
+}
+
+void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
+    String array_name = string_new();
+    usize union_i = 0;
+    for (usize i = 0; i < struct_info->count; i++) {
+        FieldInfoExt* field = &struct_info->fields[i];
+        if (field->is_union) {
+            UnionInfo* union_info = &field->union_info;
+            StructInfo union_as_struct_info = {
+                .count = union_info->count,
+                .capacity = union_info->capacity,
+                .fields = union_info->variants,
+            };
+            string_hinted_append_format(array_name, 50, "%s__union_%d__variants", struct_info->type_name.cstr, union_i);
+            write_introspect_fieldinfo_array(GEN, array_name, &union_as_struct_info, true);
+            clear_string(&array_name);
+            union_i++;
+        }
+    }
+
+    string_hinted_append_format(array_name, 50, "%s__fields", struct_info->type_name.cstr);
+    write_introspect_fieldinfo_array(GEN, array_name, struct_info, false);
+    return;
+
+    // string_builder_append_format(GEN, "static FieldInfo %s__fields[] = {\n", struct_info->type_name.cstr);
+
+    // for (usize i = 0; i < struct_info->count; i++) {
+    //     FieldInfoExt* field = &struct_info->fields[i];
+    //     Type field_type_enum = type_of_field(field);
+    //     char* field_type = type_to_type_str(field_type_enum);
+
+    //     string_builder_append_format(GEN,
+    //         "\t{\n\t\t.type = %s, .name = \"%s\", .ptr = &(((%s*)(0))->%s),\n",
+    //         field_type,
+    //         field->field_info.name,
+    //         struct_info->type_name.cstr,
+    //         field->field_info.name
+    //     );
+
+    //     if (field->field_info.is_ptr) {
+    //         string_builder_append_format(GEN,
+    //             "\t\t.is_ptr = true, .ptr_depth = %u,\n",
+    //             field->field_info.ptr_depth
+    //         );
+    //     }
+
+    //     if (field->field_info.is_array) {
+    //         string_builder_append_format(GEN,
+    //             "\t\t.is_array = true, .count = %llu, .array_dim = %llu, .array_dim_counts = {",
+    //             field->field_info.count,
+    //             field->field_info.array_dim
+    //         );
+    //         for (usize dim_i = 0; dim_i < field->field_info.array_dim; dim_i++) {
+    //             string_builder_append_format(GEN,
+    //                 "%llu%s",
+    //                 field->field_info.array_dim_counts[dim_i],
+    //                 (dim_i != field->field_info.array_dim - 1) ? ", " : ""
+    //             );
+    //         }
+    //         string_builder_append_cstr(GEN, "},\n");
+    //     }
+
+    //     if (field->field_ext.ext_mode_cstr) {
+    //         string_builder_append_cstr(GEN, "\t\t.is_cstr = true,\n");
+    //     }
+
+    //     if (field->field_ext.ext_mode_dynarray) {
+    //         string_builder_append_format(GEN,
+    //             "\t\t.is_dynarray = true, .count_ptr = &(((%s*)(0))->%s),\n",
+    //             struct_info->type_name.cstr,
+    //             field->field_ext.dynarray_count_field
+    //         );
+    //     }
+
+    //     if (field->field_ext.ext_mode_string) {
+    //         string_builder_append_format(GEN,
+    //             "\t\t.is_string = true, .count_ptr = &(((%s*)(0))->%s),\n",
+    //             struct_info->type_name.cstr,
+    //             field->field_ext.string_count_field
+    //         );
+    //     }
+
+    //     if (field_type_enum == TYPE_struct) {
+    //         string_builder_append_format(GEN,
+    //             "\t\t.struct_size = sizeof(%s), .field_count = ARRAY_LENGTH(%s__fields), .fields = %s__fields,\n",
+    //             field->field_info.type_str,
+    //             field->field_info.type_str,
+    //             field->field_info.type_str
+    //         );
+    //     }
+
+    //     string_builder_append_cstr(GEN, "\t},\n");
+    // }
+    // string_builder_append_cstr(GEN, "};\n\n");
 }
 
 String gen_introspect_file() {
@@ -435,37 +566,105 @@ String gen_introspect_file() {
 //     sd.d;
 // }
 
-StringView sv_inside_sq(StringView sv) {
+// FieldInfoExt parse_field_from_state_2(StringTokensIter* tokens_iter, StringTokenOut token, FieldParseState start_state);
+FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token);
+UnionInfo parse_union_2(StringTokensIter* tokens_iter, StringTokenOut token);
+StructInfo parse_struct_2(StringTokensIter* tokens_iter, StringTokenOut token);
 
+void generate_introspect_for_struct(StringView struct_def) {
+    usize curly_paren_open;
+    usize curly_paren_close;
+    for (usize i = 0; i < struct_def.count; i++) {
+        if (struct_def.str[i] == '{') {
+            curly_paren_open = i;
+            break;
+        }
+    }
+    for (int64 i = struct_def.count-1; i >= 0; i--) {
+        if (struct_def.str[i] == '}') {
+            curly_paren_close = i;
+            break;
+        }
+    }
+
+    if (curly_paren_open >= curly_paren_close) {
+        PANIC("Syntax error: curly paren\n");
+    }
+
+    StructInfo struct_info = {0};
+    struct_info.type_name = string_from_view(string_view_trimmed(string_view_slice_view(struct_def, curly_paren_close + 1, struct_def.count-1 - curly_paren_close - 1)));
+
+    if (already_introspected(struct_info.type_name)) {
+        JUST_LOG_INFO("Introspection already generated for type: %s.\n", struct_info.type_name.cstr);
+        return;
+    }
+
+    // StringView struct_fields = string_slice_view(struct_def, curly_paren_open + 1, curly_paren_close - curly_paren_open - 1);
+
+    usize tokens_count = ARRAY_LENGTH(field_parse_tokens__static);
+    StringToken* field_parse_tokens = string_tokens_from_static(field_parse_tokens__static, tokens_count);
+    StringTokensIter tokens_iter = string_view_iter_tokens(struct_def, field_parse_tokens, tokens_count);
+    StringTokenOut token;
+    
+    peek_token(&tokens_iter, &token);
+    println_string_view(token.token);
+    expect_token(&tokens_iter, Token_typedef);
+    if (next_token(&tokens_iter, &token)) {
+        StructInfo struct_info = parse_struct_2(&tokens_iter, token);
+        dynarray_push_back_custom(INTROSPECTED_STRUCTS, .structs, struct_info);
+    }
+    else {
+        PANIC("Typedef parse error.\n");
+    }
 }
 
-FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_state);
-FieldInfoExt parse_union(StringTokensIter* tokens_iter);
+struct s {
+    union us {
+        const bool a;
+        int i;
+    };
+};
+void _f() {
+    struct s sv;
+    union us usv;
+    sizeof(struct s);
+    sizeof(union us);
+}
 
-FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_state) {
-    FieldParseState state = start_state; // FieldParse_Begin
-    StringTokenOut token;
-
+FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) {
     bool is_union = false;
     FieldInfo field_info = {0};
     UnionInfo union_info = {0};
     FieldExtensions field_ext = {0};
+
+    FieldParseState state = FieldParse_Begin;
     bool in_array_def = false;
 
-    FieldInfoExt field_info_ext;
-
-    while (next_token(tokens_iter, &token)) {
-        if (Token__startblock__extension < token.id && token.id < Token__endblock__extension) {
-            state = FieldParse_AfterName;
-        }
+    do {
         switch (state) {
         case FieldParse_Begin:
             switch (token.id) {
                 case Token_const:
                     break;
+                // case Token_struct: // TODO:
                 case Token_union:
-                    field_info_ext = parse_union(tokens_iter);
-                    goto END_FIELD_RETURN;
+                    is_union = true;
+                    union_info = parse_union_2(tokens_iter, token);
+
+                    field_info.type_str = union_info.self_info.type_str;
+                    field_info.name = union_info.variants[0].field_info.name;
+
+                    usize union_header = 0;
+                    for (usize i = 0; i < union_info.count; i++) {
+                        FieldInfoExt* variant = &union_info.variants[i];
+                        if (variant->field_ext.union_header) {
+                            union_header = i;
+                        }
+                    }
+                    field_info.union_header_variant = union_header;
+
+                    state = FieldParse_AfterType;
+                    break;
                 case Token_unsigned_short:
                 case Token_unsigned_long:
                 case Token_unsigned_long_long:
@@ -491,19 +690,35 @@ FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_st
                 field_info.ptr_depth++;
                 break;
             default:
-                field_info.name = cstr_nclone(token.token.str, token.token.count);
-                state = FieldParse_AfterName;
+                if (token.free_word) {
+                    field_info.name = cstr_nclone(token.token.str, token.token.count);
+                    state = FieldParse_AfterName;
+                }
+                else if (is_union) {
+                    state = FieldParse_AfterName;
+                    goto CASE_FieldParse_AfterName;
+                }
+                // else if (Token__startblock__extension < token.id && token.id < Token__endblock__extension) {
+                //     field_info.name = cstr_nclone(token.token.str, token.token.count);
+                //     state = FieldParse_AfterName;
+                // }
+                else {
+                    JUST_LOG_DEBUG("token.id: %d\n", token.id);
+                    JUST_LOG_DEBUG("token.free_word: %d\n", token.free_word);
+                    JUST_LOG_DEBUG("token.token: "); println_string_view(token.token);
+                    PANIC("Field parse error.\n");
+                }
                 break;
             }
             break;
         case FieldParse_AfterName:
+            CASE_FieldParse_AfterName:
             if (in_array_def) {
                 if (field_info.count == 0){
                     field_info.count = 1;
                 }
                 uint64 dim;
-                bool success = sv_parse_uint64(token.token, &dim);
-                if (!success) {
+                if (!sv_parse_uint64(token.token, &dim)) {
                     PANIC("Array dim syntax error\n");
                 }
                 field_info.count *= dim;
@@ -520,7 +735,7 @@ FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_st
                 in_array_def = false;
                 break;
             case Token_semicolon:
-                goto END_FIELD;
+                goto END_FIELD_PARSE;
                 // FieldInfoExt field_info_ext = {
                 //     .field_info = field_info,
                 //     .field_ext = field_ext,
@@ -559,8 +774,8 @@ FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_st
             case Token_introspect_extension_mode_discriminated_union:
                 field_ext.ext_discriminated_union = true;
                 expect_token(tokens_iter, Token_paren_open);
-                expect_token(tokens_iter, Token_introspect_extension_key_discriminant);
-                expect_token(tokens_iter, Token_colon);
+                // expect_token_cstr(tokens_iter, "discriminant");
+                // expect_token(tokens_iter, Token_colon);
                 if (next_token(tokens_iter, &token)) {
                     field_ext.discriminant_field = string_from_view(token.token).cstr;
                 }
@@ -577,7 +792,7 @@ FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_st
             case Token_introspect_extension_mode_dynarray:
                 field_ext.ext_mode_dynarray = true;
                 expect_token(tokens_iter, Token_paren_open);
-                expect_token(tokens_iter, Token_introspect_extension_key_count);
+                expect_token_cstr(tokens_iter, "count");
                 expect_token(tokens_iter, Token_colon);
                 if (next_token(tokens_iter, &token)) {
                     field_ext.dynarray_count_field = string_from_view(token.token).cstr;
@@ -590,7 +805,7 @@ FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_st
             case Token_introspect_extension_mode_string:
                 field_ext.ext_mode_string = true;
                 expect_token(tokens_iter, Token_paren_open);
-                expect_token(tokens_iter, Token_introspect_extension_key_count);
+                expect_token_cstr(tokens_iter, "count");
                 expect_token(tokens_iter, Token_colon);
                 if (next_token(tokens_iter, &token)) {
                     field_ext.string_count_field = string_from_view(token.token).cstr;
@@ -602,58 +817,425 @@ FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_st
                 break;
             }
         }
-    }
+    } while (next_token(tokens_iter, &token));
+    END_FIELD_PARSE:
 
-    END_FIELD:
-    field_info_ext.is_union = is_union;
-    field_info_ext.field_ext = field_ext;
-    if (is_union) {
-        field_info_ext.union_info = union_info;
-    }
-    else {
-        field_info_ext.field_info = field_info;
-    }
-
-    END_FIELD_RETURN:
-    return field_info_ext;
-}
-
-FieldInfoExt parse_union(StringTokensIter* tokens_iter) {
-    UnionInfo union_info = {0};
-    FieldExtensions field_ext = {0};
-
-    StringTokenOut token;
-
-    expect_token(tokens_iter, Token_cr_paren_open);
-    while (peek_token(tokens_iter, &token)) {
-        if (token.id == Token_cr_paren_close) {
-            break;
-        }
-        else {
-            FieldInfoExt field_info_ext = parse_field(tokens_iter, FieldParse_Begin);
-            dynarray_push_back_custom(union_info, .variants, field_info_ext);
-        }
-    }
-    expect_token(tokens_iter, Token_cr_paren_close);
-
-    if (!peek_token(tokens_iter, &token)) {
-        PANIC("Union parse error\n");
-    }
-    if (token.id == Token_semicolon) {
-        // return union_info;
-    }
-    else {
-        FieldInfoExt self_info_ext = parse_field(tokens_iter, FieldParse_AfterType);
-        union_info.self_info = self_info_ext.field_info;
-        field_ext = self_info_ext.field_ext;
-    }
-
-    return (FieldInfoExt) {
-        .is_union = true,
-        .union_info = union_info,
+    FieldInfoExt field = {
+        .is_union = is_union,
         .field_ext = field_ext,
     };
+    if (is_union) {
+        union_info.self_info = field_info;
+        field.union_info = union_info;
+    }
+    else {
+        field.field_info = field_info;
+    }
+
+    return field;
 }
+
+UnionInfo parse_union_2(StringTokensIter* tokens_iter, StringTokenOut token) {
+    UnionInfo union_info = {0};
+
+    StringView start = tokens_iter->cursor;
+
+    ASSERT(token.id == Token_union);
+    while (next_token(tokens_iter, &token)) {
+        if (token.free_word) {
+            // union struct name
+            continue;
+        }
+        switch (token.id) {
+        case Token_cr_paren_open:
+            goto START_PARSE_UNION_FIELDS;
+        default:
+            PANIC("Union parse error.\n");
+        }
+    }
+
+    START_PARSE_UNION_FIELDS:
+    while(next_token(tokens_iter, &token)) {
+        switch (token.id) {
+        case Token_cr_paren_close:
+            goto END_PARSE_UNION_FIELDS;
+
+        // -- Field Start
+        // case Token_struct: // TODO:
+        // case Token_union: // TODO:
+        case Token_const:
+        case Token_unsigned_short:
+        case Token_unsigned_long:
+        case Token_unsigned_long_long:
+        case Token_unsigned_short_int:
+        case Token_unsigned_long_int:
+        case Token_unsigned_long_long_int:
+        case Token_short:
+        case Token_long:
+        case Token_long_long:
+        case Token_short_int:
+        case Token_long_int:
+        case Token_long_long_int:
+            FieldInfoExt field = parse_field_2(tokens_iter, token);
+            dynarray_push_back_custom(union_info, .variants, field);
+            break;
+        default:
+            if (token.free_word) {
+                FieldInfoExt field = parse_field_2(tokens_iter, token);
+                dynarray_push_back_custom(union_info, .variants, field);
+            }
+            else {
+                string_view_use_as_cstr(token.token, char* token_cstr, ({
+                    PANIC("Union parse error. Unexpected token: %d, %s\n", token.id, token_cstr);
+                }));
+            }
+            break;
+        }
+        // -- Field End
+    };
+    END_PARSE_UNION_FIELDS:
+
+    StringView end = tokens_iter->cursor;
+    StringView traversed = string_view_slice_view(start, 0, start.count - end.count);
+
+    String type_str = string_from_cstr("union");
+
+    bool in_whitespace = false;
+    for (usize i = 0; i < traversed.count; i++) {
+        char ch = traversed.str[i];
+        bool ch_is_whitespace = char_is_whitespace(ch);
+
+        if (!in_whitespace && !ch_is_whitespace) {
+            string_push_char(&type_str, ch);
+        }
+        else if (!in_whitespace && ch_is_whitespace) {
+            string_push_char(&type_str, ' ');
+            in_whitespace = true;
+        }
+        else if (in_whitespace && !ch_is_whitespace) {
+            string_push_char(&type_str, ch);
+            in_whitespace = false;
+        }
+        else { // if (in_whitespace && ch_is_whitespace)
+            continue;
+        }
+    }
+    JUST_LOG_INFO("union type_str: %s\n", type_str.cstr);
+    StringView s1 = string_as_view(type_str);
+    StringView s2 = string_view_trimmed(s1);
+    String s3 = string_from_view(s2);
+    println_string_view(s1);
+    println_string_view(s2);
+    println_string(s3);
+    String type_str_trimmed = string_from_view(string_view_trimmed(string_as_view(type_str)));
+    free_string(type_str);
+
+    JUST_LOG_INFO("union type_str: %s\n", type_str_trimmed.cstr);
+
+    union_info.self_info.type_str = type_str_trimmed.cstr;
+
+    return union_info;
+}
+
+StructInfo parse_struct_2(StringTokensIter* tokens_iter, StringTokenOut token) {
+    StructInfo struct_info = {0};
+
+    JUST_LOG_DEBUG("token.id: %d\n", token.id);
+    ASSERT(token.id == Token_struct);
+    while (next_token(tokens_iter, &token)) {
+        if (token.free_word) {
+            // struct name
+            struct_info.type_name = string_from_view(token.token);
+            continue;
+        }
+        switch (token.id) {
+        case Token_cr_paren_open:
+            goto START_PARSE_STRUCT_FIELDS;
+        default:
+            PANIC("Struct parse error.\n");
+        }
+    }
+
+    START_PARSE_STRUCT_FIELDS:
+    while(next_token(tokens_iter, &token)) {
+        switch (token.id) {
+        case Token_cr_paren_close:
+            goto END_PARSE_STRUCT_FIELDS;
+
+        // -- Field Start
+        // case Token_struct: // TODO:
+        case Token_union:
+            // FieldInfoExt union_field = parse_union_2(tokens_iter, token);
+            // dynarray_push_back_custom(struct_info, .fields, union_field);
+            // break;
+        case Token_const:
+        case Token_unsigned_short:
+        case Token_unsigned_long:
+        case Token_unsigned_long_long:
+        case Token_unsigned_short_int:
+        case Token_unsigned_long_int:
+        case Token_unsigned_long_long_int:
+        case Token_short:
+        case Token_long:
+        case Token_long_long:
+        case Token_short_int:
+        case Token_long_int:
+        case Token_long_long_int:
+            FieldInfoExt field = parse_field_2(tokens_iter, token);
+            dynarray_push_back_custom(struct_info, .fields, field);
+            break;
+        default:
+            if (token.free_word) {
+                FieldInfoExt field = parse_field_2(tokens_iter, token);
+                dynarray_push_back_custom(struct_info, .fields, field);
+            }
+            else {
+                string_view_use_as_cstr(token.token, char* token_cstr, ({
+                    PANIC("Struct parse error. Unexpected token: %d, %s\n", token.id, token_cstr);
+                }));
+            }
+            break;
+        }
+        // -- Field End
+    };
+    END_PARSE_STRUCT_FIELDS:
+
+    while (next_token(tokens_iter, &token)) {
+        if (token.free_word) {
+            // type name
+            struct_info.type_name = string_from_view(token.token);
+            continue;
+        }
+        switch (token.id) {
+        case Token_semicolon:
+            if (struct_info.type_name.count == 0) {
+                PANIC("Struct parse error. No name defined.\n");
+            }
+            goto END_PARSE_STRUCT;
+        default:
+            PANIC("Struct parse error.\n");
+        }
+    }
+
+    END_PARSE_STRUCT:
+    return struct_info;
+}
+
+// FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_state);
+// FieldInfoExt parse_union(StringTokensIter* tokens_iter);
+
+// FieldInfoExt parse_field(StringTokensIter* tokens_iter, FieldParseState start_state) {
+//     FieldParseState state = start_state; // FieldParse_Begin
+//     StringTokenOut token;
+
+//     bool is_union = false;
+//     FieldInfo field_info = {0};
+//     UnionInfo union_info = {0};
+//     FieldExtensions field_ext = {0};
+//     bool in_array_def = false;
+
+//     FieldInfoExt field_info_ext;
+
+//     while (next_token(tokens_iter, &token)) {
+//         if (Token__startblock__extension < token.id && token.id < Token__endblock__extension) {
+//             state = FieldParse_AfterName;
+//         }
+//         switch (state) {
+//         case FieldParse_Begin:
+//             switch (token.id) {
+//                 case Token_const:
+//                     break;
+//                 case Token_union:
+//                     field_info_ext = parse_union(tokens_iter);
+//                     goto END_FIELD_RETURN;
+//                 case Token_unsigned_short:
+//                 case Token_unsigned_long:
+//                 case Token_unsigned_long_long:
+//                 case Token_unsigned_short_int:
+//                 case Token_unsigned_long_int:
+//                 case Token_unsigned_long_long_int:
+//                 case Token_short:
+//                 case Token_long:
+//                 case Token_long_long:
+//                 case Token_short_int:
+//                 case Token_long_int:
+//                 case Token_long_long_int:
+//                 default:
+//                     field_info.type_str = cstr_nclone(token.token.str, token.token.count);
+//                     state = FieldParse_AfterType;
+//                     break;
+//                 }
+//             break;
+//         case FieldParse_AfterType:
+//             switch (token.id) {
+//             case Token_star:
+//                 field_info.is_ptr = true;
+//                 field_info.ptr_depth++;
+//                 break;
+//             default:
+//                 field_info.name = cstr_nclone(token.token.str, token.token.count);
+//                 state = FieldParse_AfterName;
+//                 break;
+//             }
+//             break;
+//         case FieldParse_AfterName:
+//             if (in_array_def) {
+//                 if (field_info.count == 0){
+//                     field_info.count = 1;
+//                 }
+//                 uint64 dim;
+//                 bool success = sv_parse_uint64(token.token, &dim);
+//                 if (!success) {
+//                     PANIC("Array dim syntax error\n");
+//                 }
+//                 field_info.count *= dim;
+//                 field_info.array_dim_counts[field_info.array_dim++] = dim;
+
+//                 in_array_def = false;
+//             }
+//             switch (token.id) {
+//             case Token_sq_paren_open:
+//                 in_array_def = true;
+//                 field_info.is_array = true;
+//                 break;
+//             case Token_sq_paren_close:
+//                 in_array_def = false;
+//                 break;
+//             case Token_semicolon:
+//                 goto END_FIELD;
+//                 // FieldInfoExt field_info_ext = {
+//                 //     .field_info = field_info,
+//                 //     .field_ext = field_ext,
+//                 // };
+//                 // return field_info_ext;
+//                 // dynarray_push_back_custom(struct_info, .fields, field_info_ext);
+                
+//                 // state = FieldParse_Begin;
+//                 // field_info = (FieldInfo) {0};
+//                 // field_ext = (FieldExtensions) {0};
+//                 // in_array_def = false;
+
+//                 // break;
+//             // -- extensions --
+//             case Token_introspect_extension_alias:
+//                 field_ext.ext_alias = true;
+//                 expect_token(tokens_iter, Token_paren_open);
+//                 if (next_token(tokens_iter, &token)) {
+//                     if (token.free_word) {
+//                         field_ext.type_alias = string_from_view(token.token).cstr;
+//                     }
+//                     else {
+//                         PANIC("Extension syntax error.\n");
+//                     }
+//                 }
+//                 else {
+//                     PANIC("Extension syntax error.\n");
+//                 }
+//                 expect_token(tokens_iter, Token_paren_close);
+//                 break;
+//             case Token_introspect_extension_union_header:
+//                 field_ext.union_header = true;
+//                 expect_token(tokens_iter, Token_paren_open);
+//                 expect_token(tokens_iter, Token_paren_close);
+//                 break;
+//             case Token_introspect_extension_mode_discriminated_union:
+//                 field_ext.ext_discriminated_union = true;
+//                 expect_token(tokens_iter, Token_paren_open);
+//                 expect_token(tokens_iter, Token_introspect_extension_key_discriminant);
+//                 expect_token(tokens_iter, Token_colon);
+//                 if (next_token(tokens_iter, &token)) {
+//                     field_ext.discriminant_field = string_from_view(token.token).cstr;
+//                 }
+//                 else {
+//                     PANIC("Extension syntax error.\n");
+//                 }
+//                 expect_token(tokens_iter, Token_paren_close);
+//                 break;
+//             case Token_introspect_extension_mode_cstr:
+//                 field_ext.ext_mode_cstr = true;
+//                 expect_token(tokens_iter, Token_paren_open);
+//                 expect_token(tokens_iter, Token_paren_close);
+//                 break;
+//             case Token_introspect_extension_mode_dynarray:
+//                 field_ext.ext_mode_dynarray = true;
+//                 expect_token(tokens_iter, Token_paren_open);
+//                 expect_token(tokens_iter, Token_introspect_extension_key_count);
+//                 expect_token(tokens_iter, Token_colon);
+//                 if (next_token(tokens_iter, &token)) {
+//                     field_ext.dynarray_count_field = string_from_view(token.token).cstr;
+//                 }
+//                 else {
+//                     PANIC("Extension syntax error.\n");
+//                 }
+//                 expect_token(tokens_iter, Token_paren_close);
+//                 break;
+//             case Token_introspect_extension_mode_string:
+//                 field_ext.ext_mode_string = true;
+//                 expect_token(tokens_iter, Token_paren_open);
+//                 expect_token(tokens_iter, Token_introspect_extension_key_count);
+//                 expect_token(tokens_iter, Token_colon);
+//                 if (next_token(tokens_iter, &token)) {
+//                     field_ext.string_count_field = string_from_view(token.token).cstr;
+//                 }
+//                 else {
+//                     PANIC("Extension syntax error.\n");
+//                 }
+//                 expect_token(tokens_iter, Token_paren_close);
+//                 break;
+//             }
+//         }
+//     }
+
+//     END_FIELD:
+//     field_info_ext.is_union = is_union;
+//     field_info_ext.field_ext = field_ext;
+//     if (is_union) {
+//         field_info_ext.union_info = union_info;
+//     }
+//     else {
+//         field_info_ext.field_info = field_info;
+//     }
+
+//     END_FIELD_RETURN:
+//     return field_info_ext;
+// }
+
+// FieldInfoExt parse_union(StringTokensIter* tokens_iter) {
+//     UnionInfo union_info = {0};
+//     FieldExtensions field_ext = {0};
+
+//     StringTokenOut token;
+
+//     expect_token(tokens_iter, Token_cr_paren_open);
+//     while (peek_token(tokens_iter, &token)) {
+//         if (token.id == Token_cr_paren_close) {
+//             break;
+//         }
+//         else {
+//             FieldInfoExt field_info_ext = parse_field(tokens_iter, FieldParse_Begin);
+//             dynarray_push_back_custom(union_info, .variants, field_info_ext);
+//         }
+//     }
+//     expect_token(tokens_iter, Token_cr_paren_close);
+
+//     if (!peek_token(tokens_iter, &token)) {
+//         PANIC("Union parse error\n");
+//     }
+//     if (token.id == Token_semicolon) {
+//         // return union_info;
+//     }
+//     else {
+//         FieldInfoExt self_info_ext = parse_field(tokens_iter, FieldParse_AfterType);
+//         union_info.self_info = self_info_ext.field_info;
+//         field_ext = self_info_ext.field_ext;
+//     }
+
+//     return (FieldInfoExt) {
+//         .is_union = true,
+//         .union_info = union_info,
+//         .field_ext = field_ext,
+//     };
+// }
 
 // void generate_introspect_for_struct(String struct_def) {
 //     usize curly_paren_open;
@@ -676,7 +1258,7 @@ FieldInfoExt parse_union(StringTokensIter* tokens_iter) {
 //     }
     
 //     StructInfo struct_info = {0};
-//     struct_info.type_name = string_from_view(string_view_trim(string_slice_view(struct_def, curly_paren_close + 1, struct_def.count-1 - curly_paren_close - 1)));
+//     struct_info.type_name = string_from_view(string_view_trimmed(string_slice_view(struct_def, curly_paren_close + 1, struct_def.count-1 - curly_paren_close - 1)));
 
 //     if (already_introspected(struct_info.type_name)) {
 //         JUST_LOG_INFO("Introspection already generated for type: %s.\n", struct_info.type_name.cstr);
@@ -875,7 +1457,8 @@ bool generate_introspect(String int_filename) {
                 break;
             case STATE_CURLY_PAREN_CLOSE_RECEIVED:
                 if (ch == ';') {
-                    generate_introspect_for_struct(struct_def_str);
+                    StringView struct_def_view = string_as_view(struct_def_str);
+                    generate_introspect_for_struct(struct_def_view);
                     clear_string(&struct_def_str);
                     gen_introspect = false;
                     state = STATE_STRUCT_BEGIN;

@@ -190,10 +190,34 @@ int32 progress_callback(void* clientp, int64 dltotal, int64 dlnow, int64 ultotal
     return 0;
 }
 
-introspect
 typedef struct {
     String* response_body;
 } WriteFnArg;
+
+introspect
+typedef struct {
+    usize count;
+    usize capacity;
+    union {
+        char* str;
+        char* cstr;
+    };
+} MyString;
+
+introspect
+typedef struct {
+    uint32 is_ok;
+    union {
+        usize ok;
+        char* err mode_cstr();
+    } value mode_discriminated_union(is_ok);
+} MyResult;
+
+introspect
+typedef struct {
+    MyString* body;
+    MyResult result;
+} TestIntro;
 
 #include "introspect_gen__curl-test.h"
 
@@ -738,6 +762,23 @@ MainFn entry_points[] = {
 };
 
 int main(int argc, char *argv[]) {
+
+    MyString s = {
+        .count = 10,
+        .capacity = 20,
+        .cstr = "1234567890",
+    };
+    TestIntro test = {
+        .body = &s,
+        .result = (MyResult) {
+            .is_ok = 1,
+            .value = {
+                .err = "This is an error"
+            },
+        },
+    };
+    return 0;
+
     int which_main = argv[1][0] - '1';
     return entry_points[which_main]();
 }

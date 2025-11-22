@@ -10,6 +10,7 @@ bool char_is_whitespace(char ch);
 usize cstr_length(const char* cstr);
 char* cstr_nclone(const char* cstr, usize count);
 char* cstr_clone(const char* cstr);
+bool cstr_equals(const char* cstr1, const char* cstr2);
 
 #define cstr_alloc_format(cstr_out, format, ...) \
     do { \
@@ -94,6 +95,7 @@ void string_push_char(String* string, char ch);
 
 void string_nappend_cstr(String* string, char* cstr, usize count);
 void string_append_cstr(String* string, char* cstr);
+void string_append_sv(String* string, StringView sv);
 String new_string_merged(String s1, String s2);
 
 #define string_append_format(string, format, ...) \
@@ -121,7 +123,9 @@ StringView string_slice_view(String string, usize start, usize count);
 StringView string_view_slice_view(StringView string_view, usize start, usize count);
 StringViewPair string_split_at(String string, usize index);
 StringViewPair string_view_split_at(StringView string_view, usize index);
-StringView string_view_trim(StringView string_view);
+StringView string_view_trimmed(StringView string_view);
+void string_view_replace_all(StringView string_view, char find, char replace);
+void string_replace_all(String string, char find, char replace);
 
 void print_string_view(StringView string_view);
 void println_string_view(StringView string_view);
@@ -163,6 +167,7 @@ typedef struct {
 } StringTokenOut;
 
 typedef struct {
+    StringView original;
     StringView cursor;
     usize token_count;
     StringToken* tokens;
@@ -183,6 +188,20 @@ bool peek_token(StringTokensIter* tokens_iter, StringTokenOut* token_out);
         } \
         if ((expected_token_id) != expect_token__token.id) { \
             PANIC("Token expect failed, expected: %d, result: %d\n", (expected_token_id), expect_token__token.id); \
+        } \
+    } while (0)
+
+#define expect_token_cstr(tokens_iter_ptr, expected_token_cstr) \
+    do { \
+        StringTokenOut expect_token__token; \
+        bool expect_token__result = next_token((tokens_iter_ptr), &expect_token__token); \
+        if (!expect_token__result) { \
+            PANIC("Token expect failed, no token\n"); \
+        } \
+        if (svcs_equals(expect_token__token.token, expected_token_cstr)) { \
+            string_view_use_as_cstr(expect_token__token.token, char* expect_token__token_token_cstr, ({ \
+                PANIC("Token expect failed, expected: %s, result: %s\n", (expected_token_cstr), expect_token__token_token_cstr); \
+            })); \
         } \
     } while (0)
 

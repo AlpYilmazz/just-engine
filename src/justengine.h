@@ -115,9 +115,9 @@ DECLARE__Option(char);
 
 #define branchless_if(cond, on_true, on_false) ( ( (!!(cond)) * (on_true) ) + ( (!!(cond)) * (on_false) ) )
 
-#define PANIC(...) do { JUST_LOG_PANIC(__VA_ARGS__); std_exit(STD_EXIT_FAILURE); } while(0)
+#define PANIC(...) do { JUST_LOG_PANIC("[%s:%d]\n", __FILE__, __LINE__); JUST_LOG_PANIC(__VA_ARGS__); std_exit(STD_EXIT_FAILURE); } while(0)
 #define UNREACHABLE() do { JUST_LOG_PANIC("UNREACHABLE: [%s:%d]\n", __FILE__, __LINE__); std_exit(STD_EXIT_FAILURE); } while(0)
-#define ASSERT(expr) do { if ((expr)) { JUST_LOG_PANIC("Assertion Failed: [%s:%d]\n", __FILE__, __LINE__); std_exit(STD_EXIT_FAILURE); } } while(0)
+#define ASSERT(expr) do { if (!((expr))) { JUST_LOG_PANIC("Assertion Failed: [%s:%d]\n", __FILE__, __LINE__); std_exit(STD_EXIT_FAILURE); } } while(0)
 
 typedef struct {
     uint32 id;
@@ -428,6 +428,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define introspect_with(...) _introspect_with__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define alias(...) _alias__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define union_header(...) _union_header__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define mode_discriminated_union(...) _mode_discriminated_union__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_cstr(...) _mode_cstr__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_dynarray(...) _mode_dynarray__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_string(...) _mode_string__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
@@ -437,6 +438,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define introspect_with(...) 
     #define alias(...) 
     #define union_header(...) 
+    #define mode_discriminated_union(...) 
     #define mode_cstr(...) 
     #define mode_dynarray(...) 
     #define mode_string(...) 
@@ -446,6 +448,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define _introspect_with__just_to_make_sure_no_token_overlap__(...) 
     #define _alias__just_to_make_sure_no_token_overlap__(...) 
     #define _union_header__just_to_make_sure_no_token_overlap__(...) 
+    #define _mode_discriminated_union__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_cstr__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_dynarray__just_to_make_sure_no_token_overlap__(...) 
     #define _mode_string__just_to_make_sure_no_token_overlap__(...) 
@@ -503,14 +506,18 @@ typedef struct FieldInfo {
     bool is_string;
     void* count_ptr;
     // --
-    uint32 union_header_field;
-    // --
-    bool is_discriminated;
-    void* discriminant_ptr;
-    // --
     usize struct_size;
     uint32 field_count;
     struct FieldInfo* fields;
+    // --
+    uint32 union_header_variant;
+    // --
+    bool is_discriminated_union;
+    void* discriminant_ptr;
+    // --
+    usize union_size;
+    uint32 variant_count;
+    struct FieldInfo* variants;
     // --
 } FieldInfo;
 
@@ -803,6 +810,7 @@ bool char_is_whitespace(char ch);
 usize cstr_length(const char* cstr);
 char* cstr_nclone(const char* cstr, usize count);
 char* cstr_clone(const char* cstr);
+bool cstr_equals(const char* cstr1, const char* cstr2);
 
 #define cstr_alloc_format(cstr_out, format, ...) \
     do { \
@@ -887,6 +895,7 @@ void string_push_char(String* string, char ch);
 
 void string_nappend_cstr(String* string, char* cstr, usize count);
 void string_append_cstr(String* string, char* cstr);
+void string_append_sv(String* string, StringView sv);
 String new_string_merged(String s1, String s2);
 
 #define string_append_format(string, format, ...) \
@@ -914,7 +923,9 @@ StringView string_slice_view(String string, usize start, usize count);
 StringView string_view_slice_view(StringView string_view, usize start, usize count);
 StringViewPair string_split_at(String string, usize index);
 StringViewPair string_view_split_at(StringView string_view, usize index);
-StringView string_view_trim(StringView string_view);
+StringView string_view_trimmed(StringView string_view);
+void string_view_replace_all(StringView string_view, char find, char replace);
+void string_replace_all(String string, char find, char replace);
 
 void print_string_view(StringView string_view);
 void println_string_view(StringView string_view);
@@ -956,6 +967,7 @@ typedef struct {
 } StringTokenOut;
 
 typedef struct {
+    StringView original;
     StringView cursor;
     usize token_count;
     StringToken* tokens;
@@ -976,6 +988,20 @@ bool peek_token(StringTokensIter* tokens_iter, StringTokenOut* token_out);
         } \
         if ((expected_token_id) != expect_token__token.id) { \
             PANIC("Token expect failed, expected: %d, result: %d\n", (expected_token_id), expect_token__token.id); \
+        } \
+    } while (0)
+
+#define expect_token_cstr(tokens_iter_ptr, expected_token_cstr) \
+    do { \
+        StringTokenOut expect_token__token; \
+        bool expect_token__result = next_token((tokens_iter_ptr), &expect_token__token); \
+        if (!expect_token__result) { \
+            PANIC("Token expect failed, no token\n"); \
+        } \
+        if (svcs_equals(expect_token__token.token, expected_token_cstr)) { \
+            string_view_use_as_cstr(expect_token__token.token, char* expect_token__token_token_cstr, ({ \
+                PANIC("Token expect failed, expected: %s, result: %s\n", (expected_token_cstr), expect_token__token_token_cstr); \
+            })); \
         } \
     } while (0)
 

@@ -4751,7 +4751,7 @@ StringView string_slice_view(String string, usize start, usize count);
 StringView string_view_slice_view(StringView string_view, usize start, usize count);
 StringViewPair string_split_at(String string, usize index);
 StringViewPair string_view_split_at(StringView string_view, usize index);
-StringView string_view_trim(StringView string_view);
+StringView string_view_trimmed(StringView string_view);
 void print_string_view(StringView string_view);
 void print_string(String string);
 typedef struct {

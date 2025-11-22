@@ -61,8 +61,8 @@ typedef enum {
     TYPE_usize,
     TYPE_float32,
     TYPE_float64,
-    TYPE_union,
     TYPE_struct,
+    TYPE_union,
 } Type;
 
 typedef struct FieldInfo {
@@ -85,14 +85,18 @@ typedef struct FieldInfo {
     bool is_string;
     void* count_ptr;
     // --
-    uint32 union_header_field;
-    // --
-    bool is_discriminated;
-    void* discriminant_ptr;
-    // --
     usize struct_size;
     uint32 field_count;
     struct FieldInfo* fields;
+    // --
+    uint32 union_header_variant;
+    // --
+    bool is_discriminated_union;
+    void* discriminant_ptr;
+    // --
+    usize union_size;
+    uint32 variant_count;
+    struct FieldInfo* variants;
     // --
 } FieldInfo;
 
