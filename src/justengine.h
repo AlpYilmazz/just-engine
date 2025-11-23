@@ -426,32 +426,32 @@ static inline Vector2 vector2_yx(Vector2 vec) {
 #ifdef PRE_INTROSPECT_PASS
     #define introspect _introspect__just_to_make_sure_no_token_overlap__
     #define introspect_with(...) _introspect_with__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
-    #define alias(...) _alias__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define alias(alias_type) _alias__just_to_make_sure_no_token_overlap__(alias_type)
     #define union_header(...) _union_header__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
-    #define mode_discriminated_union(...) _mode_discriminated_union__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define mode_discriminated_union(discriminant_field) _mode_discriminated_union__just_to_make_sure_no_token_overlap__(discriminant_field)
     #define mode_cstr(...) _mode_cstr__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
-    #define mode_dynarray(...) _mode_dynarray__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
-    #define mode_string(...) _mode_string__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
+    #define mode_dynarray(count_field) _mode_dynarray__just_to_make_sure_no_token_overlap__(count_field)
+    #define mode_string(count_field) _mode_string__just_to_make_sure_no_token_overlap__(count_field)
     #define mode_function_ptr(...) _mode_function_ptr__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
 #else
     #define introspect 
     #define introspect_with(...) 
-    #define alias(...) 
+    #define alias(alias_type) 
     #define union_header(...) 
     #define mode_discriminated_union(...) 
     #define mode_cstr(...) 
-    #define mode_dynarray(...) 
-    #define mode_string(...) 
+    #define mode_dynarray(count_field) 
+    #define mode_string(count_field) 
     #define mode_function_ptr(...) 
 
     #define _introspect__just_to_make_sure_no_token_overlap__ 
     #define _introspect_with__just_to_make_sure_no_token_overlap__(...) 
-    #define _alias__just_to_make_sure_no_token_overlap__(...) 
+    #define _alias__just_to_make_sure_no_token_overlap__(alias_type) 
     #define _union_header__just_to_make_sure_no_token_overlap__(...) 
-    #define _mode_discriminated_union__just_to_make_sure_no_token_overlap__(...) 
+    #define _mode_discriminated_union__just_to_make_sure_no_token_overlap__(discriminant_field) 
     #define _mode_cstr__just_to_make_sure_no_token_overlap__(...) 
-    #define _mode_dynarray__just_to_make_sure_no_token_overlap__(...) 
-    #define _mode_string__just_to_make_sure_no_token_overlap__(...) 
+    #define _mode_dynarray__just_to_make_sure_no_token_overlap__(count_field) 
+    #define _mode_string__just_to_make_sure_no_token_overlap__(count_field) 
     #define _mode_function_ptr__just_to_make_sure_no_token_overlap__(...) 
 #endif
 
@@ -482,8 +482,8 @@ typedef enum {
     TYPE_usize,
     TYPE_float32,
     TYPE_float64,
-    TYPE_union,
     TYPE_struct,
+    TYPE_union,
 } Type;
 
 typedef struct FieldInfo {
@@ -510,6 +510,8 @@ typedef struct FieldInfo {
     uint32 field_count;
     struct FieldInfo* fields;
     // --
+    bool is_named_union;
+    char* union_name;
     uint32 union_header_variant;
     // --
     bool is_discriminated_union;

@@ -297,7 +297,7 @@ void write_union_introspect(StringBuilder* GEN, StructInfo* struct_info, UnionIn
     // TODO
 }
 
-void write_introspect_fieldinfo_array(StringBuilder* GEN, String name, StructInfo* struct_info, bool is_union) {
+void write_introspect_fieldinfo_array(StringBuilder* GEN, String name, String base_struct_type_name, StructInfo* struct_info, bool is_union) {
     string_builder_append_format(GEN, "static FieldInfo %s[] = {\n", name.cstr);
 
     usize union_i = 0;
@@ -352,22 +352,22 @@ void write_introspect_fieldinfo_array(StringBuilder* GEN, String name, StructInf
             string_builder_append_cstr(GEN, "\t\t.is_cstr = true,\n");
         }
 
-        if (!is_union) {
-            if (field->field_ext.ext_mode_dynarray) {
-                string_builder_append_format(GEN,
-                    "\t\t.is_dynarray = true, .count_ptr = &(((%s*)(0))->%s),\n",
-                    struct_info->type_name.cstr,
-                    field->field_ext.dynarray_count_field
-                );
-            }
-    
-            if (field->field_ext.ext_mode_string) {
-                string_builder_append_format(GEN,
-                    "\t\t.is_string = true, .count_ptr = &(((%s*)(0))->%s),\n",
-                    struct_info->type_name.cstr,
-                    field->field_ext.string_count_field
-                );
-            }
+        if (field->field_ext.ext_mode_dynarray) {
+            string_builder_append_format(GEN,
+                "\t\t.is_dynarray = true, .count_ptr = &(((%s*)(0))->%s),\n",
+                // struct_info->type_name.cstr,
+                base_struct_type_name.cstr,
+                field->field_ext.dynarray_count_field
+            );
+        }
+
+        if (field->field_ext.ext_mode_string) {
+            string_builder_append_format(GEN,
+                "\t\t.is_string = true, .count_ptr = &(((%s*)(0))->%s),\n",
+                // struct_info->type_name.cstr,
+                base_struct_type_name.cstr,
+                field->field_ext.string_count_field
+            );
         }
 
         if (field_type_enum == TYPE_struct) {
@@ -381,7 +381,9 @@ void write_introspect_fieldinfo_array(StringBuilder* GEN, String name, StructInf
 
         if (field_type_enum == TYPE_union) {
             string_builder_append_format(GEN,
-                "\t\t.union_header_variant = %u,\n",
+                "\t\t.is_named_union = %s, .union_name = \"%s\", .union_header_variant = %u,\n",
+                field->field_info.is_named_union ? "true" : "false",
+                field->field_info.union_name,
                 field->field_info.union_header_variant
             );
             if (field->field_ext.ext_discriminated_union) {
@@ -392,7 +394,7 @@ void write_introspect_fieldinfo_array(StringBuilder* GEN, String name, StructInf
                 );
             }
             string_builder_append_format(GEN,
-                "\t\t.union_size = sizeof(%s), .field_count = ARRAY_LENGTH(%s__union_%d__variants), .fields = %s__union_%d__variants,\n",
+                "\t\t.union_size = sizeof(%s), .variant_count = ARRAY_LENGTH(%s__union_%d__variants), .variants = %s__union_%d__variants,\n",
                 field->field_info.type_str,
                 struct_info->type_name.cstr,
                 union_i,
@@ -420,14 +422,14 @@ void write_introspect(StringBuilder* GEN, StructInfo* struct_info) {
                 .fields = union_info->variants,
             };
             string_hinted_append_format(array_name, 50, "%s__union_%d__variants", struct_info->type_name.cstr, union_i);
-            write_introspect_fieldinfo_array(GEN, array_name, &union_as_struct_info, true);
+            write_introspect_fieldinfo_array(GEN, array_name, struct_info->type_name, &union_as_struct_info, true);
             clear_string(&array_name);
             union_i++;
         }
     }
 
     string_hinted_append_format(array_name, 50, "%s__fields", struct_info->type_name.cstr);
-    write_introspect_fieldinfo_array(GEN, array_name, struct_info, false);
+    write_introspect_fieldinfo_array(GEN, array_name, struct_info->type_name, struct_info, false);
     return;
 
     // string_builder_append_format(GEN, "static FieldInfo %s__fields[] = {\n", struct_info->type_name.cstr);
@@ -652,7 +654,6 @@ FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) 
                     union_info = parse_union_2(tokens_iter, token);
 
                     field_info.type_str = union_info.self_info.type_str;
-                    field_info.name = union_info.variants[0].field_info.name;
 
                     usize union_header = 0;
                     for (usize i = 0; i < union_info.count; i++) {
@@ -662,6 +663,7 @@ FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) 
                         }
                     }
                     field_info.union_header_variant = union_header;
+                    field_info.name = union_info.variants[union_header].field_info.name;
 
                     state = FieldParse_AfterType;
                     break;
@@ -691,7 +693,23 @@ FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) 
                 break;
             default:
                 if (token.free_word) {
-                    field_info.name = cstr_nclone(token.token.str, token.token.count);
+                    if (is_union) {
+                        field_info.is_named_union = true;
+
+                        String fname = string_new();
+                        string_nappend_cstr(&fname, token.token.str, token.token.count);
+                        string_push_char(&fname, '.');
+
+                        string_append_cstr(&fname, field_info.name);
+                        std_free(field_info.name);
+                        println_string(fname);
+                        field_info.name = fname.cstr;
+
+                        field_info.union_name = cstr_nclone(token.token.str, token.token.count);
+                    }
+                    else {
+                        field_info.name = cstr_nclone(token.token.str, token.token.count);
+                    }
                     state = FieldParse_AfterName;
                 }
                 else if (is_union) {
@@ -792,8 +810,8 @@ FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) 
             case Token_introspect_extension_mode_dynarray:
                 field_ext.ext_mode_dynarray = true;
                 expect_token(tokens_iter, Token_paren_open);
-                expect_token_cstr(tokens_iter, "count");
-                expect_token(tokens_iter, Token_colon);
+                // expect_token_cstr(tokens_iter, "count");
+                // expect_token(tokens_iter, Token_colon);
                 if (next_token(tokens_iter, &token)) {
                     field_ext.dynarray_count_field = string_from_view(token.token).cstr;
                 }
@@ -805,8 +823,8 @@ FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) 
             case Token_introspect_extension_mode_string:
                 field_ext.ext_mode_string = true;
                 expect_token(tokens_iter, Token_paren_open);
-                expect_token_cstr(tokens_iter, "count");
-                expect_token(tokens_iter, Token_colon);
+                // expect_token_cstr(tokens_iter, "count");
+                // expect_token(tokens_iter, Token_colon);
                 if (next_token(tokens_iter, &token)) {
                     field_ext.string_count_field = string_from_view(token.token).cstr;
                 }

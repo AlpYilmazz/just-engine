@@ -194,33 +194,6 @@ typedef struct {
     String* response_body;
 } WriteFnArg;
 
-introspect
-typedef struct {
-    usize count;
-    usize capacity;
-    union {
-        char* str;
-        char* cstr;
-    };
-} MyString;
-
-introspect
-typedef struct {
-    uint32 is_ok;
-    union {
-        usize ok;
-        char* err mode_cstr();
-    } value mode_discriminated_union(is_ok);
-} MyResult;
-
-introspect
-typedef struct {
-    MyString* body;
-    MyResult result;
-} TestIntro;
-
-#include "introspect_gen__curl-test.h"
-
 usize write_callback(char* ptr, usize size, usize nmemb, void* userdata) {
     WriteFnArg* arg = userdata;
 
@@ -761,22 +734,72 @@ MainFn entry_points[] = {
     main_2,
 };
 
+introspect
+typedef struct {
+    uint32 use_variant;
+    usize count;
+    usize capacity;
+    union {
+        char* str mode_string(count);
+        char* cstr mode_cstr();
+    } mode_discriminated_union(use_variant);
+} MyString;
+
+introspect
+typedef struct {
+    uint32 is_ok;
+    union {
+        usize ok;
+        char* err mode_cstr();
+    } value mode_discriminated_union(is_ok);
+} MyResult;
+
+introspect
+typedef struct {
+    usize* usize_ptr;
+    MyString body_s;
+    MyString* body_p;
+    MyResult result_1;
+    MyResult result_2;
+} TestIntro;
+
+#include "introspect_gen__curl-test.h"
+
 int main(int argc, char *argv[]) {
 
+    SET_LOG_LEVEL(LOG_LEVEL_NONE);
+
     MyString s = {
+        .use_variant = 1,
         .count = 10,
         .capacity = 20,
         .cstr = "1234567890",
     };
+    MyString* sp = std_malloc(sizeof(MyString));
+    *sp = s;
+    sp->use_variant = 0;
+    sp->count = 5;
+    JUST_LOG_DEBUG("&sp.count: %p\n", &sp->count);
     TestIntro test = {
-        .body = &s,
-        .result = (MyResult) {
+        .usize_ptr = &sp->capacity,
+        .body_s = s,
+        .body_p = sp,
+        .result_1 = (MyResult) {
             .is_ok = 1,
             .value = {
                 .err = "This is an error"
             },
         },
+        .result_2 = (MyResult) {
+            .is_ok = 0,
+            .value = {
+                .ok = 10000
+            },
+        },
     };
+    JUST_LOG_DEBUG("&test: %p\n", &test);
+    // just_print(MyString)(&s);
+    just_pretty_print(TestIntro)(&test);
     return 0;
 
     int which_main = argv[1][0] - '1';

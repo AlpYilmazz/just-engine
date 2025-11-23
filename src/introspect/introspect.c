@@ -190,6 +190,7 @@ void struct__print(void* var, FieldInfo* fields, uint32 field_count) {
         FieldInfo field = fields[i];
         printf(field.name);
         printf(": ");
+        JUST_LOG_DEBUG("var: %p\n", var);
         introspect_field_print(field, var);
         if (i != field_count-1) {
             printf(", ");
@@ -202,8 +203,12 @@ void struct__pretty_print(void* var, FieldInfo* fields, uint32 field_count, uint
     for (uint32 i = 0; i < field_count; i++) {
         FieldInfo field = fields[i];
         print_indent(indent+1, indent_token);
-        printf(field.name);
-        printf(": ");
+        // TODO: think better way
+        if (!field.is_discriminated_union) {
+            printf(field.name);
+            printf(": ");
+        }
+        JUST_LOG_DEBUG("var: %p\n", var);
         introspect_field_pretty_print(field, var, indent+1, indent_token);
         printf(",\n");
     }
@@ -214,6 +219,7 @@ void struct_ptr__print(void** ptr, FieldInfo* fields, uint32 field_count) {
     ptr__print(ptr);
     if (ptr != NULL) {
         printf(" ");
+        JUST_LOG_DEBUG("*ptr: %p\n", *ptr);
         struct__print(*ptr, fields, field_count);
     }
 }
@@ -221,6 +227,7 @@ void struct_ptr__pretty_print(void** ptr, FieldInfo* fields, uint32 field_count,
     ptr__print(ptr);
     if (ptr != NULL) {
         printf(" ");
+        JUST_LOG_DEBUG("*ptr: %p\n", *ptr);
         struct__pretty_print(*ptr, fields, field_count, indent, indent_token);
     }
 }
@@ -260,6 +267,36 @@ void struct_dynarray__pretty_print(void* arr, usize count, uint32 struct_size, F
         printf(" ");
         struct_array__pretty_print(arr, count, struct_size, fields, field_count, indent, indent_token);
     }
+}
+
+void union__print(void* struct_var, void* var, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count) {
+    FieldInfo variant = variants[variant_index];
+    variant.ptr = self.ptr;
+    // JUST_LOG_DEBUG("variant.name: %s\n", variant.name);
+    if (self.is_discriminated_union) {
+        if (self.is_named_union) {
+            printf(self.union_name);
+            printf(".");
+        }
+        printf(variant.name);
+        printf(": ");
+    }
+    introspect_field_print(variant, struct_var);
+}
+
+void union__pretty_print(void* struct_var, void* var, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count, uint32 indent, IndentToken indent_token) {
+    FieldInfo variant = variants[variant_index];
+    variant.ptr = self.ptr;
+    // JUST_LOG_DEBUG("variant.name: %s\n", variant.name);
+    if (self.is_discriminated_union) {
+        if (self.is_named_union) {
+            printf(self.union_name);
+            printf(".");
+        }
+        printf(variant.name);
+        printf(": ");
+    }
+    introspect_field_pretty_print(variant, struct_var, indent, indent_token);
 }
 
 #define field_print(TYPE, field) \
@@ -395,7 +432,14 @@ void introspect_field_print(FieldInfo field, void* var) {
         break;
     case TYPE_int64:
         field_print(int64, field);
+        break;
     case TYPE_usize:
+        // JUST_DEV_MARK();
+        void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
+        usize* p = field_ptr;
+        JUST_LOG_DEBUG("(void*)(((usize)%p) + ((usize)%p))\n", var, field.ptr);
+        JUST_LOG_DEBUG("%p -> ", p);
+        JUST_LOG_DEBUG("%llu\n", *p);
         field_print(usize, field);
         break;
     case TYPE_float32:
@@ -405,6 +449,7 @@ void introspect_field_print(FieldInfo field, void* var) {
         field_print(float64, field);
         break;
     case TYPE_struct: {
+        // JUST_LOG_DEBUG("%s\n", field.name);
         void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
         if ((field).is_dynarray) {
             void** items_ptr = field_ptr;
@@ -427,6 +472,17 @@ void introspect_field_print(FieldInfo field, void* var) {
         else {
             struct__print(field_ptr, field.fields, field.field_count);
         }
+        break;
+    }
+    case TYPE_union: {
+        void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
+        uint32 variant_index = field.union_header_variant;
+        if (field.is_discriminated_union) {
+            uint32* discriminant_value = (void*)(((usize)var) + ((usize)(field).discriminant_ptr));
+            variant_index = *discriminant_value;
+        }
+        variant_index = MIN(variant_index, field.variant_count-1);
+        union__print(var, field_ptr, field, variant_index, field.variants, field.variant_count);
         break;
     }
     default:
@@ -502,7 +558,13 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         break;
     case TYPE_int64:
         field_pretty_print(int64, field, indent, indent_token);
+        break;
     case TYPE_usize:
+        void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
+        usize* p = field_ptr;
+        JUST_LOG_DEBUG("(void*)(((usize)%p) + ((usize)%p))\n", var, field.ptr);
+        JUST_LOG_DEBUG("%p -> ", p);
+        JUST_LOG_DEBUG("%llu\n", *p);
         field_pretty_print(usize, field, indent, indent_token);
         break;
     case TYPE_float32:
@@ -529,11 +591,24 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         }
         else if ((field).is_ptr) {
             void** var_ptr = field_ptr;
-            struct_ptr__pretty_print(*var_ptr, field.fields, field.field_count, indent, indent_token);
+            JUST_LOG_DEBUG("field_ptr: %p\n", field_ptr);
+            JUST_LOG_DEBUG("var_ptr: %p\n", *var_ptr);
+            struct_ptr__pretty_print(var_ptr, field.fields, field.field_count, indent, indent_token);
         }
         else {
             struct__pretty_print(field_ptr, field.fields, field.field_count, indent, indent_token);
         }
+        break;
+    }
+    case TYPE_union: {
+        void* field_ptr = (void*)(((usize)var) + ((usize)field.ptr));
+        uint32 variant_index = field.union_header_variant;
+        if (field.is_discriminated_union) {
+            uint32* discriminant_value = (void*)(((usize)var) + ((usize)(field).discriminant_ptr));
+            variant_index = *discriminant_value;
+        }
+        variant_index = MIN(variant_index, field.variant_count-1);
+        union__pretty_print(var, field_ptr, field, variant_index, field.variants, field.variant_count, indent, indent_token);
         break;
     }
     default:
