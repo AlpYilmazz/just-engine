@@ -745,9 +745,14 @@ typedef struct {
     } mode_discriminated_union(use_variant);
 } MyString;
 
+typedef enum {
+    Result_Ok,
+    Result_Err,
+} ResultEnum;
+
 introspect
 typedef struct {
-    uint32 is_ok;
+    ResultEnum is_ok enum();
     union {
         usize ok;
         char* err mode_cstr();

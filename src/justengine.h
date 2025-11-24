@@ -427,6 +427,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define introspect _introspect__just_to_make_sure_no_token_overlap__
     #define introspect_with(...) _introspect_with__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define alias(alias_type) _alias__just_to_make_sure_no_token_overlap__(alias_type)
+    #define enum(...) _alias__just_to_make_sure_no_token_overlap__(uint32)
     #define union_header(...) _union_header__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
     #define mode_discriminated_union(discriminant_field) _mode_discriminated_union__just_to_make_sure_no_token_overlap__(discriminant_field)
     #define mode_cstr(...) _mode_cstr__just_to_make_sure_no_token_overlap__(__VA_ARGS__)
@@ -437,6 +438,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define introspect 
     #define introspect_with(...) 
     #define alias(alias_type) 
+    #define enum(...) 
     #define union_header(...) 
     #define mode_discriminated_union(...) 
     #define mode_cstr(...) 
