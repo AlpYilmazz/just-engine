@@ -653,7 +653,7 @@ FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) 
                     is_union = true;
                     union_info = parse_union_2(tokens_iter, token);
 
-                    field_info.type_str = union_info.self_info.type_str;
+                    field_info.type_str = cstr_clone(union_info.self_info.type_str);
 
                     usize union_header = 0;
                     for (usize i = 0; i < union_info.count; i++) {
@@ -663,7 +663,7 @@ FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) 
                         }
                     }
                     field_info.union_header_variant = union_header;
-                    field_info.name = union_info.variants[union_header].field_info.name;
+                    field_info.name = cstr_clone(union_info.variants[union_header].field_info.name);
 
                     state = FieldParse_AfterType;
                     break;
@@ -710,6 +710,7 @@ FieldInfoExt parse_field_2(StringTokensIter* tokens_iter, StringTokenOut token) 
                     else {
                         field_info.name = cstr_nclone(token.token.str, token.token.count);
                     }
+
                     state = FieldParse_AfterName;
                 }
                 else if (is_union) {

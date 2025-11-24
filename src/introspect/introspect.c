@@ -283,7 +283,6 @@ void union__print(void* struct_var, void* var, FieldInfo self, uint32 variant_in
     }
     introspect_field_print(variant, struct_var);
 }
-
 void union__pretty_print(void* struct_var, void* var, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count, uint32 indent, IndentToken indent_token) {
     FieldInfo variant = variants[variant_index];
     variant.ptr = self.ptr;
@@ -297,6 +296,57 @@ void union__pretty_print(void* struct_var, void* var, FieldInfo self, uint32 var
         printf(": ");
     }
     introspect_field_pretty_print(variant, struct_var, indent, indent_token);
+}
+void union_ptr__print(void* struct_var, void** ptr, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count) {
+    ptr__print(ptr);
+    if (ptr != NULL) {
+        printf(" ");
+        union__print(struct_var, *ptr, self, variant_index, variants, variant_count);
+    }
+}
+void union_ptr__pretty_print(void* struct_var, void** ptr, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count, uint32 indent, IndentToken indent_token) {
+    ptr__print(ptr);
+    if (ptr != NULL) {
+        printf(" ");
+        union__pretty_print(struct_var, *ptr, self, variant_index, variants, variant_count, indent, indent_token);
+    }
+}
+void union_array__print(void* struct_var, void* arr, usize count, uint32 union_size, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count) {
+    printf("[ ");
+    for (uint32 i = 0; i < count; i++) {
+        void* var = (((byte*)arr) + (union_size * i));
+        union__print(struct_var, var, self, variant_index, variants, variant_count);
+    }
+    printf(" ]");
+}
+void union_array__pretty_print(void* struct_var, void* arr, usize count, uint32 union_size, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count, uint32 indent, IndentToken indent_token) {
+    if (count == 0) {
+        printf("[]");
+        return;
+    }
+    printf("[\n");
+    for (uint32 i = 0; i < count; i++) {
+        void* var = (((byte*)arr) + (union_size * i));
+        print_indent(indent+1, indent_token);
+        union__pretty_print(struct_var, var, self, variant_index, variants, variant_count, indent, indent_token);
+        printf(",\n");
+    }
+    print_indent(indent, indent_token);
+    printf("]");
+}
+void union_dynarray__print(void* struct_var, void* arr, usize count, uint32 union_size, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count) {
+    ptr__print(arr);
+    if (arr != NULL) {
+        printf(" ");
+        union_array__print(struct_var, arr, count, union_size, self, variant_index, variants, variant_count);
+    }
+}
+void union_dynarray__pretty_print(void* struct_var, void* arr, usize count, uint32 union_size, FieldInfo self, uint32 variant_index, FieldInfo* variants, uint32 variant_count, uint32 indent, IndentToken indent_token) {
+    ptr__print(arr);
+    if (arr != NULL) {
+        printf(" ");
+        union_array__pretty_print(struct_var, arr, count, union_size, self, variant_index, variants, variant_count, indent, indent_token);
+    }
 }
 
 #define field_print(TYPE, field) \
@@ -467,7 +517,7 @@ void introspect_field_print(FieldInfo field, void* var) {
         }
         else if ((field).is_ptr) {
             void** var_ptr = field_ptr;
-            struct_ptr__print(*var_ptr, field.fields, field.field_count);
+            struct_ptr__print(var_ptr, field.fields, field.field_count);
         }
         else {
             struct__print(field_ptr, field.fields, field.field_count);
@@ -482,7 +532,28 @@ void introspect_field_print(FieldInfo field, void* var) {
             variant_index = *discriminant_value;
         }
         variant_index = MIN(variant_index, field.variant_count-1);
-        union__print(var, field_ptr, field, variant_index, field.variants, field.variant_count);
+
+        if ((field).is_dynarray) {
+            void** items_ptr = field_ptr;
+            usize* count = (void*)(((usize)var) + ((usize)(field).count_ptr));
+            union_dynarray__print(var, *items_ptr, *count, field.union_size, field, variant_index, field.variants, field.variant_count);
+        }
+        else if ((field).is_array) {
+            if (field.is_ptr) {
+                void** items_ptr = field_ptr;
+                ptr_array__print(items_ptr, field.count);
+            }
+            else {
+                union_array__print(var, field_ptr, field.count, field.union_size, field, variant_index, field.variants, field.variant_count);
+            }
+        }
+        else if ((field).is_ptr) {
+            void** var_ptr = field_ptr;
+            union_ptr__print(var, var_ptr, field, variant_index, field.variants, field.variant_count);
+        }
+        else {
+            union__print(var, field_ptr, field, variant_index, field.variants, field.variant_count);
+        }
         break;
     }
     default:
@@ -608,7 +679,28 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
             variant_index = *discriminant_value;
         }
         variant_index = MIN(variant_index, field.variant_count-1);
-        union__pretty_print(var, field_ptr, field, variant_index, field.variants, field.variant_count, indent, indent_token);
+
+        if ((field).is_dynarray) {
+            void** items_ptr = field_ptr;
+            usize* count = (void*)(((usize)var) + ((usize)(field).count_ptr));
+            union_dynarray__pretty_print(var, *items_ptr, *count, field.union_size, field, variant_index, field.variants, field.variant_count, indent, indent_token);
+        }
+        else if ((field).is_array) {
+            if (field.is_ptr) {
+                void** items_ptr = field_ptr;
+                ptr_array__pretty_print(items_ptr, field.count, indent, indent_token);
+            }
+            else {
+                union_array__pretty_print(var, field_ptr, field.count, field.union_size, field, variant_index, field.variants, field.variant_count, indent, indent_token);
+            }
+        }
+        else if ((field).is_ptr) {
+            void** var_ptr = field_ptr;
+            union_ptr__pretty_print(var, var_ptr, field, variant_index, field.variants, field.variant_count, indent, indent_token);
+        }
+        else {
+            union__pretty_print(var, field_ptr, field, variant_index, field.variants, field.variant_count, indent, indent_token);
+        }
         break;
     }
     default:
