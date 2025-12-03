@@ -13,6 +13,9 @@ if NOT "%1"=="" (
     ) else if "%1"=="--introspect" (
         SET ARG_WITH_INTROSPECT=true
         SHIFT
+    ) else if "%1"=="--shared" (
+        SET IS_SHARED=true
+        SHIFT
     )
     SHIFT
     goto :loop
@@ -58,6 +61,14 @@ if defined ARG_WITH_INTROSPECT (
     call run "justengine/bin/introspect.exe" %SRC_DIR%/%ARG_ENTRY% introspect_gen__%ARG_ENTRY_NAME%.h %INCLUDE%
     @echo off
 )
-@echo on
-%CC% %COMPILER_FLAGS% %COMPILE% %INCLUDE% %LIB% %LINK% -o %OUTPUT%
-@echo off
+
+if defined IS_SHARED (
+    @echo on
+    %CC% %COMPILER_FLAGS% -fPIC -c %COMPILE% %INCLUDE% %LIB% %LINK% -o %ARG_ENTRY_NAME%.o
+    %CC% %ARG_ENTRY_NAME%.o %INCLUDE% %LIB% %LINK% -shared -Wl,--subsystem,windows -Wl,--out-implib,lib%ARG_ENTRY_NAME%.dll.a -o %ARG_ENTRY_NAME%.dll
+    @echo off
+) else (
+    @echo on
+    %CC% %COMPILER_FLAGS% %COMPILE% %INCLUDE% %LIB% -L. %LINK% -lcurl-test -o %OUTPUT%
+    @echo off
+)

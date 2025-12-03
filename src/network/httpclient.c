@@ -1,6 +1,7 @@
 
 #include "curl/curl.h"
 
+typedef CURLINFO CurlInfo;
 typedef CURLcode CurlErrorCode;
 typedef CURLMcode CurlMultiCode;
 typedef CURLMsg CurlMessage;
@@ -130,6 +131,11 @@ HttpEasyResult http_request_easy_perform(HttpRequest* req) {
         };
     }
     return result;
+}
+
+bool http_request_getinfo(HttpRequest* req, CurlInfo info, void* arg) {
+    CURLcode code = curl_easy_getinfo(req, info, arg);
+    return code == CURLE_OK;
 }
 
 void http_request_easy_cleanup(HttpRequest* req) {

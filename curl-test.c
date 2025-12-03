@@ -355,9 +355,17 @@ uint32 start_request_and_wait(TaskArgVoid* arg_void) {
     }
     REQUEST_END:
 
-            JUST_DEV_MARK();
+    long response_code = 0;
+    if(!http_request_getinfo(req, CURLINFO_RESPONSE_CODE, &response_code)) {
+        response_code = 0;
+        JUST_LOG_WARN("Could not get response code.\n");
+    }
+    GLOBAL.response.status_code = response_code;
+    atomic_store(&GLOBAL.response_ready, true);
+
+    JUST_DEV_MARK();
     // http_request_multi_cleanup(reqset);
-            JUST_DEV_MARK();
+    JUST_DEV_MARK();
 
     end_thread(0);
     return 0;
@@ -431,6 +439,49 @@ void start_request_preemptive(char* request_static_prefix) {
 void complete_preemptive_request(char* request_dynamic_suffix) {
     String send_suffix = string_from_cstr(request_dynamic_suffix);
     set_dynamic_suffix(send_suffix);
+}
+
+typedef struct {
+    uint32 status_code;
+    char* body;
+} C_HttpResponse;
+
+bool poll_response(C_HttpResponse* set_response) {
+    if (atomic_load(&GLOBAL.response_ready)) {
+        *set_response = (C_HttpResponse) {
+            .status_code = GLOBAL.response.status_code,
+            .body = GLOBAL.response.body.cstr,
+        };
+        return true;
+    }
+    return false;
+}
+
+bool done = false;
+String test_string = {0};
+
+__declspec(dllexport) void __cdecl test_start(char* start_string);
+__declspec(dllexport) void __cdecl test_complete(char* complete_string);
+__declspec(dllexport) bool __cdecl test_poll(C_HttpResponse* set_response);
+
+void __cdecl test_start(char* start_string) {
+    test_string = string_from_cstr(start_string);
+}
+
+void __cdecl test_complete(char* complete_string) {
+    string_append_cstr(&test_string, complete_string);
+    done = true;
+}
+
+bool __cdecl test_poll(C_HttpResponse* set_response) {
+    if (done) {
+        *set_response = (C_HttpResponse) {
+            .status_code = 200,
+            .body = test_string.cstr,
+        };
+        return true;
+    }
+    return false;
 }
 
 uint32 send_request(TaskArgVoid* arg_void) {
