@@ -178,8 +178,8 @@ HttpMultiResult http_request_multi_wakeup(HttpRequestMulti* reqset) {
     return curlm_multi_result(curlm_response);
 }
 
-CurlMessage* http_request_multi_info_read(HttpRequestMulti* reqset, HttpRequest* req) {
-    return curl_multi_info_read(reqset, req);
+CurlMessage* http_request_multi_info_read(HttpRequestMulti* reqset, int32* msgs_in_queue) {
+    return curl_multi_info_read(reqset, msgs_in_queue);
 }
 
 void http_request_multi_cleanup(HttpRequestMulti* reqset) {

@@ -19,7 +19,7 @@
     #define alias(alias_type) 
     #define enum(...) 
     #define union_header(...) 
-    #define mode_discriminated_union(...) 
+    #define mode_discriminated_union(discriminant_field) 
     #define mode_cstr(...) 
     #define mode_dynarray(count_field) 
     #define mode_string(count_field) 

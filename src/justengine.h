@@ -440,7 +440,7 @@ static inline Vector2 vector2_yx(Vector2 vec) {
     #define alias(alias_type) 
     #define enum(...) 
     #define union_header(...) 
-    #define mode_discriminated_union(...) 
+    #define mode_discriminated_union(discriminant_field) 
     #define mode_cstr(...) 
     #define mode_dynarray(count_field) 
     #define mode_string(count_field) 
@@ -1518,7 +1518,7 @@ void http_request_multi_remove_request(HttpRequestMulti* reqset, HttpRequest* re
 HttpMultiResult http_request_multi_perform(HttpRequestMulti* reqset, int32* running_handles);
 HttpMultiResult http_request_multi_poll(HttpRequestMulti* reqset, int32 timeout_ms);
 HttpMultiResult http_request_multi_wakeup(HttpRequestMulti* reqset);
-CurlMessage* http_request_multi_info_read(HttpRequestMulti* reqset, HttpRequest* req);
+CurlMessage* http_request_multi_info_read(HttpRequestMulti* reqset, int32* msgs_in_queue);
 void http_request_multi_cleanup(HttpRequestMulti* reqset);
 
 CurlErrorCode http_request_easy_pause(HttpRequest* req, int32 bitmask);

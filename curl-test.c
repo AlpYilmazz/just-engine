@@ -224,6 +224,7 @@ HttpHeaders get_common_headers() {
 }
 
 typedef struct {
+    String static_prefix;
     atomic_bool* dynamic_part_received;
     String* dynamic_suffix;
     String* response_body;
@@ -257,27 +258,7 @@ HttpRequest* make_request__getcaptcha(RequestThreadArg* arg) {
             .state = SEND_STATIC_PREFIX,
             .dynamic_part_received = arg->dynamic_part_received,
             .cursor = 0,
-            .static_prefix = string_from_cstr(
-                "{         "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-                "          "
-            ), // total 190
+            .static_prefix = arg->static_prefix, // total 190
             .dynamic_suffix = arg->dynamic_suffix, // total 10
         },
         .dynamic_start_time = &arg->dynamic_start_time,
@@ -320,22 +301,33 @@ HttpRequest* make_request__getcaptcha(RequestThreadArg* arg) {
     return req;
 }
 
-HttpRequestMulti* reqset;
-atomic_bool dynamic_part_received;
-String dynamic_suffix;
+typedef struct {
+    uint32 status_code;
+    String body;
+} HttpResponse;
+
+typedef struct {
+    HttpRequestMulti* reqset;
+    atomic_bool dynamic_part_received;
+    String dynamic_suffix;
+    // --
+    atomic_bool response_ready;
+    HttpResponse response;
+} Global;
+Global GLOBAL = {0};
 
 uint32 start_request_and_wait(TaskArgVoid* arg_void) {
     RequestThreadArg* arg = arg_void;
 
-    reqset = http_request_multi_init();
+    GLOBAL.reqset = http_request_multi_init();
     HttpRequest* req = make_request__getcaptcha(arg);
     
-    http_request_multi_add_request(reqset, req);
+    http_request_multi_add_request(GLOBAL.reqset, req);
 
     int still_running = 1;
     bool dynamic_received = false;
     while (still_running) {
-        HttpMultiResult res = http_request_multi_perform(reqset, &still_running);
+        HttpMultiResult res = http_request_multi_perform(GLOBAL.reqset, &still_running);
         if (!res.success) {
             PANIC("ERROR: http_request_multi_perform: %d - %s\n", res.error_code, res.error_msg);
         }
@@ -343,7 +335,7 @@ uint32 start_request_and_wait(TaskArgVoid* arg_void) {
         CurlMessage* m;
         do {
             int msgq = 0;
-            m = http_request_multi_info_read(reqset, &msgq);
+            m = http_request_multi_info_read(GLOBAL.reqset, &msgq);
             if(m && (m->msg == CURLMSG_DONE)) {
                 JUST_DEV_MARK();
                 HttpRequest* e = m->easy_handle;
@@ -353,9 +345,9 @@ uint32 start_request_and_wait(TaskArgVoid* arg_void) {
             }
         } while(m);
 
-        http_request_multi_poll(reqset, 105);
+        http_request_multi_poll(GLOBAL.reqset, 105);
 
-        if (!dynamic_received && atomic_load(&dynamic_part_received)) {
+        if (!dynamic_received && atomic_load(&GLOBAL.dynamic_part_received)) {
             dynamic_received = true;
             http_request_easy_pause(req, CURLPAUSE_CONT);
             JUST_DEV_MARK();
@@ -372,10 +364,73 @@ uint32 start_request_and_wait(TaskArgVoid* arg_void) {
 }
 
 void set_dynamic_suffix(String send_suffix) {
-    dynamic_suffix = send_suffix;
-    atomic_store(&dynamic_part_received, true);
-    http_request_multi_wakeup(reqset);
+    GLOBAL.dynamic_suffix = send_suffix;
+    atomic_store(&GLOBAL.dynamic_part_received, true);
+    http_request_multi_wakeup(GLOBAL.reqset);
     JUST_DEV_MARK();
+}
+
+// string_from_cstr(
+//         "{         "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//         "          "
+//     )
+
+// #define allocated(type, varname, alloc_fn) type* varname = alloc_fn(sizeof(type)); *varname = (type) 
+// allocated(RequestThreadArg, arg, std_malloc) {
+//     .dynamic_part_received = &GLOBAL.dynamic_part_received,
+//     .dynamic_suffix = &GLOBAL.dynamic_suffix,
+//     .response_body = &response_body,
+//     .signal_time = {0},
+//     .dynamic_start_time = {0},
+//     .request_end_time = {0},
+// };
+
+void start_request_preemptive(char* request_static_prefix) {
+    String static_prefix = string_from_cstr(request_static_prefix);
+
+    GLOBAL.dynamic_part_received = ATOMIC_VAR_INIT(false);
+    GLOBAL.dynamic_suffix = string_new();
+
+    GLOBAL.response_ready = ATOMIC_VAR_INIT(false);
+    GLOBAL.response = (HttpResponse) {
+        .status_code = 0,
+        .body = string_new(),
+    };
+
+    RequestThreadArg* request_arg = std_malloc(sizeof(RequestThreadArg));
+    *request_arg = (RequestThreadArg) {
+        .static_prefix = static_prefix,
+        .dynamic_part_received = &GLOBAL.dynamic_part_received,
+        .dynamic_suffix = &GLOBAL.dynamic_suffix,
+        .response_body = &GLOBAL.response.body,
+        .signal_time = {0},
+        .dynamic_start_time = {0},
+        .request_end_time = {0},
+    };
+
+    Thread request_thread = thread_spawn(start_request_and_wait, request_arg);
+}
+
+void complete_preemptive_request(char* request_dynamic_suffix) {
+    String send_suffix = string_from_cstr(request_dynamic_suffix);
+    set_dynamic_suffix(send_suffix);
 }
 
 uint32 send_request(TaskArgVoid* arg_void) {
@@ -601,14 +656,14 @@ int main_1() {
 
     thread_join(thread_spawn(just_send_request, NULL));
 
-    dynamic_part_received = ATOMIC_VAR_INIT(false);
-    dynamic_suffix = string_new();
+    GLOBAL.dynamic_part_received = ATOMIC_VAR_INIT(false);
+    GLOBAL.dynamic_suffix = string_new();
     String response_body = string_new();
 
     RequestThreadArg* request_arg = std_malloc(sizeof(RequestThreadArg));
     *request_arg = (RequestThreadArg) {
-        .dynamic_part_received = &dynamic_part_received,
-        .dynamic_suffix = &dynamic_suffix,
+        .dynamic_part_received = &GLOBAL.dynamic_part_received,
+        .dynamic_suffix = &GLOBAL.dynamic_suffix,
         .response_body = &response_body,
         .signal_time = {0},
         .dynamic_start_time = {0},

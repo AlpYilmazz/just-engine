@@ -286,7 +286,7 @@ void http_request_multi_remove_request(HttpRequestMulti* reqset, HttpRequest* re
 HttpMultiResult http_request_multi_perform(HttpRequestMulti* reqset, int32* running_handles);
 HttpMultiResult http_request_multi_poll(HttpRequestMulti* reqset, int32 timeout_ms);
 HttpMultiResult http_request_multi_wakeup(HttpRequestMulti* reqset);
-CurlMessage* http_request_multi_info_read(HttpRequestMulti* reqset, HttpRequest* req);
+CurlMessage* http_request_multi_info_read(HttpRequestMulti* reqset, int32* msgs_in_queue);
 void http_request_multi_cleanup(HttpRequestMulti* reqset);
 
 CurlErrorCode http_request_easy_pause(HttpRequest* req, int32 bitmask);
