@@ -1053,15 +1053,18 @@ void string_builder_append_string_owned(StringBuilder* builder, String string);
 #ifdef __HEADER_THREAD_TASK
 
 typedef void ThreadArgVoid;
-typedef uint32 (*ThreadHandlerFn)(ThreadArgVoid*);
+typedef uint32 (*ThreadHandlerFn)(ThreadArgVoid* thread_arg);
 
 typedef struct {
     ThreadHandlerFn handler;
     ThreadArgVoid* arg;
 } ThreadEntry;
 
+typedef struct {
+    BumpAllocator temp_storage;
+} TaskExecutorContext;
 typedef void TaskArgVoid;
-typedef void (*TaskHandlerFn)(TaskArgVoid*);
+typedef void (*TaskHandlerFn)(TaskExecutorContext* context, TaskArgVoid* task_arg);
 
 typedef struct {
     TaskHandlerFn handler;

@@ -728,12 +728,6 @@ int main_2() {
     return 0;
 }
 
-typedef int (*MainFn)();
-MainFn entry_points[] = {
-    main_1,
-    main_2,
-};
-
 introspect
 typedef struct {
     uint32 use_variant;
@@ -770,8 +764,7 @@ typedef struct {
 
 #include "introspect_gen__curl-test.h"
 
-int main(int argc, char *argv[]) {
-
+int main_3() {
     SET_LOG_LEVEL(LOG_LEVEL_NONE);
 
     MyString s = {
@@ -806,7 +799,16 @@ int main(int argc, char *argv[]) {
     // just_print(MyString)(&s);
     just_pretty_print(TestIntro)(&test);
     return 0;
+}
 
+typedef int (*MainFn)();
+MainFn entry_points[] = {
+    main_1,
+    main_2,
+    main_3,
+};
+
+int main(int argc, char *argv[]) {
     int which_main = argv[1][0] - '1';
     return entry_points[which_main]();
 }

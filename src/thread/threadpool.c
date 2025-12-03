@@ -197,6 +197,10 @@ void example_async_task_print_int_arg(TaskArgVoid* arg);
 //     ThreadPool* pool = lpParam;
 unsigned int __stdcall thread_pool_worker_thread(void* thread_param) {
     ThreadPool* pool = thread_param;
+    
+    TaskExecutorContext context = {
+        .temp_storage = make_bump_allocator(),
+    };
     Task task;
 
     while (true) {
@@ -216,7 +220,7 @@ unsigned int __stdcall thread_pool_worker_thread(void* thread_param) {
         if (task_queue_has_next(&pool->task_queue)) {
             task = task_queue_pop_task_unchecked(&pool->task_queue);
             LeaveCriticalSection(&pool->task_queue_lock);
-            task.handler(task.arg);
+            task.handler(&context, task.arg);
         }
         else {
             LeaveCriticalSection(&pool->task_queue_lock);

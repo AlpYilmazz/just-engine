@@ -24,7 +24,7 @@ typedef struct {
     char* filepath;
 } AsyncioFileLoadImageTaskArg;
 
-void asyncio_file_load_image_task(TaskArgVoid* arg) {
+void asyncio_file_load_image_task(TaskExecutorContext* context, TaskArgVoid* arg) {
     AsyncioFileLoadImageTaskArg* this_arg = arg;
 
     Image image = LoadImage(this_arg->filepath);
