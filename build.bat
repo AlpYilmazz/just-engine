@@ -12,10 +12,8 @@ if NOT "%1"=="" (
         SHIFT
     ) else if "%1"=="--introspect" (
         SET ARG_WITH_INTROSPECT=true
-        SHIFT
     ) else if "%1"=="--shared" (
         SET IS_SHARED=true
-        SHIFT
     )
     SHIFT
     goto :loop
