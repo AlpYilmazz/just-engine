@@ -21,7 +21,7 @@ typedef struct {
     uint32* ptr_field;
     uint32 arr_field[10];
     char* cstr_field mode_cstr();
-    uint32* dynarray_field mode_dynarray(count: uint_field);
+    uint32* dynarray_field mode_dynarray(uint_field);
     TestString string_field;
     InnerTestStruct struct_field;
     InnerTestStruct struct_arr_field[3];
@@ -30,10 +30,11 @@ typedef struct {
 // --
 
 #define DEFINE_DYNARRAY(Type) \
-    introspect typedef struct { \
+    introspect \
+    typedef struct { \
         usize count; \
         usize capacity; \
-        Type* items mode_dynarray(count: count); \
+        Type* items mode_dynarray(count); \
     } Type##_DynArray;
 
 // --

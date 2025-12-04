@@ -187,28 +187,34 @@ void introspect_field_pretty_print(FieldInfo field, void* var, uint32 indent, In
         TYPE##_array__pretty_print_with(var, count, 0, DEFAULT_INDENT_TOKEN); \
     } \
 \
-    static inline void TYPE##__print0(TYPE* var) { \
+    static inline void TYPE##__print0(char* name, TYPE* var) { \
+        if (name) printf("%s: ", name); \
         TYPE##__print(var); \
         printf("\n"); \
     } \
-    static inline void TYPE##__pretty_print0(TYPE* var) { \
+    static inline void TYPE##__pretty_print0(char* name, TYPE* var) { \
+        if (name) printf("%s: ", name); \
         TYPE##__pretty_print(var, 0); \
         printf("\n"); \
     } \
-    static inline void TYPE##__pretty_print_with0(TYPE* var, IndentToken indent_token) { \
+    static inline void TYPE##__pretty_print_with0(char* name, TYPE* var, IndentToken indent_token) { \
+        if (name) printf("%s: ", name); \
         TYPE##__pretty_print_with(var, 0, indent_token); \
         printf("\n"); \
     } \
 \
-    static inline void TYPE##_array__print0(TYPE* var, usize count) { \
+    static inline void TYPE##_array__print0(char* name, TYPE* var, usize count) { \
+        if (name) printf("%s: ", name); \
         TYPE##_array__print(var, count); \
         printf("\n"); \
     } \
-    static inline void TYPE##_array__pretty_print0(TYPE* var, usize count) { \
+    static inline void TYPE##_array__pretty_print0(char* name, TYPE* var, usize count) { \
+        if (name) printf("%s: ", name); \
         TYPE##_array__pretty_print(var, count, 0); \
         printf("\n"); \
     } \
-    static inline void TYPE##_array__pretty_print_with0(TYPE* var, usize count, IndentToken indent_token) { \
+    static inline void TYPE##_array__pretty_print_with0(char* name, TYPE* var, usize count, IndentToken indent_token) { \
+        if (name) printf("%s: ", name); \
         TYPE##_array__pretty_print_with(var, count, 0, indent_token); \
         printf("\n"); \
     } \

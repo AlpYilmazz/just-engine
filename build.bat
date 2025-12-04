@@ -30,6 +30,7 @@ set INCLUDE=-Ijustengine/include/openssl -Ijustengine/include/curl -Ijustengine/
 set LIB=-Ljustengine/lib/openssl -Ljustengine/lib/curl -Ljustengine/lib/raylib -Ljustengine/lib/clay -Ljustengine/lib
 
 set LINK=^
+    -Wl,--start-group^
     -lraylib^
     -ljustengine^
     -lssl -lcrypto^
@@ -37,7 +38,8 @@ set LINK=^
     -lgdi32 -lwinmm^
     -lws2_32^
     -lcrypt32 -luser32 -ladvapi32^
-    -lpthread
+    -lpthread^
+    -Wl,--end-group
 
     @REM -lssl -lcrypto -lcrypt32 -luser32 -ladvapi32 -lws2_32^
     

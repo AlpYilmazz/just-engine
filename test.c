@@ -117,34 +117,40 @@ void reset_test_tween_sequence(TweenSequence_Vector2* tween_seq) {
     }
 }
 
+introspect
 typedef struct {
     uint32 status_code;
-    char* body;
+    char* body mode_cstr();
 } C_HttpResponse;
 
-// __declspec(dllimport) void __cdecl test_start(char* start_string);
-// __declspec(dllimport) void __cdecl test_complete(char* complete_string);
-// __declspec(dllimport) bool __cdecl test_poll(C_HttpResponse* set_response);
+#ifndef PRE_INTROSPECT_PASS
+#include "introspect_gen__test.h"
+#endif
+
+__declspec(dllimport) void __cdecl test_start(char* start_string);
+__declspec(dllimport) void __cdecl test_complete(char* complete_string);
+__declspec(dllimport) bool __cdecl test_poll(C_HttpResponse* set_response);
 
 int main() {
     // SET_LOG_LEVEL(LOG_LEVEL_ERROR);
     // SET_LOG_LEVEL(LOG_LEVEL_WARN);
     // SET_LOG_LEVEL(LOG_LEVEL_TRACE);
 
-    // bool poll_success;
-    // C_HttpResponse response;
-    // test_start("start into -> ");
+    bool poll_success;
+    C_HttpResponse response = {0};
+    test_start("start into -> ");
 
-    // poll_success = test_poll(&response);
-    // JUST_LOG_INFO("poll_success: %d\n", poll_success);
+    poll_success = test_poll(&response);
+    JUST_LOG_INFO("poll_success: %d\n", poll_success);
+    just_pretty_print(C_HttpResponse)(NULL, &response);
 
-    // test_complete("complete!");
+    test_complete("complete!");
 
-    // while(!(poll_success = test_poll(&response))) {
-    //     JUST_LOG_INFO("poll_success: %d\n", poll_success);
-    // }
-    // JUST_LOG_INFO("poll_success: %d\n", poll_success);
-    // JUST_LOG_INFO("C_HttpResponse: {\n\tstatus_code: %u,\n\tbody: %s,\n}\n", response.status_code, response.body);
+    while(!(poll_success = test_poll(&response))) {
+        JUST_LOG_INFO("poll_success: %d\n", poll_success);
+    }
+    JUST_LOG_INFO("poll_success: %d\n", poll_success);
+    just_pretty_print(C_HttpResponse)("response", &response);
 
     return 0;
 
@@ -235,15 +241,15 @@ int main() {
             reset_test_tweens(tweens);
             reset_test_tween_sequence(&tween_seq);
             printf("---\n");
-            just_print(TestStruct)(&test_struct);
+            just_print(TestStruct)("test_struct", &test_struct);
             printf("---\n");
-            just_pretty_print(TestStruct)(&test_struct);
+            just_pretty_print(TestStruct)("test_struct", &test_struct);
             printf("---\n");
-            just_pretty_print_with(TestStruct)(&test_struct, (IndentToken) {.token = " ", .count = 4});
+            just_pretty_print_with(TestStruct)("test_struct", &test_struct, (IndentToken) {.token = " ", .count = 4});
             printf("---\n");
-            just_array_pretty_print_with(TestStruct)(test_struct_arr, 3, (IndentToken) {.token = " ", .count = 2});
+            just_array_pretty_print_with(TestStruct)("test_struct_arr", test_struct_arr, 3, (IndentToken) {.token = " ", .count = 2});
             printf("---\n");
-            just_pretty_print_with(TestStruct_DynArray)(&test_struct_dynarr, (IndentToken) {.token = " ", .count = 2});
+            just_pretty_print_with(TestStruct_DynArray)("test_struct_dynarr", &test_struct_dynarr, (IndentToken) {.token = " ", .count = 2});
             printf("---\n");
         }
         if (IsKeyPressed(KEY_P)) {

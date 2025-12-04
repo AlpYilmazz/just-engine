@@ -4,7 +4,7 @@
             "name": "Mingw-GCC",
             "includePath": [
                 "${workspaceFolder}/src/**",
-                "${workspaceFolder}/justengine/**"
+                "${workspaceFolder}/justengine/include/**"
             ],
             "defines": [
                 "_DEBUG",
