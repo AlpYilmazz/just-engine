@@ -239,7 +239,7 @@ HttpRequest* make_request__getcaptcha(RequestThreadArg* arg) {
         PANIC("HttpRequest could not be initialized\n");
     }
     http_request_set_threaded_use(req);
-    // http_request_set_verbose(req);
+    http_request_set_verbose(req);
 
     CurlSSLOpt ssl_opt = {
         .verify_peer = true,
@@ -324,10 +324,10 @@ uint32 start_request_and_wait(TaskArgVoid* arg_void) {
     
     http_request_multi_add_request(GLOBAL.reqset, req);
 
-    int still_running = 1;
     bool dynamic_received = false;
-    while (still_running) {
-        HttpMultiResult res = http_request_multi_perform(GLOBAL.reqset, &still_running);
+    while (true) {
+        int32 running_handles;
+        HttpMultiResult res = http_request_multi_perform(GLOBAL.reqset, &running_handles);
         if (!res.success) {
             PANIC("ERROR: http_request_multi_perform: %d - %s\n", res.error_code, res.error_msg);
         }
@@ -339,7 +339,7 @@ uint32 start_request_and_wait(TaskArgVoid* arg_void) {
             if(m && (m->msg == CURLMSG_DONE)) {
                 JUST_DEV_MARK();
                 HttpRequest* e = m->easy_handle;
-                // ASSERT(e == req);
+                ASSERT(e == req);
                 gettime(&arg->request_end_time);
                 goto REQUEST_END;
             }
@@ -361,6 +361,11 @@ uint32 start_request_and_wait(TaskArgVoid* arg_void) {
         JUST_LOG_WARN("Could not get response code.\n");
     }
     GLOBAL.response.status_code = response_code;
+    // printf(
+    //     "status_code: %d, response_body: %s\n",
+    //     GLOBAL.response.status_code,
+    //     GLOBAL.response.body.cstr
+    // );
     atomic_store(&GLOBAL.response_ready, true);
 
     JUST_DEV_MARK();
@@ -457,31 +462,50 @@ bool poll_response(C_HttpResponse* set_response) {
     return false;
 }
 
-bool done = false;
-String test_string = {0};
-
+__declspec(dllexport) void __cdecl test_init();
 __declspec(dllexport) void __cdecl test_start(char* start_string);
 __declspec(dllexport) void __cdecl test_complete(char* complete_string);
 __declspec(dllexport) bool __cdecl test_poll(C_HttpResponse* set_response);
 
+bool is_init = false;
+bool done = false;
+String test_string = {0};
+
+void __cdecl test_init() {
+    just_http_global_init_default();
+    is_init = true;
+}
+
 void __cdecl test_start(char* start_string) {
-    test_string = string_from_cstr(start_string);
+    ASSERT(is_init);
+    start_request_preemptive(start_string);
+    // test_string = string_from_cstr(start_string);
 }
 
 void __cdecl test_complete(char* complete_string) {
-    string_append_cstr(&test_string, complete_string);
+    ASSERT(is_init);
+    complete_preemptive_request(complete_string);
+    // string_append_cstr(&test_string, complete_string);
     done = true;
 }
 
 bool __cdecl test_poll(C_HttpResponse* set_response) {
-    if (done) {
-        *set_response = (C_HttpResponse) {
-            .status_code = 200,
-            .body = test_string.cstr,
-        };
-        return true;
-    }
-    return false;
+    ASSERT(is_init);
+    return poll_response(set_response);
+    // static uint32 poll_count = 0;
+    // if (done) {
+    //     if (poll_count >= 3) {
+    //         *set_response = (C_HttpResponse) {
+    //             .status_code = 200,
+    //             .body = test_string.cstr,
+    //         };
+    //         return true;
+    //     }
+    //     else {
+    //         poll_count++;
+    //     }
+    // }
+    // return false;
 }
 
 uint32 send_request(TaskArgVoid* arg_void) {
@@ -903,7 +927,7 @@ int main_3() {
     };
     JUST_LOG_DEBUG("&test: %p\n", &test);
     // just_print(MyString)(&s);
-    just_pretty_print(TestIntro)(&test);
+    just_pretty_print(TestIntro)("test", &test);
     return 0;
 }
 
