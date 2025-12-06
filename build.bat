@@ -66,6 +66,7 @@ if defined IS_SHARED (
     @echo on
     %CC% %COMPILER_FLAGS% -fPIC -m64 -c %COMPILE% %INCLUDE% %LIB% %LINK% -o %ARG_ENTRY_NAME%.o
     %CC% %ARG_ENTRY_NAME%.o %INCLUDE% %LIB% %LINK% -shared -m64 -Wl,--subsystem,windows -Wl,--out-implib,lib%ARG_ENTRY_NAME%.dll.a -o %ARG_ENTRY_NAME%.dll
+    del %ARG_ENTRY_NAME%.o
     @echo off
 ) else (
     @echo on
