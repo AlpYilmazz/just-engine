@@ -7,3 +7,8 @@ target/
 game.exe
 main.exe
 scratch.exe
+
+*.o
+*.a
+*.dll
+*.dll.a
