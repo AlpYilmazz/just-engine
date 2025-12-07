@@ -12,6 +12,34 @@ int gettime(Time* time) {
     return clock_gettime(CLOCK_MONOTONIC, time);
 }
 
+typedef struct {
+    Time signal_time;
+    Time dynamic_start_time;
+    Time request_end_time;
+} Timings;
+
+typedef struct {
+    uint32 status_code;
+    String body;
+} HttpResponse;
+
+typedef struct {
+    String cacert_filepath;
+} Configuration;
+Configuration CONFIG = {0};
+
+typedef struct {
+    HttpRequestMulti* reqset;
+    atomic_bool dynamic_part_received;
+    String dynamic_suffix;
+    // --
+    atomic_bool response_ready;
+    HttpResponse response;
+    // --
+    Timings timings;
+} Global;
+Global GLOBAL = {0};
+
 typedef enum {
     SEND_STATIC_PREFIX,
     SEND_DYNAMIC_SUFFIX,
@@ -157,7 +185,7 @@ typedef struct {
     float64 continue_period_sec;
     bool work_done;
     atomic_bool* dynamic_part_received;
-    Time* signal_time;
+    // Time* signal_time;
 } ProgressFnArg;
 
 int32 progress_callback(void* clientp, int64 dltotal, int64 dlnow, int64 ultotal, int64 ulnow) {
@@ -172,7 +200,7 @@ int32 progress_callback(void* clientp, int64 dltotal, int64 dlnow, int64 ultotal
         JUST_DEV_MARK();
         arg->work_done = true;
         http_request_easy_pause(arg->req, CURLPAUSE_CONT);
-        gettime(arg->signal_time);
+        // gettime(arg->signal_time);
         return CURL_PROGRESSFUNC_CONTINUE;
     }
 
@@ -224,103 +252,90 @@ HttpHeaders get_common_headers() {
 }
 
 typedef struct {
-    String static_prefix;
-    atomic_bool* dynamic_part_received;
-    String* dynamic_suffix;
-    String* response_body;
-    Time signal_time;
-    Time dynamic_start_time;
-    Time request_end_time;
+    HttpRequest* req;
+    // String static_prefix;
+    // atomic_bool* dynamic_part_received;
+    // String* dynamic_suffix;
+    // String* response_body;
+    // Time* signal_time;
+    Time* dynamic_start_time;
+    Time* request_end_time;
 } RequestThreadArg;
 
-HttpRequest* make_request__getcaptcha(RequestThreadArg* arg) {
-    HttpRequest* req = http_request_easy_init();
-    if (req == NULL) {
-        PANIC("HttpRequest could not be initialized\n");
-    }
-    http_request_set_threaded_use(req);
-    http_request_set_verbose(req);
+// HttpRequest* make_request__getcaptcha(RequestThreadArg* arg) {
+//     HttpRequest* req = http_request_easy_init();
+//     if (req == NULL) {
+//         PANIC("HttpRequest could not be initialized\n");
+//     }
+//     http_request_set_threaded_use(req);
+//     http_request_set_verbose(req);
 
-    CurlSSLOpt ssl_opt = {
-        .verify_peer = true,
-        .verify_host = true,
-        .cainfo_file = string_from_cstr("test-assets/cacert.pem"),
-    };
+//     CurlSSLOpt ssl_opt = {
+//         .verify_peer = true,
+//         .verify_host = true,
+//         .cainfo_file = CONFIG.cacert_filepath,
+//     };
 
-    Time* last_time = std_malloc(sizeof(Time));
-    *last_time = (Time) {0};
+//     Time* last_time = std_malloc(sizeof(Time));
+//     *last_time = (Time) {0};
 
-    ReadFnArg* read_arg = malloc(sizeof(ReadFnArg));
-    *read_arg = (ReadFnArg) {
-        .should_pause = false,
-        .last_time = last_time,
-        .send_data = (SendData) {
-            .state = SEND_STATIC_PREFIX,
-            .dynamic_part_received = arg->dynamic_part_received,
-            .cursor = 0,
-            .static_prefix = arg->static_prefix, // total 190
-            .dynamic_suffix = arg->dynamic_suffix, // total 10
-        },
-        .dynamic_start_time = &arg->dynamic_start_time,
-    };
+//     ReadFnArg* read_arg = malloc(sizeof(ReadFnArg));
+//     *read_arg = (ReadFnArg) {
+//         .should_pause = false,
+//         .last_time = last_time,
+//         .send_data = (SendData) {
+//             .state = SEND_STATIC_PREFIX,
+//             .dynamic_part_received = arg->dynamic_part_received,
+//             .cursor = 0,
+//             .static_prefix = arg->static_prefix, // total 190
+//             .dynamic_suffix = arg->dynamic_suffix, // total 10
+//         },
+//         .dynamic_start_time = arg->dynamic_start_time,
+//     };
 
-    ProgressFnArg* progress_arg = malloc(sizeof(ProgressFnArg));
-    *progress_arg = (ProgressFnArg) {
-        .req = req,
-        .last_time = last_time,
-        .continue_period_sec = 0.2,
-        .work_done = false,
-        .dynamic_part_received = arg->dynamic_part_received,
-        .signal_time = &arg->signal_time,
-    };
+//     ProgressFnArg* progress_arg = malloc(sizeof(ProgressFnArg));
+//     *progress_arg = (ProgressFnArg) {
+//         .req = req,
+//         .last_time = last_time,
+//         .continue_period_sec = 0.2,
+//         .work_done = false,
+//         .dynamic_part_received = arg->dynamic_part_received,
+//         // .signal_time = arg->signal_time,
+//     };
 
-    WriteFnArg* write_arg = malloc(sizeof(WriteFnArg));
-    *write_arg = (WriteFnArg) {
-        .response_body = arg->response_body,
-    };
+//     WriteFnArg* write_arg = malloc(sizeof(WriteFnArg));
+//     *write_arg = (WriteFnArg) {
+//         .response_body = arg->response_body,
+//     };
 
-    CurlCallbacks callbacks = {
-        .read_fn = read_callback,
-        .read_arg = read_arg,
-        .progress_fn = progress_callback,
-        .progress_arg = progress_arg,
-        .write_fn = write_callback,
-        .write_arg = write_arg,
-    };
+//     CurlCallbacks callbacks = {
+//         .read_fn = read_callback,
+//         .read_arg = read_arg,
+//         .progress_fn = progress_callback,
+//         .progress_arg = progress_arg,
+//         .write_fn = write_callback,
+//         .write_arg = write_arg,
+//     };
 
-    HttpHeaders headers = get_common_headers();
-    http_headers_add_header_static(&headers, "Transfer-Encoding", "chunked");
+//     HttpHeaders headers = get_common_headers();
+//     http_headers_add_header_static(&headers, "Transfer-Encoding", "chunked");
 
-    http_request_set_ssl_opt(req, ssl_opt);
-    http_request_set_callbacks(req, callbacks);
-    http_request_set_version(req, HTTP_VERSION_1_1);
-    http_request_set_method(req, HTTP_METHOD_POST);
-    http_request_set_url(req, string_from_cstr("https://ticketingweb.passo.com.tr/api/passoweb/getcaptcha"));
-    http_request_set_headers(req, headers);
+//     http_request_set_ssl_opt(req, ssl_opt);
+//     http_request_set_callbacks(req, callbacks);
+//     http_request_set_version(req, HTTP_VERSION_1_1);
+//     http_request_set_method(req, HTTP_METHOD_POST);
+//     http_request_set_url(req, string_from_cstr("https://ticketingweb.passo.com.tr/api/passoweb/getcaptcha"));
+//     http_request_set_headers(req, headers);
 
-    return req;
-}
-
-typedef struct {
-    uint32 status_code;
-    String body;
-} HttpResponse;
-
-typedef struct {
-    HttpRequestMulti* reqset;
-    atomic_bool dynamic_part_received;
-    String dynamic_suffix;
-    // --
-    atomic_bool response_ready;
-    HttpResponse response;
-} Global;
-Global GLOBAL = {0};
+//     return req;
+// }
 
 uint32 start_request_and_wait(TaskArgVoid* arg_void) {
     RequestThreadArg* arg = arg_void;
 
     GLOBAL.reqset = http_request_multi_init();
-    HttpRequest* req = make_request__getcaptcha(arg);
+    // HttpRequest* req = make_request__getcaptcha(arg);
+    HttpRequest* req = arg->req;
     
     http_request_multi_add_request(GLOBAL.reqset, req);
 
@@ -340,7 +355,7 @@ uint32 start_request_and_wait(TaskArgVoid* arg_void) {
                 JUST_DEV_MARK();
                 HttpRequest* e = m->easy_handle;
                 ASSERT(e == req);
-                gettime(&arg->request_end_time);
+                gettime(arg->request_end_time);
                 goto REQUEST_END;
             }
         } while(m);
@@ -415,8 +430,153 @@ void set_dynamic_suffix(String send_suffix) {
 //     .request_end_time = {0},
 // };
 
-void start_request_preemptive(char* request_static_prefix) {
-    String static_prefix = string_from_cstr(request_static_prefix);
+typedef struct {
+    char* cacert_filepath;
+} C_PreemptiveSubsystemInit;
+
+typedef struct {
+    int64 tv_sec;   /* Seconds */
+    int32 tv_nsec;  /* Nanoseconds */
+} C_Time;
+
+typedef struct {
+    C_Time signal_time;
+    C_Time dynamic_start_time;
+    C_Time request_end_time;
+} C_Timings;
+
+typedef struct {
+    char* key;
+    char* value;
+} C_HttpHeader;
+
+typedef struct {
+    int32 http_method;
+    char* url;
+    int32 header_count;
+    C_HttpHeader headers[50];
+} C_HttpRequest;
+
+typedef struct {
+    C_HttpRequest req;
+    char* static_prefix;
+    double stall_sec;
+} C_RequestStart;
+
+typedef struct {
+    uint32 status_code;
+    char* body;
+    C_Timings timings;
+} C_HttpResponse;
+
+__declspec(dllexport) void __cdecl init_preemptive_request_subsystem(C_PreemptiveSubsystemInit init);
+__declspec(dllexport) void __cdecl start_request_preemptive(C_RequestStart req_start);
+__declspec(dllexport) void __cdecl complete_preemptive_request(char* request_dynamic_suffix);
+__declspec(dllexport) bool __cdecl poll_response(C_HttpResponse* set_response);
+
+HttpHeaders as_http_headers(C_HttpHeader* headers, usize header_count) {
+    HttpHeaders http_headers = {0};
+    for (usize i = 0; i < header_count; i++) {
+        http_headers_add_header_static(&http_headers, headers[i].key, headers[i].value);
+    }
+    return http_headers;
+}
+
+HttpRequest* make_request(C_RequestStart* req_start) {
+    String static_prefix = string_from_cstr(req_start->static_prefix);
+
+    atomic_bool* dynamic_part_received = &GLOBAL.dynamic_part_received;
+    String* dynamic_suffix = &GLOBAL.dynamic_suffix;
+    Time* dynamic_start_time = &GLOBAL.timings.dynamic_start_time;
+    String* response_body = &GLOBAL.response.body;
+
+    HttpRequest* req = http_request_easy_init();
+    if (req == NULL) {
+        PANIC("HttpRequest could not be initialized\n");
+    }
+    http_request_set_threaded_use(req);
+    http_request_set_verbose(req);
+
+    CurlSSLOpt ssl_opt = {
+        .verify_peer = true,
+        .verify_host = true,
+        .cainfo_file = CONFIG.cacert_filepath,
+    };
+
+    Time* last_time = std_malloc(sizeof(Time));
+    *last_time = (Time) {0};
+
+    ReadFnArg* read_arg = malloc(sizeof(ReadFnArg));
+    *read_arg = (ReadFnArg) {
+        .should_pause = false,
+        .last_time = last_time,
+        .send_data = (SendData) {
+            .state = SEND_STATIC_PREFIX,
+            .dynamic_part_received = dynamic_part_received,
+            .cursor = 0,
+            .static_prefix = static_prefix, // total 190
+            .dynamic_suffix = dynamic_suffix, // total 10
+        },
+        .dynamic_start_time = dynamic_start_time,
+    };
+
+    ProgressFnArg* progress_arg = malloc(sizeof(ProgressFnArg));
+    *progress_arg = (ProgressFnArg) {
+        .req = req,
+        .last_time = last_time,
+        .continue_period_sec = req_start->stall_sec,
+        .work_done = false,
+        .dynamic_part_received = dynamic_part_received,
+        // .signal_time = arg->signal_time,
+    };
+
+    WriteFnArg* write_arg = malloc(sizeof(WriteFnArg));
+    *write_arg = (WriteFnArg) {
+        .response_body = response_body,
+    };
+
+    CurlCallbacks callbacks = {
+        .read_fn = read_callback,
+        .read_arg = read_arg,
+        .progress_fn = progress_callback,
+        .progress_arg = progress_arg,
+        .write_fn = write_callback,
+        .write_arg = write_arg,
+    };
+
+    // HttpHeaders headers = get_common_headers();
+    HttpHeaders headers = as_http_headers(req_start->req.headers, req_start->req.header_count);
+    http_headers_add_header_static(&headers, "Transfer-Encoding", "chunked");
+
+    http_request_set_ssl_opt(req, ssl_opt);
+    http_request_set_callbacks(req, callbacks);
+    http_request_set_version(req, HTTP_VERSION_1_1);
+    http_request_set_method(req, req_start->req.http_method);
+    http_request_set_url(req, string_from_cstr(req_start->req.url));
+    // "https://ticketingweb.passo.com.tr/api/passoweb/getcaptcha"
+    http_request_set_headers(req, headers);
+
+    return req;
+}
+
+bool IS_INIT = false;
+
+void init_preemptive_request_subsystem(C_PreemptiveSubsystemInit init) {
+    CONFIG = (Configuration) {
+        .cacert_filepath = string_from_cstr("test-assets/cacert.pem"),
+    };
+
+    if (init.cacert_filepath) {
+        CONFIG.cacert_filepath = string_from_cstr(init.cacert_filepath);
+    }
+
+    IS_INIT = true;
+}
+
+void start_request_preemptive(C_RequestStart req_start) {
+    ASSERT(IS_INIT);
+
+    String static_prefix = string_from_cstr(req_start.static_prefix);
 
     GLOBAL.dynamic_part_received = ATOMIC_VAR_INIT(false);
     GLOBAL.dynamic_suffix = string_new();
@@ -427,87 +587,58 @@ void start_request_preemptive(char* request_static_prefix) {
         .body = string_new(),
     };
 
+    GLOBAL.timings = (Timings) {0};
+
     RequestThreadArg* request_arg = std_malloc(sizeof(RequestThreadArg));
     *request_arg = (RequestThreadArg) {
-        .static_prefix = static_prefix,
-        .dynamic_part_received = &GLOBAL.dynamic_part_received,
-        .dynamic_suffix = &GLOBAL.dynamic_suffix,
-        .response_body = &GLOBAL.response.body,
-        .signal_time = {0},
-        .dynamic_start_time = {0},
-        .request_end_time = {0},
+        .req = make_request(&req_start),
+        // .static_prefix = static_prefix,
+        // .dynamic_part_received = &GLOBAL.dynamic_part_received,
+        // .dynamic_suffix = &GLOBAL.dynamic_suffix,
+        // .response_body = &GLOBAL.response.body,
+        // .signal_time = &GLOBAL.timings.signal_time,
+        .dynamic_start_time = &GLOBAL.timings.dynamic_start_time,
+        .request_end_time = &GLOBAL.timings.request_end_time,
     };
 
     Thread request_thread = thread_spawn(start_request_and_wait, request_arg);
 }
 
 void complete_preemptive_request(char* request_dynamic_suffix) {
+    ASSERT(IS_INIT);
+
+    gettime(&GLOBAL.timings.signal_time);
     String send_suffix = string_from_cstr(request_dynamic_suffix);
     set_dynamic_suffix(send_suffix);
 }
 
-typedef struct {
-    uint32 status_code;
-    char* body;
-} C_HttpResponse;
-
 bool poll_response(C_HttpResponse* set_response) {
+    ASSERT(IS_INIT);
+
     if (atomic_load(&GLOBAL.response_ready)) {
         *set_response = (C_HttpResponse) {
             .status_code = GLOBAL.response.status_code,
             .body = GLOBAL.response.body.cstr,
+            .timings = (C_Timings) {
+                .signal_time = {
+                    .tv_sec = GLOBAL.timings.signal_time.tv_sec,
+                    .tv_nsec = GLOBAL.timings.signal_time.tv_nsec,
+                },
+                .dynamic_start_time = {
+                    .tv_sec = GLOBAL.timings.dynamic_start_time.tv_sec,
+                    .tv_nsec = GLOBAL.timings.dynamic_start_time.tv_nsec,
+                },
+                .request_end_time = {
+                    .tv_sec = GLOBAL.timings.request_end_time.tv_sec,
+                    .tv_nsec = GLOBAL.timings.request_end_time.tv_nsec,
+                },
+            }
         };
         return true;
     }
     return false;
 }
-
-__declspec(dllexport) void __cdecl test_init();
-__declspec(dllexport) void __cdecl test_start(char* start_string);
-__declspec(dllexport) void __cdecl test_complete(char* complete_string);
-__declspec(dllexport) bool __cdecl test_poll(C_HttpResponse* set_response);
-
-bool is_init = false;
-bool done = false;
-String test_string = {0};
-
-void __cdecl test_init() {
-    just_http_global_init_default();
-    is_init = true;
-}
-
-void __cdecl test_start(char* start_string) {
-    ASSERT(is_init);
-    start_request_preemptive(start_string);
-    // test_string = string_from_cstr(start_string);
-}
-
-void __cdecl test_complete(char* complete_string) {
-    ASSERT(is_init);
-    complete_preemptive_request(complete_string);
-    // string_append_cstr(&test_string, complete_string);
-    done = true;
-}
-
-bool __cdecl test_poll(C_HttpResponse* set_response) {
-    ASSERT(is_init);
-    return poll_response(set_response);
-    // static uint32 poll_count = 0;
-    // if (done) {
-    //     if (poll_count >= 3) {
-    //         *set_response = (C_HttpResponse) {
-    //             .status_code = 200,
-    //             .body = test_string.cstr,
-    //         };
-    //         return true;
-    //     }
-    //     else {
-    //         poll_count++;
-    //     }
-    // }
-    // return false;
-}
-
+#if 0
 uint32 send_request(TaskArgVoid* arg_void) {
     RequestThreadArg* arg = arg_void;
 
@@ -857,6 +988,7 @@ int main_2() {
     just_http_global_cleanup();
     return 0;
 }
+#endif
 
 introspect
 typedef struct {
@@ -931,10 +1063,14 @@ int main_3() {
     return 0;
 }
 
+int main_none() {
+    return 0;
+}
+
 typedef int (*MainFn)();
 MainFn entry_points[] = {
-    main_1,
-    main_2,
+    main_none, // main_1,
+    main_none, // main_2,
     main_3,
 };
 
