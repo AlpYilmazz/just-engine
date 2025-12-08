@@ -25,19 +25,29 @@
 
 #define dynarray_reserve(arr, reserve_count) \
     do { \
-        usize new_capacity = (arr).count + reserve_count; \
-        if ((arr).capacity < new_capacity) { \
-            (arr).capacity = new_capacity; \
+        usize dynarray_reserve__new_capacity = (arr).count + reserve_count; \
+        if ((arr).capacity < dynarray_reserve__new_capacity) { \
+            (arr).capacity = dynarray_reserve__new_capacity; \
             (arr).items = std_realloc((arr).items, (arr).capacity * sizeof((arr).items[0])); \
         } \
     } while(0)
 
 #define dynarray_reserve_custom(arr, items_field, reserve_count) \
     do { \
-        usize new_capacity = (arr).count + reserve_count; \
-        if ((arr).capacity < new_capacity) { \
-            (arr).capacity = new_capacity; \
+        usize dynarray_reserve_custom__new_capacity = (arr).count + reserve_count; \
+        if ((arr).capacity < dynarray_reserve_custom__new_capacity) { \
+            (arr).capacity = dynarray_reserve_custom__new_capacity; \
             (arr)items_field = std_realloc((arr)items_field, (arr).capacity * sizeof((arr)items_field[0])); \
+        } \
+    } while(0)
+
+#define dynarray_reserve_custom_2(arr, items_field_1, items_field_2, reserve_count) \
+    do { \
+        usize dynarray_reserve_custom__new_capacity = (arr).count + reserve_count; \
+        if ((arr).capacity < dynarray_reserve_custom__new_capacity) { \
+            (arr).capacity = dynarray_reserve_custom__new_capacity; \
+            (arr)items_field = std_realloc((arr)items_field_1, (arr).capacity * sizeof((arr)items_field_1[0])); \
+            (arr)items_field = std_realloc((arr)items_field_2, (arr).capacity * sizeof((arr)items_field_2[0])); \
         } \
     } while(0)
 
@@ -77,24 +87,90 @@
         (arr).count++; \
     } while(0)
 
+
+#define dynarray_push_back_custom_2(arr, items_field_1, item_1, items_field_2, item_2) \
+    do { \
+        const uint32 DYNARRAY_INITIAL_CAPACITY = 2; \
+        const uint32 DYNARRAY_GROWTH_FACTOR = 2; \
+\
+        if ((arr).capacity == 0) { \
+            (arr).capacity = DYNARRAY_INITIAL_CAPACITY; \
+            (arr)items_field_1 = std_malloc((arr).capacity * sizeof((item_1))); \
+            (arr)items_field_2 = std_malloc((arr).capacity * sizeof((item_2))); \
+        } \
+        else if ((arr).count == (arr).capacity) { \
+            (arr).capacity = DYNARRAY_GROWTH_FACTOR * (arr).capacity; \
+            (arr)items_field_1 = std_realloc((arr)items_field_1, (arr).capacity * sizeof((item_1))); \
+            (arr)items_field_2 = std_realloc((arr)items_field_2, (arr).capacity * sizeof((item_2))); \
+        } \
+        \
+        (arr)items_field_1[(arr).count] = (item_1); \
+        (arr)items_field_2[(arr).count] = (item_2); \
+        (arr).count++; \
+    } while(0)
+
+#define dynarray_push_back_custom_3(arr, items_field_1, item_1, items_field_2, item_2, items_field_3, item_3) \
+    do { \
+        const uint32 DYNARRAY_INITIAL_CAPACITY = 2; \
+        const uint32 DYNARRAY_GROWTH_FACTOR = 2; \
+\
+        if ((arr).capacity == 0) { \
+            (arr).capacity = DYNARRAY_INITIAL_CAPACITY; \
+            (arr)items_field_1 = std_malloc((arr).capacity * sizeof((item_1))); \
+            (arr)items_field_2 = std_malloc((arr).capacity * sizeof((item_2))); \
+            (arr)items_field_3 = std_malloc((arr).capacity * sizeof((item_3))); \
+        } \
+        else if ((arr).count == (arr).capacity) { \
+            (arr).capacity = DYNARRAY_GROWTH_FACTOR * (arr).capacity; \
+            (arr)items_field_1 = std_realloc((arr)items_field_1, (arr).capacity * sizeof((item_1))); \
+            (arr)items_field_2 = std_realloc((arr)items_field_2, (arr).capacity * sizeof((item_2))); \
+            (arr)items_field_3 = std_realloc((arr)items_field_3, (arr).capacity * sizeof((item_3))); \
+        } \
+        \
+        (arr)items_field_1[(arr).count] = (item_1); \
+        (arr)items_field_2[(arr).count] = (item_2); \
+        (arr)items_field_3[(arr).count] = (item_3); \
+        (arr).count++; \
+    } while(0)
+
+#define dynarray_insert(arr, index, item) \
+    do { \
+        usize dynarray_insert__index = MIN(index, (arr).count); \
+        dynarray_reserve((arr), 1); \
+        for (usize dynarray_insert__i = (arr).count; dynarray_insert__i > dynarray_insert__index; dynarray_insert__i--) { \
+            (arr).items[dynarray_insert__i] = (arr).items[dynarray_insert__i - 1]; \
+        } \
+        (arr).items[dynarray_insert__index] = item; \
+    } while(0)
+
+#define dynarray_insert_custom(arr, items_field, index, item) \
+    do { \
+        usize dynarray_insert__index = MIN(index, (arr).count); \
+        dynarray_reserve_custom((arr), items_field, 1); \
+        for (usize dynarray_insert__i = (arr).count; dynarray_insert__i > dynarray_insert__index; dynarray_insert__i--) { \
+            (arr)items_field[dynarray_insert__i] = (arr)items_field[dynarray_insert__i - 1]; \
+        } \
+        (arr)items_field[dynarray_insert__index] = item; \
+    } while(0)
+
 #define dynarray_clone(dst_arr, src_arr) \
     do { \
-        usize size = sizeof(*(dst_arr).items) * (dst_arr).count; \
+        usize dynarray_clone__size = sizeof(*(dst_arr).items) * (dst_arr).count; \
         (src_arr).count = (dst_arr).count; \
         (src_arr).capacity = (dst_arr).count; \
         (src_arr).items = (dst_arr).items; \
-        (src_arr).items = std_malloc(size); \
-        std_memcpy((src_arr).items, (dst_arr).items, size); \
+        (src_arr).items = std_malloc(dynarray_clone__size); \
+        std_memcpy((src_arr).items, (dst_arr).items, dynarray_clone__size); \
     } while(0)
 
 #define dynarray_clone_custom(dst_arr, src_arr, items_field) \
     do { \
-        usize size = sizeof(*(dst_arr)items_field) * (dst_arr).count; \
+        usize dynarray_clone_custom__size = sizeof(*(dst_arr)items_field) * (dst_arr).count; \
         (src_arr).count = (dst_arr).count; \
         (src_arr).capacity = (dst_arr).count; \
         (src_arr)items_field = (dst_arr)items_field; \
-        (src_arr)items_field = std_malloc(size); \
-        std_memcpy((src_arr)items_field, (dst_arr)items_field, size); \
+        (src_arr)items_field = std_malloc(dynarray_clone_custom__size); \
+        std_memcpy((src_arr)items_field, (dst_arr)items_field, dynarray_clone_custom__size); \
     } while(0)
 
 static inline Buffer* malloc_buffer(usize size) {
