@@ -11,6 +11,7 @@
     do { \
         if ((arr).capacity > 0) { \
             (arr).count = 0; \
+            (arr).capacity = 0; \
             std_free((arr).items); \
         } \
     } while(0)
@@ -19,7 +20,18 @@
     do { \
         if ((arr).capacity > 0) { \
             (arr).count = 0; \
+            (arr).capacity = 0; \
             std_free((arr)items_field); \
+        } \
+    } while(0)
+
+#define dynarray_free_custom_2(arr, items_field_1, items_field_2) \
+    do { \
+        if ((arr).capacity > 0) { \
+            (arr).count = 0; \
+            (arr).capacity = 0; \
+            std_free((arr)items_field_1); \
+            std_free((arr)items_field_2); \
         } \
     } while(0)
 
@@ -141,6 +153,7 @@
             (arr).items[dynarray_insert__i] = (arr).items[dynarray_insert__i - 1]; \
         } \
         (arr).items[dynarray_insert__index] = item; \
+        (arr).count++; \
     } while(0)
 
 #define dynarray_insert_custom(arr, items_field, index, item) \
@@ -151,6 +164,7 @@
             (arr)items_field[dynarray_insert__i] = (arr)items_field[dynarray_insert__i - 1]; \
         } \
         (arr)items_field[dynarray_insert__index] = item; \
+        (arr).count++; \
     } while(0)
 
 #define dynarray_clone(dst_arr, src_arr) \

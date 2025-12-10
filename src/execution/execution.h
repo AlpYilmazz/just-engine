@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core.h"
+#include "memory/justqueue.h"
 
 typedef enum {
     STAGE__FRAME_BEGIN = 0,
@@ -59,107 +60,39 @@ typedef struct {
     Option(usize) last;
 } SystemDAG;
 
-void system_dag_add_system(SystemDAG* dag, SystemFn system) {
-    SystemDAGNode node = {
-        .system = system,
-    };
-    dynarray_push_back_custom(*dag, .nodes, node);
-}
-
-void system_dag_add_system_with(SystemDAG* dag, SystemFn system, SystemConstraint constraint) {
-    ASSERT(!(dag->first.is_some && constraint.run_first));
-    ASSERT(!(dag->last.is_some && constraint.run_last));
-    ASSERT(!(constraint.run_first && constraint.run_last));
-
-    SystemDAGEdges edges_from = {0};
-    dynarray_reserve_custom(edges_from, .edges, constraint.run_after.count);
-    for (usize i = 0; i < constraint.run_after.count; i++) {
-        SystemFn s = constraint.run_after.systems[i];
-        ASSERT(s != system);
-        dynarray_push_back_custom(edges_from, .edges, s);
-    }
-    
-    SystemDAGEdges edges_into = {0};
-    dynarray_reserve_custom(edges_into, .edges, constraint.run_before.count);
-    for (usize i = 0; i < constraint.run_before.count; i++) {
-        SystemFn s = constraint.run_before.systems[i];
-        ASSERT(s != system);
-        dynarray_push_back_custom(edges_into, .edges, s);
-    }
-
-    SystemDAGNode node = {
-        .system = system,
-        .edges_from = edges_from,
-        .edges_into = edges_into,
-    };
-    usize index = dag->count;
-    dynarray_push_back_custom(*dag, .nodes, node);
-
-    if (constraint.run_first) {
-        dag->first = (Option(usize)) Option_Some(index);
-    }
-    if (constraint.run_last) {
-        dag->last = (Option(usize)) Option_Some(index);
-    }
-}
-
-bool system_dag_find_system(SystemDAG* dag, SystemFn system, usize* set_index) {
-    for (usize i = 0; i < dag->count; i++) {
-        if (dag->nodes[i].system == system) {
-            set_index = i;
-            return true;
-        }
-    }
-    return false;
-}
-
-bool system_dag_edges_find_edge(SystemDAGEdges edges, SystemFn system, usize* set_index) {
-    for (usize i = 0; i < edges.count; i++) {
-        if (edges.edges[i] == system) {
-            if (set_index) set_index = i;
-            return true;
-        }
-    }
-    return false;
-}
+void system_dag_add_system(SystemDAG* dag, SystemFn system);
+void system_dag_add_system_with(SystemDAG* dag, SystemFn system, SystemConstraint constraint);
 
 typedef struct {
-    int32 stage;
+    int32 stage_id;
     usize count;
     usize capacity;
     SystemFn* systems;
-} StageExecutor;
+} AppStage;
 
-StageExecutor stage_executor_from_system_dag(SystemDAG* dag) {
-    for (usize i = 0; i < dag->count; i++) {
-        SystemDAGNode* this_node = &dag->nodes[i];
-        SystemFn this_system = this_node->system;
-
-        for (usize edge_i = 0; edge_i < this_node->edges_from.count; edge_i++) {
-            SystemFn from_system = this_node->edges_from.edges[edge_i];
-            usize index;
-            if (system_dag_find_system(dag, from_system, &index)) {
-                SystemDAGNode* from_node = &dag->nodes[index];
-                if (!system_dag_edges_find_edge(from_node->edges_into, this_system, NULL)) {
-                    dynarray_push_back_custom(from_node->edges_into, .edges, this_system);
-                } 
-            }
-        }
-    }
-
-    for (usize i = 0; i < dag->count; i++) {
-        SystemDAGNode* this_node = &dag->nodes[i];
-        SystemFn this_system = this_node->system;
-
-        for (usize edge_i = 0; edge_i < this_node->edges_from.count; edge_i++) {
-            SystemFn into_system = this_node->edges_from.edges[edge_i];
-            usize index;
-        }
-    }
-}
+AppStage app_stage_from_system_dag(int32 stage_id, SystemDAG* dag);
+void app_stage_run_once(AppStage* stage);
 
 typedef struct {
     usize count;
     usize capacity;
-    StageExecutor* stages;
-} Executor;
+    AppStage* stages;
+} JustApp;
+
+void just_app_add_stage(JustApp* app, AppStage stage);
+void just_app_run_once(JustApp* app);
+
+typedef struct {
+    usize count;
+    usize capacity;
+    int32* stage_ids;
+    SystemDAG* stages;
+} JustAppBuilder;
+
+void just_app_builder_add_system(JustAppBuilder* app_builder, int32 stage_id, SystemFn system);
+void just_app_builder_add_system_with(JustAppBuilder* app_builder, int32 stage_id, SystemFn system, SystemConstraint constraint);
+JustApp just_app_builder_build_app(JustAppBuilder* app_builder);
+
+void APP_ADD_SYSTEM(int32 stage_id, SystemFn system);
+void APP_ADD_SYSTEM_WITH(int32 stage_id, SystemFn system, SystemConstraint constraint);
+JustApp BUILD_APP();
