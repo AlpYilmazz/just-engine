@@ -171,3 +171,7 @@ void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage();
 // ---------------------------
 
 void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage);
+
+// ---------------------------
+
+void APP_ADD__JUST_ENGINE_CORE_SYSTEMS();

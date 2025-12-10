@@ -125,6 +125,14 @@ void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
 
 // ---------------------------
 
+// -- FRAME_BEGIN --
+
+void JUST_SYSTEM_FRAME_BEGIN_set_delta_time() {
+    SYSTEM_PRE_PREPARE_set_delta_time(
+        &JUST_GLOBAL.delta_time
+    );
+}
+
 // -- INPUT --
 
 void JUST_SYSTEM_INPUT_handle_input_for_ui_store() {
@@ -221,6 +229,20 @@ void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage() {
     );
 }
 
+// -- FRAME_END --
+
+void JUST_SYSTEM_FRAME_END_swap_event_buffers() {
+    SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
+        &JUST_GLOBAL.texture_asset_events
+    );
+}
+
+void JUST_SYSTEM_FRAME_END_reset_temporary_storage() {
+    SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
+        &JUST_GLOBAL.temporary_storage
+    );
+}
+
 // ---------------------------
 
 void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage) {
@@ -273,5 +295,68 @@ void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage) {
         JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers();
         JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage();
         break;
+    }
+}
+
+// ---------------------------
+
+#include "execution/execution.h"
+
+void APP_ADD__JUST_ENGINE_CORE_SYSTEMS() {
+    int32 STAGE; 
+    
+    // =====
+    STAGE = CORE_STAGE__FRAME_BEGIN;
+    {
+        APP_ADD_SYSTEM_WITH(STAGE, JUST_SYSTEM_FRAME_BEGIN_set_delta_time, (SystemConstraint) { .run_first = true });
+    }
+
+    // =====
+    STAGE = CORE_STAGE__INPUT;
+    {
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_INPUT_handle_input_for_ui_store);
+    }
+
+    // =====
+    STAGE = CORE_STAGE__PREPARE__PRE_PREPARE;
+
+    STAGE = CORE_STAGE__PREPARE__PREPARE;
+
+    STAGE = CORE_STAGE__PREPARE__POST_PREPARE;
+
+    // =====
+    STAGE = CORE_STAGE__UPDATE__PRE_UPDATE;
+
+    STAGE = CORE_STAGE__UPDATE__UPDATE;
+    {
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_UPDATE_update_ui_elements);
+    }
+
+    STAGE = CORE_STAGE__UPDATE__POST_UPDATE;
+    {
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_POST_UPDATE_check_mutated_images);
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_POST_UPDATE_camera_visibility);
+    }
+    
+    // =====
+    STAGE = CORE_STAGE__RENDER__QUEUE_RENDER;
+
+    STAGE = CORE_STAGE__RENDER__EXTRACT_RENDER;
+    {
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images);
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites);
+    }
+
+    STAGE = CORE_STAGE__RENDER__RENDER;
+    {
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_RENDER_sorted_sprites);
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_RENDER_draw_ui_elements);
+    }
+    
+    // =====
+    STAGE = CORE_STAGE__FRAME_END;
+    {
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_FRAME_END_swap_event_buffers);
+        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_FRAME_END_reset_temporary_storage);
     }
 }
