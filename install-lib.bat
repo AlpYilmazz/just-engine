@@ -1,7 +1,7 @@
 @echo off
 SETLOCAL
 
-set VERSION=0.1.2
+set VERSION=0.2.0
 
 set INSTALL_DIR=C:\dev\c\lib-common
 set LIB_DIR=justengine

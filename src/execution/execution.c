@@ -240,6 +240,10 @@ JustApp just_app_builder_build_app(JustAppBuilder* app_builder) {
 
 static JustAppBuilder JUST_APP_BUILDER = {0};
 
+JustAppBuilder* GLOBAL_APP_BUILDER() {
+    return &JUST_APP_BUILDER;
+}
+
 void APP_ADD_SYSTEM(int32 stage_id, SystemFn system) {
     just_app_builder_add_system(&JUST_APP_BUILDER, stage_id, system);
 }

@@ -83,6 +83,24 @@ void just_app_add_stage(JustApp* app, AppStage stage);
 void just_app_run_once(JustApp* app);
 
 typedef struct {
+    bool end;
+    int32 transition_id;
+    // --
+    int32 chapter_id;
+    SystemFn init_system;
+    SystemFn deinit_system;
+    JustApp app;
+} JustChapter;
+
+typedef JustChapter* JustChapterPtr;
+
+typedef struct {
+    usize count;
+    usize capacity;
+    JustChapterPtr* chapters;
+} JustChapters;
+
+typedef struct {
     usize count;
     usize capacity;
     int32* stage_ids;
@@ -93,6 +111,7 @@ void just_app_builder_add_system(JustAppBuilder* app_builder, int32 stage_id, Sy
 void just_app_builder_add_system_with(JustAppBuilder* app_builder, int32 stage_id, SystemFn system, SystemConstraint constraint);
 JustApp just_app_builder_build_app(JustAppBuilder* app_builder);
 
+JustAppBuilder* GLOBAL_APP_BUILDER();
 void APP_ADD_SYSTEM(int32 stage_id, SystemFn system);
 void APP_ADD_SYSTEM_WITH(int32 stage_id, SystemFn system, SystemConstraint constraint);
 JustApp BUILD_APP();

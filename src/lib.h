@@ -6,6 +6,7 @@
 #include "render2d/camera2d.h"
 #include "render2d/sprite.h"
 #include "ui/justui.h"
+#include "execution/execution.h"
 
 typedef struct {
     URectSize screen_size;
@@ -20,10 +21,12 @@ typedef struct {
 } JustEngineDeinit;
 
 typedef struct {
+    bool should_close;
+    // --------
     float32 delta_time;
     // --------
     URectSize screen_size;
-    BumpAllocator temporary_storage;
+    BumpAllocator frame_storage;
     ThreadPool* threadpool;
     // -- Image/Texture
     FileImageServer file_image_server;
@@ -58,6 +61,8 @@ void just_engine_deinit(JustEngineDeinit deinit);
  * INITIALIZE
  * ----------
  * 
+ * FRAME_BEGIN
+ * 
  * INPUT
  * 
  * PREPARE
@@ -75,31 +80,13 @@ void just_engine_deinit(JustEngineDeinit deinit);
  *      EXTRACT_RENDER
  *      RENDER
  * 
- * FRAME_BOUNDARY
+ * FRAME_END
  * 
  */
 
-typedef enum {
-    STAGE__INPUT,
-    //
-    STAGE__PREPARE__PRE_PREPARE,
-    STAGE__PREPARE__PREPARE,
-    STAGE__PREPARE__POST_PREPARE,
-    //
-    STAGE__UPDATE__PRE_UPDATE,
-    STAGE__UPDATE__UPDATE,
-    STAGE__UPDATE__POST_UPDATE,
-    //
-    STAGE__RENDER__QUEUE_RENDER,
-    STAGE__RENDER__EXTRACT_RENDER,
-    STAGE__RENDER__RENDER,
-    //
-    STAGE__FRAME_BOUNDARY
-} JustEngineSystemStage;
-
 // ---------------------------
 
-void SYSTEM_PRE_PREPARE_set_delta_time(
+void SYSTEM_FRAME_BEGIN_set_delta_time(
     float32* RES_delta_time
 );
 
@@ -118,15 +105,19 @@ void SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
     Events_TextureAssetEvent* RES_texture_asset_events
 );
 
-void SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
+void SYSTEM_FRAME_END_swap_event_buffers(
     Events_TextureAssetEvent* RES_texture_asset_events
 );
 
-void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
+void SYSTEM_FRAME_END_reset_temporary_storage(
     TemporaryStorage* RES_temporary_storage
 );
 
 // ---------------------------
+
+// -- FRAME_BEGIN --
+
+void JUST_SYSTEM_FRAME_BEGIN_set_delta_time();
 
 // -- INPUT --
 
@@ -134,9 +125,6 @@ void JUST_SYSTEM_INPUT_handle_input_for_ui_store();
 
 // -- PREPARE --
 // -- -- PRE_PREPARE --
-
-void JUST_SYSTEM_PRE_PREPARE_set_delta_time();
-
 // -- -- PREPARE --
 // -- -- POST_PREPARE --
 
@@ -160,18 +148,17 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites();
 
 // -- -- RENDER --
 
+void JUST_SYSTEM_RENDER_begin_drawing();
 void JUST_SYSTEM_RENDER_sorted_sprites();
 void JUST_SYSTEM_RENDER_draw_ui_elements();
+void JUST_SYSTEM_RENDER_end_drawing();
 
-// -- FRAME_BOUNDARY --
+// -- FRAME_END --
 
-void JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers();
-void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage();
-
-// ---------------------------
-
-void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage);
+void JUST_SYSTEM_FRAME_END_swap_event_buffers();
+void JUST_SYSTEM_FRAME_END_reset_temporary_storage();
 
 // ---------------------------
 
+void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder);
 void APP_ADD__JUST_ENGINE_CORE_SYSTEMS();

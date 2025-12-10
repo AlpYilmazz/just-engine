@@ -31,7 +31,7 @@ void just_engine_init(JustEngineInit init) {
     JUST_GLOBAL = (JustEngineGlobalResources) {
         .delta_time = 0.0,
         .screen_size = init.screen_size,
-        .temporary_storage = make_bump_allocator(),
+        .frame_storage = make_bump_allocator(),
         .threadpool = thread_pool_create(init.threadpool_nthreads, init.threadpool_taskqueuecapacity),
         .file_image_server = LAZY_INIT,
         .texture_assets = new_texture_assets(),
@@ -57,7 +57,7 @@ void just_engine_deinit(JustEngineDeinit deinit) {
 
 // ---------------------------
 
-void SYSTEM_PRE_PREPARE_set_delta_time(
+void SYSTEM_FRAME_BEGIN_set_delta_time(
     float32* RES_delta_time
 ) {
     *RES_delta_time = GetFrameTime();
@@ -111,14 +111,14 @@ void SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
     LOCAL_image_loaded_events_offset = TextureAssetEvent__events_iter_end(&events_iter);
 }
 
-void SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
+void SYSTEM_FRAME_END_swap_event_buffers(
     Events_TextureAssetEvent* RES_texture_asset_events
 ) {
     TextureAssetEvent__events_swap_buffers(RES_texture_asset_events);
 }
 
-void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
-    TemporaryStorage* RES_temporary_storage
+void SYSTEM_FRAME_END_reset_temporary_storage(
+    BumpAllocator* RES_temporary_storage
 ) {
     reset_bump_allocator(RES_temporary_storage);
 }
@@ -128,7 +128,7 @@ void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
 // -- FRAME_BEGIN --
 
 void JUST_SYSTEM_FRAME_BEGIN_set_delta_time() {
-    SYSTEM_PRE_PREPARE_set_delta_time(
+    SYSTEM_FRAME_BEGIN_set_delta_time(
         &JUST_GLOBAL.delta_time
     );
 }
@@ -143,13 +143,6 @@ void JUST_SYSTEM_INPUT_handle_input_for_ui_store() {
 
 // -- PREPARE --
 // -- -- PRE_PREPARE --
-
-void JUST_SYSTEM_PRE_PREPARE_set_delta_time() {
-    SYSTEM_PRE_PREPARE_set_delta_time(
-        &JUST_GLOBAL.delta_time
-    );
-}
-
 // -- -- PREPARE --
 // -- -- POST_PREPARE --
 
@@ -201,6 +194,10 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites() {
 
 // -- -- RENDER --
 
+void JUST_SYSTEM_RENDER_begin_drawing() {
+    BeginDrawing();
+}
+
 void JUST_SYSTEM_RENDER_sorted_sprites() {
     SYSTEM_RENDER_sorted_sprites(
         &JUST_GLOBAL.texture_assets,
@@ -215,36 +212,26 @@ void JUST_SYSTEM_RENDER_draw_ui_elements() {
     );
 }
 
-// -- FRAME_BOUNDARY --
-
-void JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers() {
-    SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
-        &JUST_GLOBAL.texture_asset_events
-    );
-}
-
-void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage() {
-    SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
-        &JUST_GLOBAL.temporary_storage
-    );
+void JUST_SYSTEM_RENDER_end_drawing() {
+    EndDrawing();
 }
 
 // -- FRAME_END --
 
 void JUST_SYSTEM_FRAME_END_swap_event_buffers() {
-    SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
+    SYSTEM_FRAME_END_swap_event_buffers(
         &JUST_GLOBAL.texture_asset_events
     );
 }
 
 void JUST_SYSTEM_FRAME_END_reset_temporary_storage() {
-    SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
-        &JUST_GLOBAL.temporary_storage
+    SYSTEM_FRAME_END_reset_temporary_storage(
+        &JUST_GLOBAL.frame_storage
     );
 }
 
 // ---------------------------
-
+#if 0
 void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage) {
     switch (stage) {
         case STAGE__INPUT:
@@ -297,24 +284,22 @@ void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage) {
         break;
     }
 }
-
+#endif
 // ---------------------------
 
-#include "execution/execution.h"
-
-void APP_ADD__JUST_ENGINE_CORE_SYSTEMS() {
+void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder) {
     int32 STAGE; 
     
     // =====
     STAGE = CORE_STAGE__FRAME_BEGIN;
     {
-        APP_ADD_SYSTEM_WITH(STAGE, JUST_SYSTEM_FRAME_BEGIN_set_delta_time, (SystemConstraint) { .run_first = true });
+        just_app_builder_add_system_with(app_builder, STAGE, JUST_SYSTEM_FRAME_BEGIN_set_delta_time, (SystemConstraint) { .run_first = true });
     }
 
     // =====
     STAGE = CORE_STAGE__INPUT;
     {
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_INPUT_handle_input_for_ui_store);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_INPUT_handle_input_for_ui_store);
     }
 
     // =====
@@ -329,13 +314,13 @@ void APP_ADD__JUST_ENGINE_CORE_SYSTEMS() {
 
     STAGE = CORE_STAGE__UPDATE__UPDATE;
     {
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_UPDATE_update_ui_elements);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_UPDATE_update_ui_elements);
     }
 
     STAGE = CORE_STAGE__UPDATE__POST_UPDATE;
     {
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_POST_UPDATE_check_mutated_images);
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_POST_UPDATE_camera_visibility);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_POST_UPDATE_check_mutated_images);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_POST_UPDATE_camera_visibility);
     }
     
     // =====
@@ -343,20 +328,26 @@ void APP_ADD__JUST_ENGINE_CORE_SYSTEMS() {
 
     STAGE = CORE_STAGE__RENDER__EXTRACT_RENDER;
     {
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images);
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites);
     }
 
     STAGE = CORE_STAGE__RENDER__RENDER;
     {
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_RENDER_sorted_sprites);
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_RENDER_draw_ui_elements);
+        just_app_builder_add_system_with(app_builder, STAGE, JUST_SYSTEM_RENDER_begin_drawing, (SystemConstraint) { .run_first = true });
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_RENDER_sorted_sprites);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_RENDER_draw_ui_elements);
+        just_app_builder_add_system_with(app_builder, STAGE, JUST_SYSTEM_RENDER_end_drawing, (SystemConstraint) { .run_last = true });
     }
     
     // =====
     STAGE = CORE_STAGE__FRAME_END;
     {
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_FRAME_END_swap_event_buffers);
-        APP_ADD_SYSTEM(STAGE, JUST_SYSTEM_FRAME_END_reset_temporary_storage);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_FRAME_END_swap_event_buffers);
+        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_FRAME_END_reset_temporary_storage);
     }
+}
+
+void APP_ADD__JUST_ENGINE_CORE_SYSTEMS() {
+    APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(GLOBAL_APP_BUILDER());
 }

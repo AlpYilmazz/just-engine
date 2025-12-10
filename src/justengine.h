@@ -3282,6 +3282,24 @@ void just_app_add_stage(JustApp* app, AppStage stage);
 void just_app_run_once(JustApp* app);
 
 typedef struct {
+    bool end;
+    int32 transition_id;
+    // --
+    int32 chapter_id;
+    SystemFn init_system;
+    SystemFn deinit_system;
+    JustApp app;
+} JustChapter;
+
+typedef JustChapter* JustChapterPtr;
+
+typedef struct {
+    usize count;
+    usize capacity;
+    JustChapterPtr* chapters;
+} JustChapters;
+
+typedef struct {
     usize count;
     usize capacity;
     int32* stage_ids;
@@ -3292,6 +3310,7 @@ void just_app_builder_add_system(JustAppBuilder* app_builder, int32 stage_id, Sy
 void just_app_builder_add_system_with(JustAppBuilder* app_builder, int32 stage_id, SystemFn system, SystemConstraint constraint);
 JustApp just_app_builder_build_app(JustAppBuilder* app_builder);
 
+JustAppBuilder* GLOBAL_APP_BUILDER();
 void APP_ADD_SYSTEM(int32 stage_id, SystemFn system);
 void APP_ADD_SYSTEM_WITH(int32 stage_id, SystemFn system, SystemConstraint constraint);
 JustApp BUILD_APP();
@@ -3314,6 +3333,8 @@ typedef struct {
 } JustEngineDeinit;
 
 typedef struct {
+    bool should_close;
+    // --------
     float32 delta_time;
     // --------
     URectSize screen_size;
@@ -3352,6 +3373,8 @@ void just_engine_deinit(JustEngineDeinit deinit);
  * INITIALIZE
  * ----------
  * 
+ * FRAME_BEGIN
+ * 
  * INPUT
  * 
  * PREPARE
@@ -3369,31 +3392,13 @@ void just_engine_deinit(JustEngineDeinit deinit);
  *      EXTRACT_RENDER
  *      RENDER
  * 
- * FRAME_BOUNDARY
+ * FRAME_END
  * 
  */
 
-typedef enum {
-    STAGE__INPUT,
-    //
-    STAGE__PREPARE__PRE_PREPARE,
-    STAGE__PREPARE__PREPARE,
-    STAGE__PREPARE__POST_PREPARE,
-    //
-    STAGE__UPDATE__PRE_UPDATE,
-    STAGE__UPDATE__UPDATE,
-    STAGE__UPDATE__POST_UPDATE,
-    //
-    STAGE__RENDER__QUEUE_RENDER,
-    STAGE__RENDER__EXTRACT_RENDER,
-    STAGE__RENDER__RENDER,
-    //
-    STAGE__FRAME_BOUNDARY
-} JustEngineSystemStage;
-
 // ---------------------------
 
-void SYSTEM_PRE_PREPARE_set_delta_time(
+void SYSTEM_FRAME_BEGIN_set_delta_time(
     float32* RES_delta_time
 );
 
@@ -3412,15 +3417,19 @@ void SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
     Events_TextureAssetEvent* RES_texture_asset_events
 );
 
-void SYSTEM_FRAME_BOUNDARY_swap_event_buffers(
+void SYSTEM_FRAME_END_swap_event_buffers(
     Events_TextureAssetEvent* RES_texture_asset_events
 );
 
-void SYSTEM_FRAME_BOUNDARY_reset_temporary_storage(
+void SYSTEM_FRAME_END_reset_temporary_storage(
     TemporaryStorage* RES_temporary_storage
 );
 
 // ---------------------------
+
+// -- FRAME_BEGIN --
+
+void JUST_SYSTEM_FRAME_BEGIN_set_delta_time();
 
 // -- INPUT --
 
@@ -3428,9 +3437,6 @@ void JUST_SYSTEM_INPUT_handle_input_for_ui_store();
 
 // -- PREPARE --
 // -- -- PRE_PREPARE --
-
-void JUST_SYSTEM_PRE_PREPARE_set_delta_time();
-
 // -- -- PREPARE --
 // -- -- POST_PREPARE --
 
@@ -3454,20 +3460,19 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites();
 
 // -- -- RENDER --
 
+void JUST_SYSTEM_RENDER_begin_drawing();
 void JUST_SYSTEM_RENDER_sorted_sprites();
 void JUST_SYSTEM_RENDER_draw_ui_elements();
+void JUST_SYSTEM_RENDER_end_drawing();
 
-// -- FRAME_BOUNDARY --
+// -- FRAME_END --
 
-void JUST_SYSTEM_FRAME_BOUNDARY_swap_event_buffers();
-void JUST_SYSTEM_FRAME_BOUNDARY_reset_temporary_storage();
-
-// ---------------------------
-
-void JUST_ENGINE_RUN_STAGE(JustEngineSystemStage stage);
+void JUST_SYSTEM_FRAME_END_swap_event_buffers();
+void JUST_SYSTEM_FRAME_END_reset_temporary_storage();
 
 // ---------------------------
 
+void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder);
 void APP_ADD__JUST_ENGINE_CORE_SYSTEMS();
 
 #endif // __HEADER_LIB
