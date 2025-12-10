@@ -12,3 +12,4 @@ scratch.exe
 *.a
 *.dll
 *.dll.a
+*.exe
