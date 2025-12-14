@@ -293,13 +293,13 @@ void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder) {
     // =====
     STAGE = CORE_STAGE__FRAME_BEGIN;
     {
-        just_app_builder_add_system_with(app_builder, STAGE, JUST_SYSTEM_FRAME_BEGIN_set_delta_time, (SystemConstraint) { .run_first = true });
+        just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_FRAME_BEGIN_set_delta_time), (SystemConstraint) { .run_first = true });
     }
 
     // =====
     STAGE = CORE_STAGE__INPUT;
     {
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_INPUT_handle_input_for_ui_store);
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_INPUT_handle_input_for_ui_store));
     }
 
     // =====
@@ -314,13 +314,13 @@ void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder) {
 
     STAGE = CORE_STAGE__UPDATE__UPDATE;
     {
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_UPDATE_update_ui_elements);
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_UPDATE_update_ui_elements));
     }
 
     STAGE = CORE_STAGE__UPDATE__POST_UPDATE;
     {
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_POST_UPDATE_check_mutated_images);
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_POST_UPDATE_camera_visibility);
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_POST_UPDATE_check_mutated_images));
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_POST_UPDATE_camera_visibility));
     }
     
     // =====
@@ -328,23 +328,23 @@ void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder) {
 
     STAGE = CORE_STAGE__RENDER__EXTRACT_RENDER;
     {
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images);
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites);
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images));
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites));
     }
 
     STAGE = CORE_STAGE__RENDER__RENDER;
     {
-        just_app_builder_add_system_with(app_builder, STAGE, JUST_SYSTEM_RENDER_begin_drawing, (SystemConstraint) { .run_first = true });
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_RENDER_sorted_sprites);
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_RENDER_draw_ui_elements);
-        just_app_builder_add_system_with(app_builder, STAGE, JUST_SYSTEM_RENDER_end_drawing, (SystemConstraint) { .run_last = true });
+        just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_begin_drawing), (SystemConstraint) { .run_first = true });
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_sorted_sprites));
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_draw_ui_elements));
+        just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_end_drawing), (SystemConstraint) { .run_last = true });
     }
     
     // =====
     STAGE = CORE_STAGE__FRAME_END;
     {
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_FRAME_END_swap_event_buffers);
-        just_app_builder_add_system(app_builder, STAGE, JUST_SYSTEM_FRAME_END_reset_temporary_storage);
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_FRAME_END_swap_event_buffers));
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_FRAME_END_reset_temporary_storage));
     }
 }
 

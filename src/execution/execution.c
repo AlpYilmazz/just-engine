@@ -2,6 +2,14 @@
 
 #include "execution.h"
 
+bool system_fn_equals(SystemFn s1, SystemFn s2) {
+    return s1.fn == s2.fn;
+}
+
+bool system_fn_different(SystemFn s1, SystemFn s2) {
+    return s1.fn != s2.fn;
+}
+
 // SystemDAG
 
 void system_dag_add_system(SystemDAG* dag, SystemFn system) {
@@ -20,7 +28,7 @@ void system_dag_add_system_with(SystemDAG* dag, SystemFn system, SystemConstrain
     dynarray_reserve_custom(edges_from, .edges, constraint.run_after.count);
     for (usize i = 0; i < constraint.run_after.count; i++) {
         SystemFn s = constraint.run_after.systems[i];
-        ASSERT(s != system);
+        ASSERT(system_fn_different(s, system));
         dynarray_push_back_custom(edges_from, .edges, s);
     }
     
@@ -28,7 +36,7 @@ void system_dag_add_system_with(SystemDAG* dag, SystemFn system, SystemConstrain
     dynarray_reserve_custom(edges_into, .edges, constraint.run_before.count);
     for (usize i = 0; i < constraint.run_before.count; i++) {
         SystemFn s = constraint.run_before.systems[i];
-        ASSERT(s != system);
+        ASSERT(system_fn_different(s, system));
         dynarray_push_back_custom(edges_into, .edges, s);
     }
 
@@ -48,9 +56,41 @@ void system_dag_add_system_with(SystemDAG* dag, SystemFn system, SystemConstrain
     }
 }
 
+// void system_dag_add_system_void(SystemDAG* dag, SystemFn_Void system) {
+//     SystemFn system_fn = {
+//         .kind = SYSTEM_FN__VOID,
+//         .fn = system,
+//     };
+//     __system_dag_add_system(dag, system_fn);
+// }
+
+// void system_dag_add_system_void_with(SystemDAG* dag, SystemFn_Void system, SystemConstraint constraint) {
+//     SystemFn system_fn = {
+//         .kind = SYSTEM_FN__VOID,
+//         .fn = system,
+//     };
+//     __system_dag_add_system_with(dag, system_fn, constraint);
+// }
+
+// void system_dag_add_system_app_control(SystemDAG* dag, SystemFn_AppControl system) {
+//     SystemFn system_fn = {
+//         .kind = SYSTEM_FN__APP_CONTROL,
+//         .fn = system,
+//     };
+//     __system_dag_add_system(dag, system_fn);
+// }
+
+// void system_dag_add_system_app_control_with(SystemDAG* dag, SystemFn_AppControl system, SystemConstraint constraint) {
+//     SystemFn system_fn = {
+//         .kind = SYSTEM_FN__APP_CONTROL,
+//         .fn = system,
+//     };
+//     __system_dag_add_system_with(dag, system_fn, constraint);
+// }
+
 static bool system_dag_find_system(SystemDAG* dag, SystemFn system, usize* set_index) {
     for (usize i = 0; i < dag->count; i++) {
-        if (dag->nodes[i].system == system) {
+        if (system_fn_equals(dag->nodes[i].system, system)) {
             if (set_index) *set_index = i;
             return true;
         }
@@ -60,7 +100,7 @@ static bool system_dag_find_system(SystemDAG* dag, SystemFn system, usize* set_i
 
 static bool system_dag_edges_find_edge(SystemDAGEdges edges, SystemFn system, usize* set_index) {
     for (usize i = 0; i < edges.count; i++) {
-        if (edges.edges[i] == system) {
+        if (system_fn_equals(edges.edges[i], system)) {
             if (set_index) *set_index = i;
             return true;
         }
@@ -169,10 +209,29 @@ AppStage app_stage_from_system_dag(int32 stage_id, SystemDAG* dag) {
     return stage;
 }
 
-void app_stage_run_once(AppStage* stage) {
+void app_control_reset(AppControl* app_control) {
+    app_control->return_now = false;
+}
+
+void app_stage_run_once(AppStage* stage, AppControl* app_control) {
     for (usize i = 0; i < stage->count; i++) {
-        JUST_LOG_DEBUG("Running system: %llu\n", i);
-        stage->systems[i]();
+        app_control_reset(app_control);
+        SystemFn system = stage->systems[i];
+        if (system.fn != NULL) {
+            switch (system.kind) {
+            case SYSTEM_FN__VOID:
+                system.fn_void();
+                break;
+            case SYSTEM_FN__APP_CONTROL:
+                system.fn_app_control(app_control);
+                if (app_control->return_now) {
+                    return;
+                }
+                break;
+            default:
+                UNREACHABLE();
+            }
+        }
     }
 }
 
@@ -186,15 +245,16 @@ void just_app_add_stage(JustApp* app, AppStage stage) {
             break;
         }
     }
-    JUST_LOG_DEBUG("Insert stage: %llu, count %llu -> ", i_insert, app->count);
     dynarray_insert_custom(*app, .stages, i_insert, stage);
-    printf("%llu\n", app->count);
 }
 
 void just_app_run_once(JustApp* app) {
     for (usize i = 0; i < app->count; i++) {
-        JUST_LOG_DEBUG("Running stage: %llu\n", i);
-        app_stage_run_once(&app->stages[i]);
+        AppControl app_control = {0};
+        app_stage_run_once(&app->stages[i], &app_control);
+        if (app_control.return_now) {
+            return;
+        }
     }
 }
 
@@ -223,6 +283,26 @@ void just_app_builder_add_system_with(JustAppBuilder* app_builder, int32 stage_i
     usize add_index = just_app_builder_find_or_create_place(app_builder, stage_id);
     system_dag_add_system_with(&app_builder->stages[add_index], system, constraint);
 }
+
+// void just_app_builder_add_system_void(JustAppBuilder* app_builder, int32 stage_id, SystemFn_Void system) {
+//     usize add_index = just_app_builder_find_or_create_place(app_builder, stage_id);
+//     system_dag_add_system(&app_builder->stages[add_index], system);
+// }
+
+// void just_app_builder_add_system_void_with(JustAppBuilder* app_builder, int32 stage_id, SystemFn_Void system, SystemConstraint constraint) {
+//     usize add_index = just_app_builder_find_or_create_place(app_builder, stage_id);
+//     system_dag_add_system_with(&app_builder->stages[add_index], system, constraint);
+// }
+
+// void just_app_builder_add_system_app_control(JustAppBuilder* app_builder, int32 stage_id, SystemFn_AppControl system) {
+//     usize add_index = just_app_builder_find_or_create_place(app_builder, stage_id);
+//     system_dag_add_system(&app_builder->stages[add_index], system);
+// }
+
+// void just_app_builder_add_system_app_control_with(JustAppBuilder* app_builder, int32 stage_id, SystemFn_AppControl system, SystemConstraint constraint) {
+//     usize add_index = just_app_builder_find_or_create_place(app_builder, stage_id);
+//     system_dag_add_system_with(&app_builder->stages[add_index], system, constraint);
+// }
 
 JustApp just_app_builder_build_app(JustAppBuilder* app_builder) {
     JustApp app = {0};
