@@ -802,7 +802,7 @@ void server_on_accept(uint32 server_id, Socket socket, void* arg) {
 
 int main() {
     SET_LOG_LEVEL(LOG_LEVEL_WARN);
-    // SET_LOG_LEVEL(LOG_LEVEL_TRACE);
+    SET_LOG_LEVEL(LOG_LEVEL_TRACE);
 
     InitWindow(1000, 1000, "Test");
     SetTargetFPS(60);
