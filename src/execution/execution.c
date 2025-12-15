@@ -335,3 +335,10 @@ void APP_ADD_SYSTEM_WITH(int32 stage_id, SystemFn system, SystemConstraint const
 JustApp BUILD_APP() {
     return just_app_builder_build_app(&JUST_APP_BUILDER);
 }
+
+// JustChapter
+
+void chapter_transition(JustChapter* from_chapter, int32 transition_id) {
+    from_chapter->end = true;
+    from_chapter->transition_id = transition_id;
+}

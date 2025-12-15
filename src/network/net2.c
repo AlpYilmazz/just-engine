@@ -1931,6 +1931,11 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
             except_sockets.fd_count == 0 ? NULL : &except_sockets,
             NULL
         );
+        if (ready_count == SOCKET_ERROR) {
+            int32 err = WSAGetLastError();
+            JUST_LOG_WARN("select error: %d\n", err);
+        }
+        
         if (is_interrupted()) {
             JUST_LOG_TRACE("select was interrupted\n");
         }
@@ -1938,11 +1943,6 @@ void spin_network_worker(Buffer NETWORK_BUFFER) {
 
         JUST_LOG_TRACE("END: select\n");
     
-        if (ready_count == SOCKET_ERROR) {
-            int32 err = WSAGetLastError();
-            JUST_LOG_WARN("select error: %d\n", err);
-        }
-
         JUST_LOG_TRACE("START: handle immediate close\n");
 
         handle_queued_immediate_close_request();

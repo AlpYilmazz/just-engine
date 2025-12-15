@@ -3354,6 +3354,8 @@ typedef struct {
 
 typedef JustChapter* JustChapterPtr;
 
+void chapter_transition(JustChapter* from_chapter, int32 transition_id);
+
 typedef struct {
     usize count;
     usize capacity;
