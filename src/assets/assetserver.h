@@ -14,3 +14,13 @@ TextureHandle asyncio_file_load_image(
     FileImageServer* server,
     const char* filepath
 );
+
+TextureHandle file_load_image(
+    FileImageServer* server,
+    const char* filepath
+);
+
+TextureHandle file_load_texture(
+    FileImageServer* server,
+    const char* filepath
+);

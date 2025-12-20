@@ -29,13 +29,15 @@ JustEngineGlobalRenderResources JUST_RENDER_GLOBAL = LAZY_INIT;
 
 void just_engine_init(JustEngineInit init) {
     JUST_GLOBAL = (JustEngineGlobalResources) {
+        .should_close = false,
         .delta_time = 0.0,
-        .screen_size = init.screen_size,
+        .screen_size = init.window.size,
         .frame_storage = make_bump_allocator(),
-        .threadpool = thread_pool_create(init.threadpool_nthreads, init.threadpool_taskqueuecapacity),
-        .file_image_server = LAZY_INIT,
+        .threadpool = thread_pool_create(init.threadpool.nthreads, init.threadpool.task_queue_capacity),
+        .file_image_server = LATER_INIT,
         .texture_assets = new_texture_assets(),
         .texture_asset_events = TextureAssetEvent__events_create(),
+        .clear_color = init.render2d.clear_color,
         .camera_store = STRUCT_ZERO_INIT,
         .sprite_store = STRUCT_ZERO_INIT,
         .ui_store = ui_element_store_new(),
@@ -45,14 +47,82 @@ void just_engine_init(JustEngineInit init) {
         .RES_threadpool = JUST_GLOBAL.threadpool,
         .RES_texture_assets = &JUST_GLOBAL.texture_assets,
         .RES_texture_assets_events = &JUST_GLOBAL.texture_asset_events,
-        .asset_folder = init.asset_folder,
+        .asset_folder = init.dir.asset_dir,
     };
 
-    set_primary_camera(&JUST_GLOBAL.camera_store, init.primary_camera);
+    set_primary_camera(&JUST_GLOBAL.camera_store, init.render2d.primary_camera);
 }
 
 void just_engine_deinit(JustEngineDeinit deinit) {
-    thread_pool_shutdown(&JUST_GLOBAL.threadpool, deinit.threadpool_shutdown);
+    thread_pool_shutdown(&JUST_GLOBAL.threadpool, deinit.threadpool.shutdown);
+}
+
+static JustChapter* find_chapter(JustChapters* chapters, int32 chapter_id) {
+    for (usize i = 0; i < chapters->count; i++) {
+        JustChapter* ch = chapters->chapters[i];
+        if (ch->chapter_id == chapter_id) {
+            return ch;
+        }
+    }
+    return NULL;
+}
+
+void just_engine_run(JustChapters chapters, JustEngineInit init, JustEngineDeinit* deinit) {
+    #pragma region INITIALIZE
+
+    InitWindow(init.window.size.width, init.window.size.height, init.window.title);
+    SetTargetFPS(init.execution.target_fps);
+
+    just_engine_init(init);
+
+    if (init.use_network_subsystem) {
+        configure_network_system(init.network.config);
+        start_network_thread();
+    }
+
+    if (init.use_http_client_subsystem) {
+        just_http_global_init_default();
+    }
+
+    #pragma endregion INITIALIZE
+    
+    #pragma region RUN
+
+    JustChapter* current_chapter = find_chapter(&chapters, chapters.initial_chapter);
+    if (current_chapter->init_fn) {
+        current_chapter->init_fn();
+    }
+
+    while (true) {
+        just_app_run_once(&current_chapter->app);
+        if (JUST_GLOBAL.should_close) {
+            break;
+        }
+        if (current_chapter->end) {
+            JustChapter* next_chapter = find_chapter(&chapters, current_chapter->transition_id);
+
+            if (current_chapter->deinit_fn) {
+                current_chapter->deinit_fn();
+            }
+            current_chapter->end = false;
+            current_chapter->transition_id = 0;
+
+            if (next_chapter->init_fn) {
+                next_chapter->init_fn();
+            }
+            current_chapter = next_chapter;
+        }
+    }
+
+    #pragma endregion RUN
+
+    #pragma region DEINITIALIZE
+
+    if (deinit != NULL) {
+        just_engine_deinit(*deinit);
+    }
+
+    #pragma endregion DEINITIALIZE
 }
 
 // ---------------------------
@@ -80,7 +150,7 @@ void SYSTEM_POST_UPDATE_check_mutated_images(
             RES_texture_assets->image_changed[i] = false;
             event = (TextureAssetEvent) {
                 .handle = new_texture_handle(i),
-                .type = AssetEvent_Changed,
+                .type = AssetEvent_ImageChanged,
                 .consumed = false,
             };
             TextureAssetEvent__events_send_single(RES_texture_asset_events, event);
@@ -98,11 +168,12 @@ void SYSTEM_EXTRACT_RENDER_load_textures_for_loaded_or_changed_images(
 
     while (TextureAssetEvent__events_iter_has_next(&events_iter)) {
         TextureAssetEvent event = TextureAssetEvent__events_iter_read_next(&events_iter);
+        // TODO: Push Texture Events
         switch (event.type) {
-        case AssetEvent_Changed:
+        case AssetEvent_ImageChanged:
             texture_assets_update_texture_unchecked(RES_texture_assets, event.handle);
             break;
-        case AssetEvent_Loaded:
+        case AssetEvent_ImageLoaded:
             texture_assets_load_texture_uncheched(RES_texture_assets, event.handle);
             break;
         }
@@ -196,6 +267,7 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites() {
 
 void JUST_SYSTEM_RENDER_begin_drawing() {
     BeginDrawing();
+    ClearBackground(JUST_GLOBAL.clear_color);
 }
 
 void JUST_SYSTEM_RENDER_sorted_sprites() {
@@ -335,8 +407,24 @@ void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder) {
     STAGE = CORE_STAGE__RENDER__RENDER;
     {
         just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_begin_drawing), (SystemConstraint) { .run_first = true });
-        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_sorted_sprites));
-        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_draw_ui_elements));
+        just_app_builder_add_system_with(app_builder, STAGE,
+            fn_into_system(JUST_SYSTEM_RENDER_sorted_sprites),
+            (SystemConstraint) {
+                .run_after = {
+                    .count = 1,
+                    .systems = { fn_into_system(JUST_SYSTEM_RENDER_begin_drawing) },
+                },
+            }
+        );
+        just_app_builder_add_system_with(app_builder, STAGE,
+            fn_into_system(JUST_SYSTEM_RENDER_draw_ui_elements),
+            (SystemConstraint) {
+                .run_after = {
+                    .count = 1,
+                    .systems = { fn_into_system(JUST_SYSTEM_RENDER_sorted_sprites) },
+                },
+            }
+        );
         just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_end_drawing), (SystemConstraint) { .run_last = true });
     }
     

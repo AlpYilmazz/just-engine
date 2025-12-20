@@ -3,24 +3,57 @@
 #include "thread/threadpool.h"
 #include "assets/asset.h"
 #include "assets/assetserver.h"
+#include "network/net2.h"
+#include "network/httpclient.h"
 #include "render2d/camera2d.h"
 #include "render2d/sprite.h"
 #include "ui/justui.h"
 #include "execution/execution.h"
 
 typedef struct {
-    URectSize screen_size;
-    uint32 threadpool_nthreads;
-    uint32 threadpool_taskqueuecapacity;
-    const char* asset_folder;
-    SpriteCamera primary_camera;
+    // --------
+    struct {
+        URectSize size;
+        const char* title;
+    } window;
+    // --------
+    struct {
+        uint32 target_fps;
+    } execution;
+    // --------
+    struct {
+        uint32 nthreads;
+        uint32 task_queue_capacity;
+    } threadpool;
+    // --------
+    struct {
+        const char* asset_dir;
+    } dir;
+    // --------
+    struct {
+        Color clear_color;
+        SpriteCamera primary_camera;
+    } render2d;
+    // --------
+    bool use_network_subsystem;
+    struct {
+        NetworkConfig config;
+    } network;
+    // --------
+    bool use_http_client_subsystem;
+    // --------
 } JustEngineInit;
 
 typedef struct {
-    ThreadPoolShutdown threadpool_shutdown;
+    // --------
+    struct {
+        ThreadPoolShutdown shutdown;
+    } threadpool;
+    // --------
 } JustEngineDeinit;
 
 typedef struct {
+    // --------
     bool should_close;
     // --------
     float32 delta_time;
@@ -32,6 +65,8 @@ typedef struct {
     FileImageServer file_image_server;
     TextureAssets texture_assets;
     Events_TextureAssetEvent texture_asset_events;
+    // -- Render Begin
+    Color clear_color;
     // -- Render2D
     SpriteCameraStore camera_store;
     SpriteStore sprite_store;
@@ -52,6 +87,7 @@ extern JustEngineGlobalRenderResources JUST_RENDER_GLOBAL;
 
 void just_engine_init(JustEngineInit init);
 void just_engine_deinit(JustEngineDeinit deinit);
+void just_engine_run(JustChapters chapters, JustEngineInit init, JustEngineDeinit* deinit);
 
 // ---------------------------
 

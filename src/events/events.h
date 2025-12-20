@@ -5,14 +5,17 @@
 #include "assets/asset.h"
 
 typedef enum {
-    AssetEvent_Loaded,
-    AssetEvent_Changed,
-    AssetEvent_Unloaded,
-} AssetEventType;
+    AssetEvent_ImageLoaded,
+    AssetEvent_ImageChanged,
+    AssetEvent_ImageUnloaded,
+    AssetEvent_TextureLoaded,
+    AssetEvent_TextureChanged,
+    AssetEvent_TextureUnloaded,
+} TextureAssetEventType;
 
 typedef struct {
     TextureHandle handle;
-    AssetEventType type;
+    TextureAssetEventType type;
     bool consumed;
 } TextureAssetEvent;
 

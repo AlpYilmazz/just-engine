@@ -37,6 +37,7 @@ typedef void (*SystemFn_Void)();
 typedef void (*SystemFn_AppControl)(AppControl* app_control);
 
 typedef struct {
+    const char* name;
     SystemFnKind kind;
     union {
         void* fn;
@@ -57,6 +58,7 @@ bool system_fn_different(SystemFn s1, SystemFn s2);
 
 #define fn_into_system(FN) \
     ((SystemFn) { \
+        .name = #FN, \
         .kind = system_fn_kind((FN)), \
         .fn = (FN), \
     })
@@ -157,6 +159,7 @@ typedef JustChapter* JustChapterPtr;
 void chapter_transition(JustChapter* from_chapter, int32 transition_id);
 
 typedef struct {
+    int32 initial_chapter;
     usize count;
     usize capacity;
     JustChapterPtr* chapters;

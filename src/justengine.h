@@ -101,10 +101,11 @@ DECLARE__Option(usize);
 DECLARE__Option(byte);
 DECLARE__Option(char);
 
-#define STRUCT_ZERO_INIT {0}
-#define LAZY_INIT {0}
-#define LATER_INIT {0}
-#define UNINIT {0}
+#define STRUCT_ZERO_INIT {0}    // Compile Time Zero Init
+#define STARTUP_INIT {0}        // Left for Runtime Init on Startup
+#define LAZY_INIT {0}           // Lazy Init on initial access
+#define LATER_INIT {0}          // Init at some later time
+#define UNINIT {0}              // Left uninitialized
 
 #define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
 
@@ -113,7 +114,7 @@ DECLARE__Option(char);
 
 #define SIGNOF(x) ( (x == 0) ? 0 : ( (x > 0) ? 1 : -1 ) )
 
-#define branchless_if(cond, on_true, on_false) ( ( (!!(cond)) * (on_true) ) + ( (!!(cond)) * (on_false) ) )
+#define branchless_if(cond, on_true, on_false) ( ( (!!(cond)) * (on_true) ) + ( (!!!(cond)) * (on_false) ) )
 
 #define typeof_equals(var, Type) __builtin_types_compatible_p(__typeof__((var)), Type)
 
@@ -2228,14 +2229,17 @@ void texture_assets_unload_slot(TextureAssets* assets, TextureHandle handle);
 #ifdef __HEADER_EVENTS_EVENTS
 
 typedef enum {
-    AssetEvent_Loaded,
-    AssetEvent_Changed,
-    AssetEvent_Unloaded,
-} AssetEventType;
+    AssetEvent_ImageLoaded,
+    AssetEvent_ImageChanged,
+    AssetEvent_ImageUnloaded,
+    AssetEvent_TextureLoaded,
+    AssetEvent_TextureChanged,
+    AssetEvent_TextureUnloaded,
+} TextureAssetEventType;
 
 typedef struct {
     TextureHandle handle;
-    AssetEventType type;
+    TextureAssetEventType type;
     bool consumed;
 } TextureAssetEvent;
 
@@ -2292,6 +2296,16 @@ typedef struct {
 } FileImageServer;
 
 TextureHandle asyncio_file_load_image(
+    FileImageServer* server,
+    const char* filepath
+);
+
+TextureHandle file_load_image(
+    FileImageServer* server,
+    const char* filepath
+);
+
+TextureHandle file_load_texture(
     FileImageServer* server,
     const char* filepath
 );
@@ -3237,6 +3251,7 @@ typedef void (*SystemFn_Void)();
 typedef void (*SystemFn_AppControl)(AppControl* app_control);
 
 typedef struct {
+    const char* name;
     SystemFnKind kind;
     union {
         void* fn;
@@ -3257,6 +3272,7 @@ bool system_fn_different(SystemFn s1, SystemFn s2);
 
 #define fn_into_system(FN) \
     ((SystemFn) { \
+        .name = #FN, \
         .kind = system_fn_kind((FN)), \
         .fn = (FN), \
     })
@@ -3357,6 +3373,7 @@ typedef JustChapter* JustChapterPtr;
 void chapter_transition(JustChapter* from_chapter, int32 transition_id);
 
 typedef struct {
+    int32 initial_chapter;
     usize count;
     usize capacity;
     JustChapterPtr* chapters;
@@ -3402,29 +3419,62 @@ JustApp BUILD_APP();
 #ifdef __HEADER_LIB
 
 typedef struct {
-    URectSize screen_size;
-    uint32 threadpool_nthreads;
-    uint32 threadpool_taskqueuecapacity;
-    const char* asset_folder;
-    SpriteCamera primary_camera;
+    // --------
+    struct {
+        URectSize size;
+        const char* title;
+    } window;
+    // --------
+    struct {
+        uint32 target_fps;
+    } execution;
+    // --------
+    struct {
+        uint32 nthreads;
+        uint32 task_queue_capacity;
+    } threadpool;
+    // --------
+    struct {
+        const char* asset_dir;
+    } dir;
+    // --------
+    struct {
+        Color clear_color;
+        SpriteCamera primary_camera;
+    } render2d;
+    // --------
+    bool use_network_subsystem;
+    struct {
+        NetworkConfig config;
+    } network;
+    // --------
+    bool use_http_client_subsystem;
+    // --------
 } JustEngineInit;
 
 typedef struct {
-    ThreadPoolShutdown threadpool_shutdown;
+    // --------
+    struct {
+        ThreadPoolShutdown shutdown;
+    } threadpool;
+    // --------
 } JustEngineDeinit;
 
 typedef struct {
+    // --------
     bool should_close;
     // --------
     float32 delta_time;
     // --------
     URectSize screen_size;
-    BumpAllocator temporary_storage;
+    BumpAllocator frame_storage;
     ThreadPool* threadpool;
     // -- Image/Texture
     FileImageServer file_image_server;
     TextureAssets texture_assets;
     Events_TextureAssetEvent texture_asset_events;
+    // -- Render Begin
+    Color clear_color;
     // -- Render2D
     SpriteCameraStore camera_store;
     SpriteStore sprite_store;
@@ -3445,6 +3495,7 @@ extern JustEngineGlobalRenderResources JUST_RENDER_GLOBAL;
 
 void just_engine_init(JustEngineInit init);
 void just_engine_deinit(JustEngineDeinit deinit);
+void just_engine_run(JustChapters chapters, JustEngineInit init, JustEngineDeinit* deinit);
 
 // ---------------------------
 

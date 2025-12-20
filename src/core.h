@@ -41,10 +41,11 @@ DECLARE__Option(usize);
 DECLARE__Option(byte);
 DECLARE__Option(char);
 
-#define STRUCT_ZERO_INIT {0}
-#define LAZY_INIT {0}
-#define LATER_INIT {0}
-#define UNINIT {0}
+#define STRUCT_ZERO_INIT {0}    // Compile Time Zero Init
+#define STARTUP_INIT {0}        // Left for Runtime Init on Startup
+#define LAZY_INIT {0}           // Lazy Init on initial access
+#define LATER_INIT {0}          // Init at some later time
+#define UNINIT {0}              // Left uninitialized
 
 #define ARRAY_LENGTH(arr) (sizeof((arr)) / sizeof((arr)[0]))
 
@@ -53,7 +54,7 @@ DECLARE__Option(char);
 
 #define SIGNOF(x) ( ((x) == 0) ? 0 : ( ((x) > 0) ? 1 : -1 ) )
 
-#define branchless_if(cond, on_true, on_false) ( ( (!!(cond)) * (on_true) ) + ( (!!(cond)) * (on_false) ) )
+#define branchless_if(cond, on_true, on_false) ( ( (!!(cond)) * (on_true) ) + ( (!!!(cond)) * (on_false) ) )
 
 #define typeof_equals(var, Type) __builtin_types_compatible_p(__typeof__((var)), Type)
 

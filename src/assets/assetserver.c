@@ -41,7 +41,7 @@ void asyncio_file_load_image_task(TaskExecutorContext* context, TaskArgVoid* arg
 
     TextureAssetEvent event = {
         .handle = this_arg->handle,
-        .type = AssetEvent_Loaded,
+        .type = AssetEvent_ImageLoaded,
         .consumed = false,
     };
     TextureAssetEvent__events_send_single(
@@ -82,6 +82,96 @@ TextureHandle asyncio_file_load_image(
         .arg = arg
     };
     thread_pool_add_task(server->RES_threadpool, asyncio_task);
+
+    return handle;
+}
+
+TextureHandle file_load_image(
+    FileImageServer* server,
+    const char* filepath
+) {
+    TextureHandle handle = texture_assets_reserve_texture_slot(server->RES_texture_assets);
+
+    uint32 path_len =
+        cstr_length(server->asset_folder)// "assets"
+        + 1                             // '/'
+        + cstr_length(filepath)              // "image.png"
+        + 1;                            // '\0'
+    char* path = std_malloc(path_len * sizeof(char));
+    sprintf(path, "%s/%s", server->asset_folder, filepath);
+    path[path_len-1] = '\0'; // does sprintf add this
+
+    Image image = LoadImage(path);
+    if (image.data == NULL) {
+        JUST_LOG_ERROR("ERROR: [SYNCIO][FILE][IMAGE] File could not be loaded: %s\n", path);
+        goto CLEANUP;
+    }
+
+    texture_assets_put_image(
+        server->RES_texture_assets,
+        handle,
+        image
+    );
+
+    TextureAssetEvent event = {
+        .handle = handle,
+        .type = AssetEvent_ImageLoaded,
+        .consumed = false,
+    };
+    TextureAssetEvent__events_send_single(
+        server->RES_texture_assets_events,
+        event
+    );
+
+    CLEANUP:
+    std_free(path);
+
+    return handle;
+}
+
+TextureHandle file_load_texture(
+    FileImageServer* server,
+    const char* filepath
+) {
+    TextureHandle handle = texture_assets_reserve_texture_slot(server->RES_texture_assets);
+
+    uint32 path_len =
+        cstr_length(server->asset_folder)// "assets"
+        + 1                             // '/'
+        + cstr_length(filepath)              // "image.png"
+        + 1;                            // '\0'
+    char* path = std_malloc(path_len * sizeof(char));
+    sprintf(path, "%s/%s", server->asset_folder, filepath);
+    path[path_len-1] = '\0'; // does sprintf add this
+
+    Image image = LoadImage(path);
+    if (image.data == NULL) {
+        JUST_LOG_ERROR("ERROR: [SYNCIO][FILE][TEXTURE] File could not be loaded: %s\n", path);
+        goto CLEANUP;
+    }
+    
+    texture_assets_put_image_and_load_texture(
+        server->RES_texture_assets,
+        handle,
+        image
+    );
+    texture_assets_unload_image(
+        server->RES_texture_assets,
+        handle
+    );
+
+    TextureAssetEvent event = {
+        .handle = handle,
+        .type = AssetEvent_TextureLoaded,
+        .consumed = false,
+    };
+    TextureAssetEvent__events_send_single(
+        server->RES_texture_assets_events,
+        event
+    );
+
+    CLEANUP:
+    std_free(path);
 
     return handle;
 }

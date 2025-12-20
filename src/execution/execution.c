@@ -217,6 +217,7 @@ void app_stage_run_once(AppStage* stage, AppControl* app_control) {
     for (usize i = 0; i < stage->count; i++) {
         app_control_reset(app_control);
         SystemFn system = stage->systems[i];
+        JUST_LOG_TRACE("\t System: %s\n", system.name);
         if (system.fn != NULL) {
             switch (system.kind) {
             case SYSTEM_FN__VOID:
@@ -250,6 +251,7 @@ void just_app_add_stage(JustApp* app, AppStage stage) {
 
 void just_app_run_once(JustApp* app) {
     for (usize i = 0; i < app->count; i++) {
+        JUST_LOG_TRACE("-- Stage: %d\n", app->stages[i].stage_id);
         AppControl app_control = {0};
         app_stage_run_once(&app->stages[i], &app_control);
         if (app_control.return_now) {
