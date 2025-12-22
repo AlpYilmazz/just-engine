@@ -2,6 +2,8 @@
 
 #include "base.h"
 
+#include "introspect/introspect.h"
+
 typedef enum {
     Timer_Repeating = 0,
     Timer_NonRepeating,
@@ -36,8 +38,9 @@ void tick_sequence_timer(SequenceTimer* timer, float delta_time);
 bool sequence_timer_has_pulsed(SequenceTimer* timer);
 bool sequence_timer_is_finished(SequenceTimer* timer);
 
+introspect
 typedef struct {
-    TimerMode mode;
+    TimerMode mode enum();
     uint32 step_count;
     uint32 current_step;
     bool finished;

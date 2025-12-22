@@ -3,6 +3,9 @@
 #include "base.h"
 #include "timer.h"
 
+#include "introspect/introspect.h"
+
+introspect
 typedef struct {
     // -- Setup --
     URectSize texture_offset;

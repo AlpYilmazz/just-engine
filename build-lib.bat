@@ -47,7 +47,7 @@ echo A | xcopy /q vendor\raylib-5.0\lib\libraylib.a %LIB_DIR%\lib\raylib\   >nul
 mkdir %LIB_DIR%\include\clay    >nul 2>&1
 echo A | xcopy /s /e /q vendor\clay-0.14\include %LIB_DIR%\include\clay     >nul 2>&1
 
-echo A | xcopy /q %SRC_DIR%\justengine.h %LIB_DIR%\include\     >nul 2>&1
+echo A | xcopy /q justengine.h %LIB_DIR%\include\               >nul 2>&1
 echo A | xcopy /q %BUILD_DIR%\libjustengine.a %LIB_DIR%\lib\    >nul 2>&1
 
 @REM Build Introspect
@@ -55,3 +55,8 @@ echo A | xcopy /q %BUILD_DIR%\libjustengine.a %LIB_DIR%\lib\    >nul 2>&1
 @echo on
 call build %INTROSPECT_SRC_DIR%/main.c --out %LIB_DIR%/bin/introspect.exe
 @echo off
+
+SET INCLUDE=-Ivendor/openssl-3.5.0/include -Ivendor/curl-8.16.0/include -Ivendor/raylib-5.0/include -Ivendor/clay-0.14/include -Isrc
+call run "%LIB_DIR%/bin/introspect.exe" %SRC_DIR% introspect_gen__justengine.h %INCLUDE%
+
+echo A | xcopy /q introspect_gen__justengine.h %LIB_DIR%\include\   >nul 2>&1

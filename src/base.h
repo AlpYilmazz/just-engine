@@ -4,6 +4,7 @@
 #include "raymath.h"
 
 #include "core.h"
+#include "introspect/introspect.h"
 
 static const uint32 ALL_SET_32 = 0b11111111111111111111111111111111;
 
@@ -91,16 +92,15 @@ typedef struct {
     };
 } RectSize;
 
+introspect
 typedef struct {
     union {
-        struct {
-            uint32 width;
-            uint32 height;
-        };
-        struct {
-            uint32 x;
-            uint32 y;
-        };
+        uint32 width;
+        uint32 x;
+    };
+    union {
+        uint32 height;
+        uint32 y;
     };
 } URectSize;
 
