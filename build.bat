@@ -26,8 +26,20 @@ set CC=gcc
 
 set COMPILER_FLAGS=-std=c11
 
-set INCLUDE=-Ijustengine/include/openssl -Ijustengine/include/curl -Ijustengine/include/raylib -Ijustengine/include/clay -Ijustengine/include
-set LIB=-Ljustengine/lib/openssl -Ljustengine/lib/curl -Ljustengine/lib/raylib -Ljustengine/lib/clay -Ljustengine/lib
+set INCLUDE=^
+    -Ijustengine/include/openssl ^
+    -Ijustengine/include/curl ^
+    -Ijustengine/include/raylib ^
+    -Ijustengine/include/clay ^
+    -Ijustengine/include/cimgui ^
+    -Ijustengine/include/raylib-cimgui ^
+    -Ijustengine/include
+set LIB=^
+    -Ljustengine/lib/openssl ^
+    -Ljustengine/lib/curl ^
+    -Ljustengine/lib/raylib ^
+    -Ljustengine/lib/clay ^
+    -Ljustengine/lib
 
 set LINK=^
     -Wl,--start-group^

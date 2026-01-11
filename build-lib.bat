@@ -47,6 +47,13 @@ echo A | xcopy /q vendor\raylib-5.0\lib\libraylib.a %LIB_DIR%\lib\raylib\   >nul
 mkdir %LIB_DIR%\include\clay    >nul 2>&1
 echo A | xcopy /s /e /q vendor\clay-0.14\include %LIB_DIR%\include\clay     >nul 2>&1
 
+mkdir %LIB_DIR%\include\cimgui  >nul 2>&1
+echo A | xcopy /s /e /q vendor\cimgui-1.92.1\include %LIB_DIR%\include\cimgui   >nul 2>&1
+echo A | xcopy /q vendor\cimgui-1.92.1\bin\*.dll %LIB_DIR%\bin\                 >nul 2>&1
+
+mkdir %LIB_DIR%\include\raylib-cimgui   >nul 2>&1
+echo A | xcopy /s /e /q vendor\raylib-cimgui-033c91e\include %LIB_DIR%\include\raylib-cimgui    >nul 2>&1
+
 echo A | xcopy /q justengine.h %LIB_DIR%\include\               >nul 2>&1
 echo A | xcopy /q %BUILD_DIR%\libjustengine.a %LIB_DIR%\lib\    >nul 2>&1
 
@@ -56,7 +63,14 @@ echo A | xcopy /q %BUILD_DIR%\libjustengine.a %LIB_DIR%\lib\    >nul 2>&1
 call build %INTROSPECT_SRC_DIR%/main.c --out %LIB_DIR%/bin/introspect.exe
 @echo off
 
-SET INCLUDE=-Ivendor/openssl-3.5.0/include -Ivendor/curl-8.16.0/include -Ivendor/raylib-5.0/include -Ivendor/clay-0.14/include -Isrc
+set INCLUDE=^
+	-Ivendor/openssl-3.5.0/include ^
+	-Ivendor/curl-8.16.0/include ^
+	-Ivendor/raylib-5.0/include ^
+	-Ivendor/clay-0.14/include ^
+	-Ivendor/cimgui-1.92.1/include ^
+	-Ivendor/raylib-cimgui-033c91e/include ^
+	-Isrc
 call run "%LIB_DIR%/bin/introspect.exe" %SRC_DIR% introspect_gen__justengine.h %INCLUDE%
 
 echo A | xcopy /q introspect_gen__justengine.h %LIB_DIR%\include\   >nul 2>&1

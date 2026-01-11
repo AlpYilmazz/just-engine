@@ -4,6 +4,7 @@
             "name": "Mingw-GCC",
             "includePath": [
                 "${workspaceFolder}/src/**",
+                "${workspaceFolder}/vendor/**",
                 "${workspaceFolder}/justengine/include/**"
             ],
             "defines": [
