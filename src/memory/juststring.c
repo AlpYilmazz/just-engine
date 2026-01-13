@@ -192,6 +192,54 @@ StringView string_view_slice_view(StringView string_view, usize start, usize cou
     };
 }
 
+bool string_find_first(String string, char ch, usize* index) {
+    for (usize i = 0; i < string.count; i++) {
+        if (string.str[i] == ch) {
+            *index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool string_find_last(String string, char ch, usize* index) {
+    for (usize i = string.count - 1; i >= 1; i--) {
+        if (string.str[i] == ch) {
+            *index = i;
+            return true;
+        }
+    }
+    if (string.str[0] == ch) {
+        *index = 0;
+        return false;
+    }
+    return false;
+}
+
+bool string_view_find_first(StringView string_view, char ch, usize* index) {
+    for (usize i = 0; i < string_view.count; i++) {
+        if (string_view.str[i] == ch) {
+            *index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool string_view_find_last(StringView string_view, char ch, usize* index) {
+    for (usize i = string_view.count - 1; i >= 1; i--) {
+        if (string_view.str[i] == ch) {
+            *index = i;
+            return true;
+        }
+    }
+    if (string_view.str[0] == ch) {
+        *index = 0;
+        return false;
+    }
+    return false;
+}
+
 StringViewPair string_split_at(String string, usize index) {
     return (StringViewPair) {
         .first = string_slice_view(string, 0, index),
@@ -199,11 +247,51 @@ StringViewPair string_split_at(String string, usize index) {
     };
 }
 
+StringViewPair string_split_on_first(String string, char ch) {
+    usize index;
+    if (string_find_first(string, ch, &index)) {
+        return string_split_at(string, index);
+    }
+    else {
+        return string_split_at(string, string.count);
+    }
+}
+
+StringViewPair string_split_on_last(String string, char ch) {
+    usize index;
+    if (string_find_last(string, ch, &index)) {
+        return string_split_at(string, index);
+    }
+    else {
+        return string_split_at(string, string.count);
+    }
+}
+
 StringViewPair string_view_split_at(StringView string_view, usize index) {
     return (StringViewPair) {
         .first = string_view_slice_view(string_view, 0, index),
         .second = string_view_slice_view(string_view, index, string_view.count - index),
     };
+}
+
+StringViewPair string_view_split_on_first(StringView string_view, char ch) {
+    usize index;
+    if (string_view_find_first(string_view, ch, &index)) {
+        return string_view_split_at(string_view, index);
+    }
+    else {
+        return string_view_split_at(string_view, string_view.count);
+    }
+}
+
+StringViewPair string_view_split_on_last(StringView string_view, char ch) {
+    usize index;
+    if (string_view_find_last(string_view, ch, &index)) {
+        return string_view_split_at(string_view, index);
+    }
+    else {
+        return string_view_split_at(string_view, string_view.count);
+    }
 }
 
 void string_view_replace_all(StringView string_view, char find, char replace) {

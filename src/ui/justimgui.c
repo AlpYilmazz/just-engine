@@ -293,10 +293,10 @@ static bool LastAltPressed = false;
 static bool LastSuperPressed = false;
 
 // internal only functions
-bool rlImGuiIsControlDown() { return IsKeyDown(KEY_RIGHT_CONTROL) || IsKeyDown(KEY_LEFT_CONTROL); }
-bool rlImGuiIsShiftDown() { return IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_LEFT_SHIFT); }
-bool rlImGuiIsAltDown() { return IsKeyDown(KEY_RIGHT_ALT) || IsKeyDown(KEY_LEFT_ALT); }
-bool rlImGuiIsSuperDown() { return IsKeyDown(KEY_RIGHT_SUPER) || IsKeyDown(KEY_LEFT_SUPER); }
+static bool rligIsControlDown() { return IsKeyDown(KEY_RIGHT_CONTROL) || IsKeyDown(KEY_LEFT_CONTROL); }
+static bool rligIsShiftDown() { return IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_LEFT_SHIFT); }
+static bool rligIsAltDown() { return IsKeyDown(KEY_RIGHT_ALT) || IsKeyDown(KEY_LEFT_ALT); }
+static bool rligIsSuperDown() { return IsKeyDown(KEY_RIGHT_SUPER) || IsKeyDown(KEY_LEFT_SUPER); }
 
 typedef struct {
     int empty[0];
@@ -523,7 +523,7 @@ void SetupBackend(void) {
     ImGui_ImplRaylib_CreateBackendData();
 }
 
-void rlImGuiEndInitImGui(void)
+void rligEndInitImGui(void)
 {
     igSetCurrentContext(GlobalContext);
 
@@ -657,14 +657,14 @@ static void SetupGlobals(void) {
     LastSuperPressed = false;
 }
 
-void rlImGuiBeginInitImGui(void) {
+void rligBeginInitImGui(void) {
     SetupGlobals();
     if (GlobalContext == NULL) {
         GlobalContext = igCreateContext(NULL);
     }
-    SetupKeymap();
+    // SetupKeymap();
 
-    ImGuiIO* io = igGetIO();
+    ImGuiIO* io = igGetIO_Nil();
 
     ImFontConfig defaultConfig;
 
@@ -683,8 +683,8 @@ void rlImGuiBeginInitImGui(void) {
     ImFontAtlas_AddFontDefault(io->Fonts, &defaultConfig);
 }
 
-void rlImGuiSetup(bool dark) {
-    rlImGuiBeginInitImGui();
+void rligSetup(bool dark) {
+    rligBeginInitImGui();
 
     if (dark) {
         igStyleColorsDark(NULL);
@@ -693,15 +693,15 @@ void rlImGuiSetup(bool dark) {
         igStyleColorsLight(NULL);
     }
 
-    rlImGuiEndInitImGui();
+    rligEndInitImGui();
 }
 
-void rlImGuiBegin(void) {
+void rligBegin(void) {
     igSetCurrentContext(GlobalContext);
-    rlImGuiBeginDelta(GetFrameTime());
+    rligBeginDelta(GetFrameTime());
 }
 
-void rlImGuiBeginDelta(float deltaTime) {
+void rligBeginDelta(float deltaTime) {
     igSetCurrentContext(GlobalContext);
 
     ImGuiNewFrame(deltaTime);
@@ -709,13 +709,13 @@ void rlImGuiBeginDelta(float deltaTime) {
     igNewFrame();
 }
 
-void rlImGuiEnd(void) {
+void rligEnd(void) {
     igSetCurrentContext(GlobalContext);
     igRender();
     ImGui_ImplRaylib_RenderDrawData(igGetDrawData());
 }
 
-void rlImGuiShutdown(void) {
+void rligShutdown(void) {
     if (GlobalContext == NULL) {
         return;
     }
@@ -727,7 +727,7 @@ void rlImGuiShutdown(void) {
     GlobalContext = NULL;
 }
 
-void rlImGuiImage(const Texture* image) {
+void rligImage(const Texture* image) {
     if (!image) {
         return;
     }
@@ -743,7 +743,7 @@ void rlImGuiImage(const Texture* image) {
     igImage(tex_ref, image_size, uv0, uv1);
 }
 
-bool rlImGuiImageButton(const char* name, const Texture* image) {
+bool rligImageButton(const char* name, const Texture* image) {
     if (!image) {
         return false;
     }
@@ -761,7 +761,7 @@ bool rlImGuiImageButton(const char* name, const Texture* image) {
     return igImageButton(name, tex_ref, image_size, uv0, uv1, bg_col, tint_col);
 }
 
-bool rlImGuiImageButtonSize(const char* name, const Texture* image, Vector2 size) {
+bool rligImageButtonSize(const char* name, const Texture* image, Vector2 size) {
     if (!image) {
         return false;
     }
@@ -779,7 +779,7 @@ bool rlImGuiImageButtonSize(const char* name, const Texture* image, Vector2 size
     return igImageButton(name, tex_ref, image_size, uv0, uv1, bg_col, tint_col);
 }
 
-void rlImGuiImageSize(const Texture* image, int width, int height) {
+void rligImageSize(const Texture* image, int width, int height) {
     if (!image) {
         return;
     }
@@ -795,7 +795,7 @@ void rlImGuiImageSize(const Texture* image, int width, int height) {
     igImage(tex_ref, image_size, uv0, uv1);
 }
 
-void rlImGuiImageSizeV(const Texture* image, Vector2 size) {
+void rligImageSizeV(const Texture* image, Vector2 size) {
     if (!image) {
         return;
     }
@@ -811,7 +811,7 @@ void rlImGuiImageSizeV(const Texture* image, Vector2 size) {
     igImage(tex_ref, image_size, uv0, uv1);
 }
 
-void rlImGuiImageRect(const Texture* image, int destWidth, int destHeight, Rectangle sourceRect) {
+void rligImageRect(const Texture* image, int destWidth, int destHeight, Rectangle sourceRect) {
     if (!image) {
         return;
     }
@@ -850,7 +850,7 @@ void rlImGuiImageRect(const Texture* image, int destWidth, int destHeight, Recta
     igImage(tex_ref, image_size, uv0, uv1);
 }
 
-void rlImGuiImageRenderTexture(const RenderTexture* image) {
+void rligImageRenderTexture(const RenderTexture* image) {
     if (!image) {
         return;
     }
@@ -859,7 +859,7 @@ void rlImGuiImageRenderTexture(const RenderTexture* image) {
         igSetCurrentContext(GlobalContext);
     }
     
-    rlImGuiImageRect(
+    rligImageRect(
         &image->texture,
         image->texture.width,
         image->texture.height,
@@ -867,7 +867,7 @@ void rlImGuiImageRenderTexture(const RenderTexture* image) {
     );
 }
 
-void rlImGuiImageRenderTextureFit(const RenderTexture* image, bool center) {
+void rligImageRenderTextureFit(const RenderTexture* image, bool center) {
     if (!image) {
         return;
     }
@@ -897,7 +897,7 @@ void rlImGuiImageRenderTextureFit(const RenderTexture* image, bool center) {
         igSetCursorPosY(igGetCursorPosY() + (area.y / 2 - sizeY / 2));
     }
 
-    rlImGuiImageRect(
+    rligImageRect(
         &image->texture,
         sizeX,
         sizeY,
@@ -910,7 +910,7 @@ bool ImGui_ImplRaylib_Init(void)
 {
     SetupGlobals();
 
-    SetupKeymap();
+    // SetupKeymap();
 
     SetupMouseCursors();
 
@@ -967,12 +967,13 @@ void ImGui_ImplRaylib_UpdateTexture(ImTextureData* tex) {
             img.data = ImTextureData_GetPixels(tex);
 
             Texture* texture = (Texture*)MemAlloc(sizeof(Texture));
-            tex->BackendUserData = texture;;
             *texture = LoadTextureFromImage(img);
+
+            tex->BackendUserData = texture;
             ImTextureData_SetTexID(tex, (ImTextureID)(texture->id));
             tex->Status = ImTextureStatus_OK;
-        }
             break;
+        }
 
         case ImTextureStatus_WantUpdates:
         {
@@ -984,8 +985,8 @@ void ImGui_ImplRaylib_UpdateTexture(ImTextureData* tex) {
             UpdateTexture(*texture, ImTextureData_GetPixels(tex));
 
             tex->Status = ImTextureStatus_OK;
-        }
             break;
+        }
 
         case ImTextureStatus_WantDestroy:
         {
@@ -995,12 +996,13 @@ void ImGui_ImplRaylib_UpdateTexture(ImTextureData* tex) {
             }
 
             UnloadTexture(*texture);
-            tex->Status = ImTextureStatus_Destroyed;
             MemFree(texture);
+
+            tex->Status = ImTextureStatus_Destroyed;
             tex->BackendUserData = NULL;
-            ImTextureData_SetTexID(texture, 0); // ImTextureID_Invalid
-        }
+            ImTextureData_SetTexID(tex, 0); // ImTextureID_Invalid
             break;
+        }
     }
 }
 
@@ -1018,10 +1020,10 @@ void ImGui_ImplRaylib_RenderDrawData(ImDrawData* draw_data) {
     rlDisableBackfaceCulling();
 
     for (int l = 0; l < draw_data->CmdListsCount; l++) {
-        const ImDrawList* commandList = draw_data->CmdLists.Data[l];
+        ImDrawList* commandList = draw_data->CmdLists.Data[l];
 
         for (int cmd_i = 0; cmd_i < commandList->CmdBuffer.Size; cmd_i++) {
-            const ImDrawCmd* cmd = &commandList->CmdBuffer.Data[cmd_i];
+            ImDrawCmd* cmd = &commandList->CmdBuffer.Data[cmd_i];
 
             EnableScissor(
                 cmd->ClipRect.x - draw_data->DisplayPos.x,
@@ -1030,11 +1032,11 @@ void ImGui_ImplRaylib_RenderDrawData(ImDrawData* draw_data) {
                 cmd->ClipRect.w - (cmd->ClipRect.y - draw_data->DisplayPos.y)
             );
             if (cmd->UserCallback != NULL) {
-                cmd->UserCallback(commandList, &cmd);
+                cmd->UserCallback(commandList, cmd);
                 continue;
             }
 
-            ImTextureID texId = (ImTextureID)ImDrawList_GetTextId(cmd);
+            ImTextureID texId = ImDrawCmd_GetTexID(cmd);
             ImGuiRenderTriangles(cmd->ElemCount, cmd->IdxOffset, &commandList->IdxBuffer, &commandList->VtxBuffer, texId);
             rlDrawRenderBatchActive();
         }
@@ -1076,25 +1078,25 @@ bool ImGui_ImplRaylib_ProcessEvents(void)
     LastFrameFocused = focused;
 
     // handle the modifyer key events so that shortcuts work
-    bool ctrlDown = rlImGuiIsControlDown();
+    bool ctrlDown = rligIsControlDown();
     if (ctrlDown != LastControlPressed) {
         ImGuiIO_AddKeyEvent(io, ImGuiMod_Ctrl, ctrlDown);
     }
     LastControlPressed = ctrlDown;
 
-    bool shiftDown = rlImGuiIsShiftDown();
+    bool shiftDown = rligIsShiftDown();
     if (shiftDown != LastShiftPressed) {
         ImGuiIO_AddKeyEvent(io, ImGuiMod_Shift, shiftDown);
     }
     LastShiftPressed = shiftDown;
 
-    bool altDown = rlImGuiIsAltDown();
+    bool altDown = rligIsAltDown();
     if (altDown != LastAltPressed) {
         ImGuiIO_AddKeyEvent(io, ImGuiMod_Alt, altDown);
     }
     LastAltPressed = altDown;
 
-    bool superDown = rlImGuiIsSuperDown();
+    bool superDown = rligIsSuperDown();
     if (superDown != LastSuperPressed) {
         ImGuiIO_AddKeyEvent(io, ImGuiMod_Super, superDown);
     }

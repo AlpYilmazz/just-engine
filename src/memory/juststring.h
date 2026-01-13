@@ -121,8 +121,20 @@ String new_string_merged(String s1, String s2);
 StringView string_as_view(String string);
 StringView string_slice_view(String string, usize start, usize count);
 StringView string_view_slice_view(StringView string_view, usize start, usize count);
+
+bool string_find_first(String string, char ch, usize* index);
+bool string_find_last(String string, char ch, usize* index);
+bool string_view_find_first(StringView string_view, char ch, usize* index);
+bool string_view_find_last(StringView string_view, char ch, usize* index);
+
 StringViewPair string_split_at(String string, usize index);
+StringViewPair string_split_on_first(String string, char ch);
+StringViewPair string_split_on_last(String string, char ch);
+
 StringViewPair string_view_split_at(StringView string_view, usize index);
+StringViewPair string_view_split_on_first(StringView string_view, char ch);
+StringViewPair string_view_split_on_last(StringView string_view, char ch);
+
 StringView string_view_trimmed(StringView string_view);
 void string_view_replace_all(StringView string_view, char find, char replace);
 void string_replace_all(String string, char find, char replace);

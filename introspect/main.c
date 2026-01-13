@@ -1435,7 +1435,7 @@ typedef enum {
 bool generate_introspect(String int_filename) {
     FILE* file = fopen(int_filename.cstr, "r");
     if (file == NULL) {
-        JUST_LOG_ERROR("Error opening file\n");
+        JUST_LOG_ERROR("Error opening file: [%s]\n", int_filename.cstr);
         return false;
     }
 
@@ -1582,11 +1582,20 @@ void files_in_directory_recursive(String path, FileEntryList* file_entries) {
                 free_string(full_path);
             }
             else {
-                FileEntry file_entry = {
-                    .full_path = full_path,
-                    .filename = string_from_cstr(entry->d_name),
-                };
-                dynarray_push_back(*file_entries, file_entry);
+                String filename = string_from_cstr(entry->d_name);
+                StringView ext = string_split_on_last(filename, '.').second;
+                
+                bool include_by_ext =
+                    svcs_equals(ext, ".c")
+                    || svcs_equals(ext, ".h");
+
+                if (include_by_ext) {
+                    FileEntry file_entry = {
+                        .full_path = full_path,
+                        .filename = filename,
+                    };
+                    dynarray_push_back(*file_entries, file_entry);
+                }
             }
         }
     }

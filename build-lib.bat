@@ -10,7 +10,7 @@ set LIB_DIR=justengine
 
 if "%COMMAND%" == "clean" (
     @echo on
-    @rmdir /s /q %LIB_DIR% 2>nul || exit 0
+    @rmdir /s /q %LIB_DIR% >nul 2>&1
     mingw32-make -f Makefile-lib clean
     @echo off
 )
@@ -48,11 +48,14 @@ mkdir %LIB_DIR%\include\clay    >nul 2>&1
 echo A | xcopy /s /e /q vendor\clay-0.14\include %LIB_DIR%\include\clay     >nul 2>&1
 
 mkdir %LIB_DIR%\include\cimgui  >nul 2>&1
+mkdir %LIB_DIR%\lib\cimgui        >nul 2>&1
 echo A | xcopy /s /e /q vendor\cimgui-1.92.1\include %LIB_DIR%\include\cimgui   >nul 2>&1
+echo A | xcopy /s /e /q vendor\cimgui-1.92.1\lib %LIB_DIR%\lib\cimgui           >nul 2>&1
 echo A | xcopy /q vendor\cimgui-1.92.1\bin\*.dll %LIB_DIR%\bin\                 >nul 2>&1
 
-mkdir %LIB_DIR%\include\raylib-cimgui   >nul 2>&1
-echo A | xcopy /s /e /q vendor\raylib-cimgui-033c91e\include %LIB_DIR%\include\raylib-cimgui    >nul 2>&1
+@REM TODO: find better approach, ex: separate rlcimgui
+mkdir %LIB_DIR%\include\extras  >nul 2>&1
+echo A | xcopy /s /e /q src\ui\extras %LIB_DIR%\include\extras   >nul 2>&1
 
 echo A | xcopy /q justengine.h %LIB_DIR%\include\               >nul 2>&1
 echo A | xcopy /q %BUILD_DIR%\libjustengine.a %LIB_DIR%\lib\    >nul 2>&1
@@ -69,7 +72,6 @@ set INCLUDE=^
 	-Ivendor/raylib-5.0/include ^
 	-Ivendor/clay-0.14/include ^
 	-Ivendor/cimgui-1.92.1/include ^
-	-Ivendor/raylib-cimgui-033c91e/include ^
 	-Isrc
 call run "%LIB_DIR%/bin/introspect.exe" %SRC_DIR% introspect_gen__justengine.h %INCLUDE%
 

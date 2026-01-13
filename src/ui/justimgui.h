@@ -3,14 +3,11 @@
 #include "raylib.h"
 
 #ifndef NO_FONT_AWESOME
-
-#include "extras/FA6FreeSolidFontData.h"
-#include "extras/IconsFontAwesome6.h"
-
-#ifndef FONT_AWESOME_ICON_SIZE
-#define FONT_AWESOME_ICON_SIZE 11
-#endif
-
+    #include "extras/FA6FreeSolidFontData.h"
+    #include "extras/IconsFontAwesome6.h"
+    #ifndef FONT_AWESOME_ICON_SIZE
+        #define FONT_AWESOME_ICON_SIZE 11
+    #endif
 #endif
 
 // High level API. This API is designed in the style of raylib and meant to work with reaylib code.
@@ -22,41 +19,41 @@
 /// Calls ImGui_ImplRaylib_Init and sets the theme. Will install Font awesome by default
 /// </summary>
 /// <param name="darkTheme">when true(default) the dark theme is used, when false the light theme is used</param>
-void rlImGuiSetup(bool darkTheme);
+void rligSetup(bool darkTheme);
 
 /// <summary>
 /// Starts a new ImGui Frame
 /// Calls ImGui_ImplRaylib_NewFrame, ImGui_ImplRaylib_ProcessEvents, and ImGui::NewFrame together
 /// </summary>
-void rlImGuiBegin(void);
+void rligBegin(void);
 
 /// <summary>
 /// Ends an ImGui frame and submits all ImGui drawing to raylib for processing.
 /// Calls ImGui:Render, an d ImGui_ImplRaylib_RenderDrawData to draw to the current raylib render target
 /// </summary>
-void rlImGuiEnd(void);
+void rligEnd(void);
 
 /// <summary>
 /// Cleanup ImGui and unload font atlas
 /// Calls ImGui_ImplRaylib_Shutdown
 /// </summary>
-void rlImGuiShutdown(void);
+void rligShutdown(void);
 
 // Advanced StartupAPI
 
 /// <summary>
-/// Custom initialization. Not needed if you call rlImGuiSetup. Only needed if you want to add custom setup code.
-/// must be followed by rlImGuiEndInitImGui
+/// Custom initialization. Not needed if you call rligSetup. Only needed if you want to add custom setup code.
+/// must be followed by rligEndInitImGui
 /// Called by ImGui_ImplRaylib_Init, and does the first part of setup, before fonts are rendered
 /// </summary>
-void rlImGuiBeginInitImGui(void);
+void rligBeginInitImGui(void);
 
 /// <summary>
-/// End Custom initialization. Not needed if you call rlImGuiSetup. Only needed if you want to add custom setup code.
-/// must be proceeded by rlImGuiBeginInitImGui
+/// End Custom initialization. Not needed if you call rligSetup. Only needed if you want to add custom setup code.
+/// must be proceeded by rligBeginInitImGui
 /// Called by ImGui_ImplRaylib_Init and does the second part of setup, and renders fonts.
 /// </summary>
-void rlImGuiEndInitImGui(void);
+void rligEndInitImGui(void);
 
 // Advanced Update API
 
@@ -64,7 +61,7 @@ void rlImGuiEndInitImGui(void);
 /// Starts a new ImGui Frame with a specified delta time
 /// </summary>
 /// <param name="dt">delta time, any value < 0 will use raylib GetFrameTime</param>
-void rlImGuiBeginDelta(float deltaTime);
+void rligBeginDelta(float deltaTime);
 
 // ImGui Image API extensions
 // Purely for convenience in working with raylib textures as images.
@@ -75,7 +72,7 @@ void rlImGuiBeginDelta(float deltaTime);
 /// Uses the current ImGui Cursor position and the full texture size.
 /// </summary>
 /// <param name="image">The raylib texture to draw</param>
-void rlImGuiImage(const Texture *image);
+void rligImage(const Texture *image);
 
 /// <summary>
 /// Draw a texture as an image in an ImGui Context at a specific size
@@ -85,7 +82,7 @@ void rlImGuiImage(const Texture *image);
 /// <param name="image">The raylib texture to draw</param>
 /// <param name="width">The width of the drawn image</param>
 /// <param name="height">The height of the drawn image</param>
-void rlImGuiImageSize(const Texture *image, int width, int height);
+void rligImageSize(const Texture *image, int width, int height);
 
 /// <summary>
 /// Draw a texture as an image in an ImGui Context at a specific size
@@ -94,7 +91,7 @@ void rlImGuiImageSize(const Texture *image, int width, int height);
 /// </summary>
 /// <param name="image">The raylib texture to draw</param>
 /// <param name="size">The size of drawn image</param>
-void rlImGuiImageSizeV(const Texture* image, Vector2 size);
+void rligImageSizeV(const Texture* image, Vector2 size);
 
 /// <summary>
 /// Draw a portion texture as an image in an ImGui Context at a defined size
@@ -105,13 +102,13 @@ void rlImGuiImageSizeV(const Texture* image, Vector2 size);
 /// <param name="destWidth">The width of the drawn image</param>
 /// <param name="destHeight">The height of the drawn image</param>
 /// <param name="sourceRect">The portion of the texture to draw as an image. Negative values for the width and height will flip the image</param>
-void rlImGuiImageRect(const Texture* image, int destWidth, int destHeight, Rectangle sourceRect);
+void rligImageRect(const Texture* image, int destWidth, int destHeight, Rectangle sourceRect);
 
 /// <summary>
 /// Draws a render texture as an image an ImGui Context, automatically flipping the Y axis so it will show correctly on screen
 /// </summary>
 /// <param name="image">The render texture to draw</param>
-void rlImGuiImageRenderTexture(const RenderTexture* image);
+void rligImageRenderTexture(const RenderTexture* image);
 
 /// <summary>
 /// Draws a render texture as an image an ImGui Context, automatically flipping the Y axis so it will show correctly on screen
@@ -119,7 +116,7 @@ void rlImGuiImageRenderTexture(const RenderTexture* image);
 /// </summary>
 /// <param name="image">The render texture to draw</param>
 /// <param name="center">When true the image will be centered in the content area</param>
-void rlImGuiImageRenderTextureFit(const RenderTexture* image, bool center);
+void rligImageRenderTextureFit(const RenderTexture* image, bool center);
 
 /// <summary>
 /// Draws a texture as an image button in an ImGui context. Uses the current ImGui cursor position and the full size of the texture
@@ -127,7 +124,7 @@ void rlImGuiImageRenderTextureFit(const RenderTexture* image, bool center);
 /// <param name="name">The display name and ImGui ID for the button</param>
 /// <param name="image">The texture to draw</param>
 /// <returns>True if the button was clicked</returns>
-bool rlImGuiImageButton(const char* name, const Texture* image);
+bool rligImageButton(const char* name, const Texture* image);
 
 /// <summary>
 /// Draws a texture as an image button in an ImGui context. Uses the current ImGui cursor position and the specified size.
@@ -136,4 +133,4 @@ bool rlImGuiImageButton(const char* name, const Texture* image);
 /// <param name="image">The texture to draw</param>
 /// <param name="size">The size of the button</param>
 /// <returns>True if the button was clicked</returns>
-bool rlImGuiImageButtonSize(const char* name, const Texture* image, Vector2 size);
+bool rligImageButtonSize(const char* name, const Texture* image, Vector2 size);
