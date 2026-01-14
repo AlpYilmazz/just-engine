@@ -16,7 +16,7 @@ if "%COMMAND%" == "clean" (
 )
 
 @echo on
-mingw32-make -f Makefile-lib
+mingw32-make -j16 -f Makefile-lib
 @echo off
 
 mkdir %LIB_DIR%             >nul 2>&1

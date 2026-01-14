@@ -472,10 +472,25 @@ static void SetupMouseCursors(void) {
     MouseCursorMap[ImGuiMouseCursor_NotAllowed] = MOUSE_CURSOR_NOT_ALLOWED;
 }
 
+#include "core.h"
+
+// TODO
+static ImFontConfig ImFontConfig_constructer(void) {
+    return (ImFontConfig) {
+        .FontDataOwnedByAtlas = true,
+        .OversampleH = 0, // Auto == 1 or 2 depending on size
+        .OversampleV = 0, // Auto == 1
+        .GlyphMaxAdvanceX = FLT_MAX,
+        .RasterizerMultiply = 1.0f,
+        .RasterizerDensity = 1.0f,
+        .EllipsisChar = 0,
+    };
+}
+
 void SetupFontAwesome(void) {
 #ifndef NO_FONT_AWESOME
     static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-    ImFontConfig icons_config;
+    ImFontConfig icons_config = ImFontConfig_constructer();
     icons_config.MergeMode = true;
     icons_config.PixelSnapH = true;
     icons_config.FontDataOwnedByAtlas = false;
@@ -498,7 +513,9 @@ void SetupFontAwesome(void) {
     icons_config.RasterizerMultiply = GetDisplayScale().y;
 #endif
 
+    JUST_DEV_MARK();
     ImFontAtlas_AddFontFromMemoryCompressedTTF(io->Fonts, (void*)fa_solid_900_compressed_data, fa_solid_900_compressed_size, size, &icons_config, icons_ranges);
+    JUST_DEV_MARK();
 #endif
 }
 
@@ -666,7 +683,7 @@ void rligBeginInitImGui(void) {
 
     ImGuiIO* io = igGetIO_Nil();
 
-    ImFontConfig defaultConfig;
+    ImFontConfig defaultConfig = ImFontConfig_constructer();
 
     const int DefaultFonSize = 13;
 
