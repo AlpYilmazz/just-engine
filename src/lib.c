@@ -4,6 +4,8 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include "raycimgui.h"
+
 #include "justcstd.h"
 #include "base.h"
 #include "logging.h"
@@ -28,6 +30,9 @@ JustEngineGlobalResources JUST_GLOBAL = LAZY_INIT;
 JustEngineGlobalRenderResources JUST_RENDER_GLOBAL = LAZY_INIT;
 
 void just_engine_init(JustEngineInit init) {
+    RenderTexture screen_target = LoadRenderTexture(init.render2d.render_screen_size.width, init.render2d.render_screen_size.height);
+    SetTextureFilter(screen_target.texture, TEXTURE_FILTER_POINT);
+
     JUST_GLOBAL = (JustEngineGlobalResources) {
         .should_close = false,
         .delta_time = 0.0,
@@ -37,6 +42,8 @@ void just_engine_init(JustEngineInit init) {
         .file_image_server = LATER_INIT,
         .texture_assets = new_texture_assets(),
         .texture_asset_events = TextureAssetEvent__events_create(),
+        .render_screen_size = init.render2d.render_screen_size,
+        .screen_target = screen_target,
         .clear_color = init.render2d.clear_color,
         .camera_store = STRUCT_ZERO_INIT,
         .sprite_store = STRUCT_ZERO_INIT,
@@ -72,8 +79,13 @@ void just_engine_run(JustChapters chapters, JustEngineInit init, JustEngineDeini
 
     InitWindow(init.window.size.width, init.window.size.height, init.window.title);
     SetTargetFPS(init.execution.target_fps);
+    // if (!IsWindowFullscreen()) {
+    //     ToggleFullscreen();
+    // }
 
     just_engine_init(init);
+
+	rligSetup(true);
 
     if (init.use_network_subsystem) {
         configure_network_system(init.network.config);
@@ -204,6 +216,10 @@ void JUST_SYSTEM_FRAME_BEGIN_set_delta_time() {
     );
 }
 
+void JUST_SYSTEM_FRAME_BEGIN_begin_imgui() {
+    rligBegin();
+}
+
 // -- INPUT --
 
 void JUST_SYSTEM_INPUT_handle_input_for_ui_store() {
@@ -266,8 +282,8 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites() {
 // -- -- RENDER --
 
 void JUST_SYSTEM_RENDER_begin_drawing() {
-    BeginDrawing();
-    ClearBackground(JUST_GLOBAL.clear_color);
+    BeginTextureMode(JUST_GLOBAL.screen_target);
+        ClearBackground(JUST_GLOBAL.clear_color);
 }
 
 void JUST_SYSTEM_RENDER_sorted_sprites() {
@@ -278,13 +294,35 @@ void JUST_SYSTEM_RENDER_sorted_sprites() {
     );
 }
 
-void JUST_SYSTEM_RENDER_draw_ui_elements() {
+void JUST_SYSTEM_RENDER_end_drawing() {
+    EndTextureMode();
+}
+
+void JUST_SYSTEM_RENDER_SCREEN_begin_drawing() {
+    BeginDrawing();
+        Texture texture = JUST_GLOBAL.screen_target.texture;
+        URectSize screen_size = JUST_GLOBAL.screen_size;
+        DrawTexturePro(
+            texture,
+            (Rectangle) { 0, 0, (float)texture.width, (float)-texture.height },
+            (Rectangle) { 0, 0, (float)screen_size.width, (float)screen_size.height },
+            (Vector2) { 0, 0 },
+            0,
+            WHITE
+        );
+}
+
+void JUST_SYSTEM_RENDER_SCREEN_draw_ui_elements() {
     SYSTEM_RENDER_draw_ui_elements(
         &JUST_GLOBAL.ui_store
     );
 }
 
-void JUST_SYSTEM_RENDER_end_drawing() {
+void JUST_SYSTEM_RENDER_SCREEN_draw_imgui() {
+    rligEnd();
+}
+
+void JUST_SYSTEM_RENDER_SCREEN_end_drawing() {
     EndDrawing();
 }
 
@@ -366,6 +404,7 @@ void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder) {
     STAGE = CORE_STAGE__FRAME_BEGIN;
     {
         just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_FRAME_BEGIN_set_delta_time), (SystemConstraint) { .run_first = true });
+        just_app_builder_add_system(app_builder, STAGE, fn_into_system(JUST_SYSTEM_FRAME_BEGIN_begin_imgui));
     }
 
     // =====
@@ -416,16 +455,31 @@ void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder) {
                 },
             }
         );
+        just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_end_drawing), (SystemConstraint) { .run_last = true });
+    }
+
+    STAGE = CORE_STAGE__RENDER__RENDER_SCREEN;
+    {
+        just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_SCREEN_begin_drawing), (SystemConstraint) { .run_first = true });
         just_app_builder_add_system_with(app_builder, STAGE,
-            fn_into_system(JUST_SYSTEM_RENDER_draw_ui_elements),
+            fn_into_system(JUST_SYSTEM_RENDER_SCREEN_draw_ui_elements),
             (SystemConstraint) {
                 .run_after = {
                     .count = 1,
-                    .systems = { fn_into_system(JUST_SYSTEM_RENDER_sorted_sprites) },
+                    .systems = { fn_into_system(JUST_SYSTEM_RENDER_SCREEN_begin_drawing) },
                 },
             }
         );
-        just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_end_drawing), (SystemConstraint) { .run_last = true });
+        just_app_builder_add_system_with(app_builder, STAGE,
+            fn_into_system(JUST_SYSTEM_RENDER_SCREEN_draw_imgui),
+            (SystemConstraint) {
+                .run_after = {
+                    .count = 1,
+                    .systems = { fn_into_system(JUST_SYSTEM_RENDER_SCREEN_draw_ui_elements) },
+                },
+            }
+        );
+        just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_SCREEN_end_drawing), (SystemConstraint) { .run_last = true });
     }
     
     // =====

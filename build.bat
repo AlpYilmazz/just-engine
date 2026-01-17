@@ -47,8 +47,7 @@ set LINK=^
     -ljustengine^
     -lssl -lcrypto^
     -lcurl^
-    -lcimgui^
-    -lraycimgui^
+    -lcimgui -lraycimgui^
     -lgdi32 -lwinmm^
     -lws2_32^
     -lcrypt32 -luser32 -ladvapi32^

@@ -31,6 +31,7 @@ typedef struct {
     } dir;
     // --------
     struct {
+        URectSize render_screen_size; // 640x360
         Color clear_color;
         SpriteCamera primary_camera;
     } render2d;
@@ -66,6 +67,8 @@ typedef struct {
     TextureAssets texture_assets;
     Events_TextureAssetEvent texture_asset_events;
     // -- Render Begin
+    URectSize render_screen_size;
+    RenderTexture screen_target;
     Color clear_color;
     // -- Render2D
     SpriteCameraStore camera_store;
@@ -154,6 +157,7 @@ void SYSTEM_FRAME_END_reset_temporary_storage(
 // -- FRAME_BEGIN --
 
 void JUST_SYSTEM_FRAME_BEGIN_set_delta_time();
+void JUST_SYSTEM_FRAME_BEGIN_begin_imgui();
 
 // -- INPUT --
 
@@ -186,8 +190,12 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites();
 
 void JUST_SYSTEM_RENDER_begin_drawing();
 void JUST_SYSTEM_RENDER_sorted_sprites();
-void JUST_SYSTEM_RENDER_draw_ui_elements();
 void JUST_SYSTEM_RENDER_end_drawing();
+
+void JUST_SYSTEM_RENDER_SCREEN_begin_drawing();
+void JUST_SYSTEM_RENDER_SCREEN_draw_ui_elements();
+void JUST_SYSTEM_RENDER_SCREEN_draw_imgui();
+void JUST_SYSTEM_RENDER_SCREEN_end_drawing();
 
 // -- FRAME_END --
 

@@ -85,8 +85,8 @@ int main(int argc, char* argv[])
 		if (igBegin("Test Window", 0, 0))
 		{
 			igTextUnformatted("Another window", 0);
+			igEnd();
 		}
-		igEnd();
 
 		// end ImGui Content
 		rligEnd();
