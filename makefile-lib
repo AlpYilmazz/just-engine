@@ -5,7 +5,7 @@ CINCLUDE = \
 	-Ivendor/curl-8.16.0/include \
 	-Ivendor/raylib-5.0/include \
 	-Ivendor/clay-0.14/include \
-	-Ivendor/cimgui-1.92.1/include \
+	-Ivendor/raycimgui-1.92.1/include \
 	-Isrc
 CLIB = 
 CLINK = 

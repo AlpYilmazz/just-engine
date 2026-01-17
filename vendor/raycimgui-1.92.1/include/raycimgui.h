@@ -3,8 +3,8 @@
 #include "raylib.h"
 
 #ifndef NO_FONT_AWESOME
-    #include "extras/FA6FreeSolidFontData.h"
-    #include "extras/IconsFontAwesome6.h"
+    #include "fontawesome/FA6FreeSolidFontData.h"
+    #include "fontawesome/IconsFontAwesome6.h"
     #ifndef FONT_AWESOME_ICON_SIZE
         #define FONT_AWESOME_ICON_SIZE 11
     #endif

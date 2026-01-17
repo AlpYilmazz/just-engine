@@ -31,14 +31,14 @@ set INCLUDE=^
     -Ijustengine/include/curl ^
     -Ijustengine/include/raylib ^
     -Ijustengine/include/clay ^
-    -Ijustengine/include/cimgui ^
+    -Ijustengine/include/raycimgui ^
     -Ijustengine/include
 set LIB=^
     -Ljustengine/lib/openssl ^
     -Ljustengine/lib/curl ^
     -Ljustengine/lib/raylib ^
     -Ljustengine/lib/clay ^
-    -Ljustengine/lib/cimgui ^
+    -Ljustengine/lib/raycimgui ^
     -Ljustengine/lib
 
 set LINK=^
@@ -48,6 +48,7 @@ set LINK=^
     -lssl -lcrypto^
     -lcurl^
     -lcimgui^
+    -lraycimgui^
     -lgdi32 -lwinmm^
     -lws2_32^
     -lcrypt32 -luser32 -ladvapi32^

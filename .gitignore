@@ -13,3 +13,5 @@ scratch.exe
 *.dll
 *.dll.a
 *.exe
+
+imgui.ini
