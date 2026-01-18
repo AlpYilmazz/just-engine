@@ -15,6 +15,7 @@ typedef struct {
     struct {
         URectSize size;
         const char* title;
+        Color clear_color;
     } window;
     // --------
     struct {
@@ -32,8 +33,6 @@ typedef struct {
     // --------
     struct {
         URectSize render_screen_size; // 640x360
-        Color clear_color;
-        SpriteCamera primary_camera;
     } render2d;
     // --------
     bool use_network_subsystem;
@@ -60,6 +59,8 @@ typedef struct {
     float32 delta_time;
     // --------
     URectSize screen_size;
+    Color clear_color;
+    // --------
     BumpAllocator frame_storage;
     ThreadPool* threadpool;
     // -- Image/Texture
@@ -69,7 +70,6 @@ typedef struct {
     // -- Render Begin
     URectSize render_screen_size;
     RenderTexture screen_target;
-    Color clear_color;
     // -- Render2D
     SpriteCameraStore camera_store;
     SpriteStore sprite_store;
@@ -189,7 +189,7 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites();
 // -- -- RENDER --
 
 void JUST_SYSTEM_RENDER_begin_drawing();
-void JUST_SYSTEM_RENDER_sorted_sprites();
+void JUST_SYSTEM_RENDER_render2d();
 void JUST_SYSTEM_RENDER_end_drawing();
 
 void JUST_SYSTEM_RENDER_SCREEN_begin_drawing();

@@ -37,6 +37,7 @@ void just_engine_init(JustEngineInit init) {
         .should_close = false,
         .delta_time = 0.0,
         .screen_size = init.window.size,
+        .clear_color = init.window.clear_color,
         .frame_storage = make_bump_allocator(),
         .threadpool = thread_pool_create(init.threadpool.nthreads, init.threadpool.task_queue_capacity),
         .file_image_server = LATER_INIT,
@@ -44,7 +45,6 @@ void just_engine_init(JustEngineInit init) {
         .texture_asset_events = TextureAssetEvent__events_create(),
         .render_screen_size = init.render2d.render_screen_size,
         .screen_target = screen_target,
-        .clear_color = init.render2d.clear_color,
         .camera_store = STRUCT_ZERO_INIT,
         .sprite_store = STRUCT_ZERO_INIT,
         .ui_store = ui_element_store_new(),
@@ -57,7 +57,7 @@ void just_engine_init(JustEngineInit init) {
         .asset_folder = init.dir.asset_dir,
     };
 
-    set_primary_camera(&JUST_GLOBAL.camera_store, init.render2d.primary_camera);
+    // set_primary_camera(&JUST_GLOBAL.camera_store, init.render2d.primary_camera);
 }
 
 void just_engine_deinit(JustEngineDeinit deinit) {
@@ -282,24 +282,25 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites() {
 // -- -- RENDER --
 
 void JUST_SYSTEM_RENDER_begin_drawing() {
-    BeginTextureMode(JUST_GLOBAL.screen_target);
-        ClearBackground(JUST_GLOBAL.clear_color);
+    // pass
 }
 
-void JUST_SYSTEM_RENDER_sorted_sprites() {
-    SYSTEM_RENDER_sorted_sprites(
+void JUST_SYSTEM_RENDER_render2d() {
+    SYSTEM_RENDER_render2d_render_sprites(
         &JUST_GLOBAL.texture_assets,
+        &JUST_GLOBAL.sprite_store,
         &JUST_GLOBAL.camera_store,
         &JUST_RENDER_GLOBAL.prepared_render_sprites
     );
 }
 
 void JUST_SYSTEM_RENDER_end_drawing() {
-    EndTextureMode();
+    // pass
 }
 
 void JUST_SYSTEM_RENDER_SCREEN_begin_drawing() {
     BeginDrawing();
+        ClearBackground(JUST_GLOBAL.clear_color);
         Texture texture = JUST_GLOBAL.screen_target.texture;
         URectSize screen_size = JUST_GLOBAL.screen_size;
         DrawTexturePro(
@@ -447,7 +448,7 @@ void APP_BUILDER_ADD__JUST_ENGINE_CORE_SYSTEMS(JustAppBuilder* app_builder) {
     {
         just_app_builder_add_system_with(app_builder, STAGE, fn_into_system(JUST_SYSTEM_RENDER_begin_drawing), (SystemConstraint) { .run_first = true });
         just_app_builder_add_system_with(app_builder, STAGE,
-            fn_into_system(JUST_SYSTEM_RENDER_sorted_sprites),
+            fn_into_system(JUST_SYSTEM_RENDER_render2d),
             (SystemConstraint) {
                 .run_after = {
                     .count = 1,

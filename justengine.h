@@ -127,11 +127,11 @@ DECLARE__Option(char);
 #define ASSERT(expr) do { if (!((expr))) { JUST_LOG_PANIC("Assertion Failed: [%s:%d]\n", __FILE__, __LINE__); std_exit(STD_EXIT_FAILURE); } } while(0)
 
 typedef struct {
-    uint32 id;
-    uint32 generation;
+    usize id;
+    usize generation;
 } EntityId;
 
-static inline EntityId new_entity_id(uint32 id, uint32 generation) {
+static inline EntityId new_entity_id(usize id, usize generation) {
     return (EntityId) { id, generation };
 }
 
@@ -710,8 +710,8 @@ static inline Vector2 vector2_yx(Vector2 vec) {
         usize dynarray_reserve_custom__new_capacity = (arr).count + reserve_count; \
         if ((arr).capacity < dynarray_reserve_custom__new_capacity) { \
             (arr).capacity = dynarray_reserve_custom__new_capacity; \
-            (arr)items_field = std_realloc((arr)items_field_1, (arr).capacity * sizeof((arr)items_field_1[0])); \
-            (arr)items_field = std_realloc((arr)items_field_2, (arr).capacity * sizeof((arr)items_field_2[0])); \
+            (arr)items_field_1 = std_realloc((arr)items_field_1, (arr).capacity * sizeof((arr)items_field_1[0])); \
+            (arr)items_field_2 = std_realloc((arr)items_field_2, (arr).capacity * sizeof((arr)items_field_2[0])); \
         } \
     } while(0)
 
@@ -3110,18 +3110,44 @@ void SYSTEM_RENDER_justclay_ui(
 #define __HEADER_RENDER2D_CAMERA2D
 #ifdef __HEADER_RENDER2D_CAMERA2D
 
-#define MAX_CAMERA_COUNT 10
 #define PRIMARY_CAMERA_ID 0
+
+typedef enum {
+    RENDER_TARGET_WINDOW = 0,
+    RENDER_TARGET_TEXTURE,
+} RenderTargetType;
+
+// Unused in raylib which supports single window
+typedef struct {
+    usize window_id;
+} RenderTargetWindow;
+
+typedef struct {
+    URectSize texture_size;
+    RenderTexture texture;
+} RenderTargetTexture;
+
+typedef struct {
+    RenderTargetType type;
+    union {
+        RenderTargetWindow window_target;
+        RenderTargetTexture texture_target;
+    };
+    // -- Common
+    Color clear_color;
+} RenderTarget;
 
 typedef struct {
     Camera2D camera;
+    RenderTarget target;
     Layers layers;
     uint32 sort_index;
 } SpriteCamera;
 
 typedef struct {
-    uint32 count;
-    SpriteCamera cameras[MAX_CAMERA_COUNT];
+    usize count;
+    usize capacity;
+    SpriteCamera* cameras;
 } SpriteCameraStore;
 
 void set_primary_camera(SpriteCameraStore* store, SpriteCamera camera);
@@ -3132,6 +3158,8 @@ void add_camera(SpriteCameraStore* store, SpriteCamera camera);
 
 #define __HEADER_RENDER2D_SPRITE
 #ifdef __HEADER_RENDER2D_SPRITE
+
+typedef EntityId SpriteEntityId;
 
 typedef enum {
     Rotation_CW = 1,
@@ -3164,20 +3192,25 @@ typedef struct {
     bool camera_visible;
 } Sprite;
 
+// typedef struct {
+//     TextureHandle texture;
+//     Color tint;
+//     bool use_custom_source;
+//     Rectangle source;
+//     bool flip_x;
+//     bool flip_y;
+//     SpriteTransform transform;
+//     uint32 z_index;
+// } RenderSprite;
+
 typedef struct {
-    TextureHandle texture;
-    Color tint;
-    bool use_custom_source;
-    Rectangle source;
-    bool flip_x;
-    bool flip_y;
-    SpriteTransform transform;
+    SpriteEntityId sprite_entity;
     uint32 z_index;
 } RenderSprite;
 
 typedef struct {
-    uint32 count;
-    uint32 capacity;
+    usize count;
+    usize capacity;
     RenderSprite* sprites;
 } SortedRenderSprites;
 
@@ -3187,22 +3220,21 @@ typedef struct {
 } CameraSortElem;
 
 typedef struct {
-    uint32 camera_count;
-    CameraSortElem camera_sort[MAX_CAMERA_COUNT];
-    SortedRenderSprites render_sprites[MAX_CAMERA_COUNT];
+    usize count; // camera_count
+    usize capacity;
+    CameraSortElem* camera_render_order;
+    SortedRenderSprites* render_sprites; // out of order, render based on .camera_render_order
 } PreparedRenderSprites;
 
 typedef struct {
-    uint32 count;
-    uint32 capacity;
-    uint32 free_count;
+    usize count;
+    usize capacity;
+    usize free_count;
     bool* slot_occupied;
-    uint32* generations;
+    usize* generations;
     SpriteTransform* transforms;
     Sprite* sprites;
 } SpriteStore;
-
-typedef EntityId SpriteEntityId;
 
 SpriteEntityId spawn_sprite(
     SpriteStore* sprite_store,
@@ -3220,10 +3252,11 @@ void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     PreparedRenderSprites* prepared_render_sprites
 );
 
-void SYSTEM_RENDER_sorted_sprites(
+void SYSTEM_RENDER_render2d_render_sprites(
     TextureAssets* RES_texture_assets,
-    SpriteCameraStore* sprite_camera_store,
-    PreparedRenderSprites* prepared_render_sprites
+    SpriteStore* RES_sprite_store,
+    SpriteCameraStore* RES_sprite_camera_store,
+    PreparedRenderSprites* RENDER_RES_prepared_render_sprites
 );
 
 #endif // __HEADER_RENDER2D_SPRITE
@@ -3438,6 +3471,7 @@ typedef struct {
     struct {
         URectSize size;
         const char* title;
+        Color clear_color;
     } window;
     // --------
     struct {
@@ -3455,8 +3489,6 @@ typedef struct {
     // --------
     struct {
         URectSize render_screen_size; // 640x360
-        Color clear_color;
-        SpriteCamera primary_camera;
     } render2d;
     // --------
     bool use_network_subsystem;
@@ -3483,6 +3515,8 @@ typedef struct {
     float32 delta_time;
     // --------
     URectSize screen_size;
+    Color clear_color;
+    // --------
     BumpAllocator frame_storage;
     ThreadPool* threadpool;
     // -- Image/Texture
@@ -3492,7 +3526,6 @@ typedef struct {
     // -- Render Begin
     URectSize render_screen_size;
     RenderTexture screen_target;
-    Color clear_color;
     // -- Render2D
     SpriteCameraStore camera_store;
     SpriteStore sprite_store;
@@ -3612,7 +3645,7 @@ void JUST_SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites();
 // -- -- RENDER --
 
 void JUST_SYSTEM_RENDER_begin_drawing();
-void JUST_SYSTEM_RENDER_sorted_sprites();
+void JUST_SYSTEM_RENDER_render2d();
 void JUST_SYSTEM_RENDER_end_drawing();
 
 void JUST_SYSTEM_RENDER_SCREEN_begin_drawing();

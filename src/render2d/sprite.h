@@ -7,6 +7,8 @@
 
 #include "camera2d.h"
 
+typedef EntityId SpriteEntityId;
+
 typedef enum {
     Rotation_CW = 1,
     Rotation_CCW = -1,
@@ -38,20 +40,25 @@ typedef struct {
     bool camera_visible;
 } Sprite;
 
+// typedef struct {
+//     TextureHandle texture;
+//     Color tint;
+//     bool use_custom_source;
+//     Rectangle source;
+//     bool flip_x;
+//     bool flip_y;
+//     SpriteTransform transform;
+//     uint32 z_index;
+// } RenderSprite;
+
 typedef struct {
-    TextureHandle texture;
-    Color tint;
-    bool use_custom_source;
-    Rectangle source;
-    bool flip_x;
-    bool flip_y;
-    SpriteTransform transform;
+    SpriteEntityId sprite_entity;
     uint32 z_index;
 } RenderSprite;
 
 typedef struct {
-    uint32 count;
-    uint32 capacity;
+    usize count;
+    usize capacity;
     RenderSprite* sprites;
 } SortedRenderSprites;
 
@@ -61,22 +68,21 @@ typedef struct {
 } CameraSortElem;
 
 typedef struct {
-    uint32 camera_count;
-    CameraSortElem camera_sort[MAX_CAMERA_COUNT];
-    SortedRenderSprites render_sprites[MAX_CAMERA_COUNT];
+    usize count; // camera_count
+    usize capacity;
+    CameraSortElem* camera_render_order;
+    SortedRenderSprites* render_sprites; // out of order, render based on .camera_render_order
 } PreparedRenderSprites;
 
 typedef struct {
-    uint32 count;
-    uint32 capacity;
-    uint32 free_count;
+    usize count;
+    usize capacity;
+    usize free_count;
     bool* slot_occupied;
-    uint32* generations;
+    usize* generations;
     SpriteTransform* transforms;
     Sprite* sprites;
 } SpriteStore;
-
-typedef EntityId SpriteEntityId;
 
 SpriteEntityId spawn_sprite(
     SpriteStore* sprite_store,
@@ -94,8 +100,9 @@ void SYSTEM_EXTRACT_RENDER_cull_and_sort_sprites(
     PreparedRenderSprites* prepared_render_sprites
 );
 
-void SYSTEM_RENDER_sorted_sprites(
+void SYSTEM_RENDER_render2d_render_sprites(
     TextureAssets* RES_texture_assets,
-    SpriteCameraStore* sprite_camera_store,
-    PreparedRenderSprites* prepared_render_sprites
+    SpriteStore* RES_sprite_store,
+    SpriteCameraStore* RES_sprite_camera_store,
+    PreparedRenderSprites* RENDER_RES_prepared_render_sprites
 );

@@ -58,8 +58,8 @@
         usize dynarray_reserve_custom__new_capacity = (arr).count + reserve_count; \
         if ((arr).capacity < dynarray_reserve_custom__new_capacity) { \
             (arr).capacity = dynarray_reserve_custom__new_capacity; \
-            (arr)items_field = std_realloc((arr)items_field_1, (arr).capacity * sizeof((arr)items_field_1[0])); \
-            (arr)items_field = std_realloc((arr)items_field_2, (arr).capacity * sizeof((arr)items_field_2[0])); \
+            (arr)items_field_1 = std_realloc((arr)items_field_1, (arr).capacity * sizeof((arr)items_field_1[0])); \
+            (arr)items_field_2 = std_realloc((arr)items_field_2, (arr).capacity * sizeof((arr)items_field_2[0])); \
         } \
     } while(0)
 

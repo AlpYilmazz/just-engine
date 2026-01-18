@@ -63,11 +63,11 @@ DECLARE__Option(char);
 #define ASSERT(expr) do { if (!((expr))) { JUST_LOG_PANIC("Assertion Failed: [%s:%d]\n", __FILE__, __LINE__); std_exit(STD_EXIT_FAILURE); } } while(0)
 
 typedef struct {
-    uint32 id;
-    uint32 generation;
+    usize id;
+    usize generation;
 } EntityId;
 
-static inline EntityId new_entity_id(uint32 id, uint32 generation) {
+static inline EntityId new_entity_id(usize id, usize generation) {
     return (EntityId) { id, generation };
 }
 
